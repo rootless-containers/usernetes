@@ -1,0 +1,61 @@
+# Usernetes: Docker & Kubernetes without the root privileges
+#
+# To start the daemons:
+# $ docker-rootlesskit --state-dir /tmp/usernetes/rootlesskit --net=vpnkit --vpnkit-binary=docker-vpnkit --copy-up=/etc --copy-up=/run --copy-up=/var task default
+#
+# To use `docker`:
+# $ docker -H unix:///run/user/1001/docker.sock info
+#
+# To use `kubectl`:
+# $ nsenter -U -n -t $(cat /tmp/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
+
+version: '2'
+
+output: prefixed
+
+tasks:
+  dockerd:
+#TODO: make sure /run is copied-up.
+    cmds:
+      - mkdir -p /run/docker
+      - mount -t tmpfs none /run/docker
+      - rm -f /run/xtables.lock
+      - dockerd --experimental --storage-driver vfs
+  etcd:
+    cmds:
+      - etcd --data-dir /tmp/usernetes/etcd
+  kube-apiserver:
+    cmds:
+      - |
+        hyperkube kube-apiserver \
+        --etcd-servers http://127.0.0.1:2379 \
+        --admission-control=AlwaysAdmit \
+        --authorization-mode=AlwaysAllow \
+        --kubelet-https=false \
+        --anonymous-auth=true
+  kube-controller-manager:
+    cmds:
+      - hyperkube kube-controller-manager --master http://localhost:8080
+  kube-scheduler:
+    cmds:
+      - hyperkube kube-scheduler --master http://localhost:8080
+  kubelet:
+#TODO: make sure /var is copied-up.
+    cmds:
+      - mkdir -p /var/log/pods /var/lib/dockershim
+      - mount -t tmpfs none /var/log/pods
+      - mount -t tmpfs none /var/lib/dockershim
+      - |
+        hyperkube kubelet \
+        --cert-dir /tmp/usernetes/pki \
+        --root-dir /tmp/usernetes/kubelet \
+        --log-dir /tmp/usernetes/kubelet-log \
+        --volume-plugin-dir /tmp/usernetes/kubelet-plugins-exec \
+        --docker-endpoint unix://${XDG_RUNTIME_DIR}/docker.sock \
+        --kubeconfig localhost.kubeconfig \
+        --anonymous-auth=true \
+        --authorization-mode=AlwaysAllow \
+        --fail-swap-on=false \
+        --feature-gates DevicePlugins=false
+  default:
+    deps: [dockerd,etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kubelet]
