@@ -1,7 +1,7 @@
 # Usernetes: Docker & Kubernetes without the root privileges
 #
 # To start the daemons:
-# $ docker-rootlesskit --state-dir /tmp/usernetes/rootlesskit --net=vpnkit --vpnkit-binary=docker-vpnkit --copy-up=/etc --copy-up=/run --copy-up=/var task default
+# $ docker-rootlesskit --state-dir /tmp/usernetes/rootlesskit --net=vpnkit --vpnkit-binary=docker-vpnkit --copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/var/log task default
 #
 # To use `docker`:
 # $ docker -H unix:///run/user/1001/docker.sock info
@@ -40,7 +40,7 @@ tasks:
     cmds:
       - hyperkube kube-scheduler --master http://localhost:8080
   kubelet:
-#TODO: make sure /var is copied-up.
+#TODO: make sure /var/lib and /var/log are copied-up.
     cmds:
       - mkdir -p /var/log/pods /var/lib/dockershim
       - mount -t tmpfs none /var/log/pods

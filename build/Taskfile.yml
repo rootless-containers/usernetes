@@ -1,0 +1,64 @@
+version: '2'
+
+output: prefixed
+
+vars:
+  MOBY_REPO: https://github.com/AkihiroSuda/docker.git
+  MOBY_COMMIT: 159a21ae645e13fbe98ed363c11d2d0d714d60bb
+  KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
+  KUBERNETES_COMMIT: 99bd84d4b4bbf16470fbf66e2305e15fe63b85be
+# Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
+  KUBE_GIT_VERSION: v1.12-usernetes
+
+tasks:
+  clean:
+    cmds:
+      - rm -rf ../bin ../_artifact
+  build-moby:
+    cmds:
+      - docker rm -f usernetes-build-moby 2> /dev/null || true
+      - |
+        docker build -t usernetes-build-moby -f moby.Dockerfile \
+        --build-arg MOBY_REPO={{.MOBY_REPO}} --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
+      - |
+        docker run --name usernetes-build-moby \
+        -d  --privileged \
+        -v ~/.cache/usernetes-build/build-moby:/var/lib/docker \
+        usernetes-build-moby dockerd --experimental
+      - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
+      - mkdir -p ../bin
+# `docker exec -w` is not available in Docker 17.09
+      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd docker-containerd docker-containerd-ctr docker-containerd-shim docker-runc docker-init docker-proxy docker-rootlesskit docker-vpnkit' | tar Cxvf ../bin -
+      - docker cp usernetes-build-moby:/usr/local/bin/docker ../bin
+      - docker rm -f usernetes-build-moby
+  build-kubernetes:
+    cmds:
+      - docker rm -f usernetes-build-kubernetes 2> /dev/null || true
+      - |
+        docker build -t usernetes-build-kubernetes -f kubernetes.Dockerfile \
+        --build-arg KUBERNETES_REPO={{.KUBERNETES_REPO}} --build-arg KUBERNETES_COMMIT={{.KUBERNETES_COMMIT}} .
+# FIXME: how to build it as a static binary??
+      - |
+        docker run --name usernetes-build-kubernetes \
+        -v ~/.cache/usernetes-build/build-kubernetes:/root/.cache  \
+        -e KUBE_GIT_VERSION={{.KUBE_GIT_VERSION}} \
+        usernetes-build-kubernetes bazel build cmd/hyperkube
+      - mkdir -p ../bin
+      - docker cp usernetes-build-kubernetes:/kubernetes/bazel-bin/cmd/hyperkube/linux_amd64_stripped/hyperkube ../bin
+      - docker rm -f usernetes-build-kubernetes
+  build-etcd:
+    cmds:
+      - mkdir -p ../bin
+      - curl -L https://github.com/coreos/etcd/releases/download/v3.3.8/etcd-v3.3.8-linux-amd64.tar.gz | tar Cxzvf ../bin - etcd-v3.3.8-linux-amd64/etcd etcd-v3.3.8-linux-amd64/etcdctl --strip-components=1
+  build-go-task:
+    cmds:
+      - mkdir -p ../bin
+      - curl -L https://github.com/go-task/task/releases/download/v2.0.3/task_linux_amd64.tar.gz | tar Cxzvf ../bin - task
+  build-artifact:
+    cmds:
+      - mkdir -p ../_artifact
+      - ( cd .. ; tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz . )
+  default:
+    deps: [build-moby,build-kubernetes,build-etcd,build-go-task]
+    cmds:
+      - task: build-artifact
