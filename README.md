@@ -31,8 +31,7 @@ penguin:231072:65536
 ## Restrictions
 
 Moby (`dockerd`):
-* Only `vfs` graphdriver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a
-9240eba7) and a few distros, `overlay2` and `overlay` are also supported. [Starting with Linux 4.18](https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.18-FUSE), we will be also able
+* Only `vfs` graphdriver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported. [Starting with Linux 4.18](https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.18-FUSE), we will be also able
  to implement FUSE snapshotters.
 * Cgroups (including `docker top`) and AppArmor are disabled at the moment. (FIXME: we could enable Cgroups if configured on the host)
 * Checkpoint is not supported at the moment.
@@ -41,22 +40,55 @@ Moby (`dockerd`):
 Kubernetes:
 * `kubectl run -it` not working? (`kubectl run` works)
 
-## Quickstart
+## Install from binary
 
-### Installation
+Download the latest `usernetes-x86_64.tbz` from [Releases](https://github.com/rootless-containers/usernetes/releases).
 
-To be documented
+```console
+$ tar xjvf usernetes-x86_64.tbz
+$ cd usernetes
+```
 
-* AkihiroSuda/docker@159a21ae645e13fbe98ed363c11d2d0d714d60bb
-  * `make binary`
-  * Install `bundles/binary-daemon/*` to `~/bin`
+## Install from source
 
-* AkihiroSuda/kubernetes@99bd84d4b4bbf16470fbf66e2305e15fe63b85be
-  * `bazel build cmd/hyperkube`
-  * Install `bazel-bin/cmd/hyperkube/linux_amd64_stripped/hyperkube` to `~/bin`
+```console
+$ go get https://github.com/go-task/task
+$ task -d build
+```
 
-* https://github.com/go-task/task
+## Quick start
 
-### Usage
+### Start the daemons
 
-Please refer to [`Taskfile.yml`](Taskfile.yml).
+```console
+$ ./run.sh
+```
+
+If you don't need Kubernetes:
+```console
+$ ./run.sh dockerd
+```
+
+### Use `docker`
+
+```console
+$ docker -H unix:///run/user/1001/docker.sock info
+```
+
+Or
+
+```console
+$ ./dockercli.sh info
+```
+
+### Use `kubectl`
+
+```console
+$ nsenter -U -n -t $(cat /tmp/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
+```
+
+Or
+
+```console
+$ ./kubectl.sh get nodes
+```
