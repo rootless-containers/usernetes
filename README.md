@@ -53,6 +53,7 @@ $ cd usernetes
 
 ```console
 $ go get github.com/go-task/task
+$ (cd $GOPATH/src/github.com/go-task/task && ./install-task.sh)
 $ task -d build
 ```
 
