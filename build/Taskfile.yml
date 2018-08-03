@@ -3,17 +3,35 @@ version: '2'
 output: prefixed
 
 vars:
+  ROOTLESSKIT_COMMIT: cd97defa334c12fa75f311620d7bf583def69c74
+  SLIRP4NETNS_COMMIT: 0037042e2facc8818d0a254e320a739648283f2e
   MOBY_REPO: https://github.com/AkihiroSuda/docker.git
-  MOBY_COMMIT: 159a21ae645e13fbe98ed363c11d2d0d714d60bb
+  MOBY_COMMIT: e125e496b56b70e43d4c0d227c54521c4d9e30cf
   KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
-  KUBERNETES_COMMIT: 99bd84d4b4bbf16470fbf66e2305e15fe63b85be
+  KUBERNETES_COMMIT: 327e210b632c339f2435366f01d0ca52cd1dc20b
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.12-usernetes
+  ETCD_RELEASE: v3.3.9
+  GOTASK_RELEASE: v2.0.3
 
 tasks:
   clean:
     cmds:
       - rm -rf ../bin ../_artifact
+  build-rootlesskit:
+    cmds:
+      - |
+        docker build -t usernetes-build-rootlesskit -f rootlesskit.Dockerfile \
+        --build-arg ROOTLESSKIT_COMMIT={{.ROOTLESSKIT_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-rootlesskit sh -c 'cd /; tar chf - rootlesskit' | tar Cxvf ../bin -
+  build-slirp4netns:
+    cmds:
+      - |
+        docker build -t usernetes-build-slirp4netns -f slirp4netns.Dockerfile \
+        --build-arg SLIRP4NETNS_COMMIT={{.SLIRP4NETNS_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-slirp4netns sh -c 'cd /slirp4netns; tar chf - slirp4netns' | tar Cxvf ../bin -
   build-moby:
     cmds:
       - docker rm -f usernetes-build-moby 2> /dev/null || true
@@ -28,7 +46,7 @@ tasks:
       - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
       - mkdir -p ../bin
 # `docker exec -w` is not available in Docker 17.09
-      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd docker-containerd docker-containerd-ctr docker-containerd-shim docker-runc docker-init docker-proxy docker-rootlesskit docker-vpnkit' | tar Cxvf ../bin -
+      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd docker-containerd docker-containerd-ctr docker-containerd-shim docker-runc docker-init docker-proxy' | tar Cxvf ../bin -
       - docker cp usernetes-build-moby:/usr/local/bin/docker ../bin
       - docker rm -f usernetes-build-moby
   build-kubernetes:
@@ -49,16 +67,16 @@ tasks:
   build-etcd:
     cmds:
       - mkdir -p ../bin
-      - curl -L https://github.com/coreos/etcd/releases/download/v3.3.8/etcd-v3.3.8-linux-amd64.tar.gz | tar Cxzvf ../bin - etcd-v3.3.8-linux-amd64/etcd etcd-v3.3.8-linux-amd64/etcdctl --strip-components=1
+      - curl -L https://github.com/coreos/etcd/releases/download/{{.ETCD_RELEASE}}/etcd-{{.ETCD_RELEASE}}-linux-amd64.tar.gz | tar Cxzvf ../bin - etcd-{{.ETCD_RELEASE}}-linux-amd64/etcd etcd-{{.ETCD_RELEASE}}-linux-amd64/etcdctl --strip-components=1
   build-go-task:
     cmds:
       - mkdir -p ../bin
-      - curl -L https://github.com/go-task/task/releases/download/v2.0.3/task_linux_amd64.tar.gz | tar Cxzvf ../bin - task
+      - curl -L https://github.com/go-task/task/releases/download/{{.GOTASK_RELEASE}}/task_linux_amd64.tar.gz | tar Cxzvf ../bin - task
   build-artifact:
     cmds:
       - mkdir -p ../_artifact
       - ( cd .. ; tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz . )
   default:
-    deps: [build-moby,build-kubernetes,build-etcd,build-go-task]
+    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-kubernetes,build-etcd,build-go-task]
     cmds:
       - task: build-artifact

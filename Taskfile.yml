@@ -1,7 +1,7 @@
 # Usernetes: Docker & Kubernetes without the root privileges
 #
 # To start the daemons:
-# $ docker-rootlesskit --state-dir /tmp/usernetes/rootlesskit --net=vpnkit --vpnkit-binary=docker-vpnkit --copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/var/log task default
+# $ rootlesskit --state-dir /tmp/usernetes/rootlesskit --net=slirp4netns --mtu=65520 --copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/var/log task default
 #
 # To use `docker`:
 # $ docker -H unix:///run/user/1001/docker.sock info
