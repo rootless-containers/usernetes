@@ -20,7 +20,7 @@ tasks:
       - mkdir -p /run/docker
       - mount -t tmpfs none /run/docker
       - rm -f /run/xtables.lock
-      - dockerd --experimental --storage-driver vfs
+      - dockerd --experimental
   etcd:
     cmds:
       - etcd --data-dir /tmp/usernetes/etcd
