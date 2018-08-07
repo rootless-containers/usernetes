@@ -6,7 +6,7 @@ vars:
   ROOTLESSKIT_COMMIT: cd97defa334c12fa75f311620d7bf583def69c74
   SLIRP4NETNS_COMMIT: 0037042e2facc8818d0a254e320a739648283f2e
   MOBY_REPO: https://github.com/AkihiroSuda/docker.git
-  MOBY_COMMIT: e125e496b56b70e43d4c0d227c54521c4d9e30cf
+  MOBY_COMMIT: 82cd9a375b395d825e3ca1784589b3a06b99d0c4
   KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
   KUBERNETES_COMMIT: 327e210b632c339f2435366f01d0ca52cd1dc20b
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string

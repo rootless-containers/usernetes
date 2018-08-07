@@ -84,7 +84,7 @@ $ ./dockercli.sh info
 ### Use `kubectl`
 
 ```console
-$ nsenter -U -n -t $(cat /tmp/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
+$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
 ```
 
 Or
