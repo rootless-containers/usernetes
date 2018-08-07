@@ -31,7 +31,6 @@ tasks:
         --etcd-servers http://127.0.0.1:2379 \
         --admission-control=AlwaysAdmit \
         --authorization-mode=AlwaysAllow \
-        --kubelet-https=false \
         --anonymous-auth=true
   kube-controller-manager:
     cmds:

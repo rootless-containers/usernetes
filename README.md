@@ -38,7 +38,7 @@ Moby (`dockerd`):
 * Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
 
 Kubernetes:
-* `kubectl run -it` not working? (`kubectl run` works)
+* Pods crash intermittently
 
 ## Install from binary
 
