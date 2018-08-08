@@ -23,7 +23,7 @@ tasks:
       - dockerd --experimental
   etcd:
     cmds:
-      - etcd --data-dir $XDG_RUNTIME_DIR/usernetes/etcd
+      - etcd --data-dir $HOME/.local/share/usernetes/etcd
   kube-apiserver:
     cmds:
       - |
@@ -47,9 +47,9 @@ tasks:
       - |
         hyperkube kubelet \
         --cert-dir $HOME/.config/usernetes/pki \
-        --root-dir $HOME/.share/usernetes/kubelet \
-        --log-dir $HOME/.share/usernetes/kubelet-log \
-        --volume-plugin-dir $HOME/.share/usernetes/kubelet-plugins-exec \
+        --root-dir $HOME/.local/share/usernetes/kubelet \
+        --log-dir $HOME/.local/share/usernetes/kubelet-log \
+        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
         --docker-endpoint unix://${XDG_RUNTIME_DIR}/docker.sock \
         --kubeconfig localhost.kubeconfig \
         --anonymous-auth=true \
