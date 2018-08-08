@@ -8,7 +8,7 @@ vars:
   MOBY_REPO: https://github.com/AkihiroSuda/docker.git
   MOBY_COMMIT: 82cd9a375b395d825e3ca1784589b3a06b99d0c4
   KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
-  KUBERNETES_COMMIT: 327e210b632c339f2435366f01d0ca52cd1dc20b
+  KUBERNETES_COMMIT: 947fbddfeb039a8cbe21bd8b5b9917bb209d06c7
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.12-usernetes
   ETCD_RELEASE: v3.3.9
