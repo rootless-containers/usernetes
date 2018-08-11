@@ -92,3 +92,12 @@ Or
 ```console
 $ ./kubectl.sh get nodes
 ```
+
+## License
+
+Usernetes is licensed under the terms of  [Apache License Version 2.0](LICENSE).
+
+The binary releases of Usernetes contain files that are licensed under the terms of different licenses:
+
+* `bin/slirp4netns`: [GNU GENERAL PUBLIC LICENSE Version 2](LICENSE-slirp4netns), see https://github.com/rootless-containers/slirp4netns
+* `bin/task`: [MIT License](LICENSE-task), see https://github.com/go-task/task
