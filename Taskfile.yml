@@ -1,31 +1,23 @@
 # Usernetes: Docker & Kubernetes without the root privileges
 #
-# To start the daemons:
-# $ rootlesskit --state-dir $XDG_RUNTIME_DIR/usernetes/rootlesskit --net=slirp4netns --mtu=65520 --copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/var/log task default
-#
-# To use `docker`:
-# $ docker -H unix://$XDG_RUNTIME_DIR/docker.sock info
-#
-# To use `kubectl`:
-# $ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
-
+# You need to use `run.sh` for executing these tasks.
+# Please refer to `README.md` for the usage.
 version: '2'
 
 output: prefixed
 
 tasks:
   dockerd:
-#TODO: make sure /run is copied-up.
     cmds:
-      - mkdir -p /run/docker
-      - mount -t tmpfs none /run/docker
-      - rm -f /run/xtables.lock
+      - test $_USERNETES_CHILD
       - dockerd --experimental
   etcd:
     cmds:
+      - test $_USERNETES_CHILD
       - etcd --data-dir $HOME/.local/share/usernetes/etcd
   kube-apiserver:
     cmds:
+      - test $_USERNETES_CHILD
       - |
         hyperkube kube-apiserver \
         --etcd-servers http://127.0.0.1:2379 \
@@ -34,16 +26,15 @@ tasks:
         --anonymous-auth=true
   kube-controller-manager:
     cmds:
+      - test $_USERNETES_CHILD
       - hyperkube kube-controller-manager --master http://localhost:8080
   kube-scheduler:
     cmds:
+      - test $_USERNETES_CHILD
       - hyperkube kube-scheduler --master http://localhost:8080
   kubelet:
-#TODO: make sure /var/lib and /var/log are copied-up.
     cmds:
-      - mkdir -p /var/log/pods /var/lib/dockershim
-      - mount -t tmpfs none /var/log/pods
-      - mount -t tmpfs none /var/lib/dockershim
+      - test $_USERNETES_CHILD
       - |
         hyperkube kubelet \
         --cert-dir $HOME/.config/usernetes/pki \

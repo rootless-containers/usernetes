@@ -93,6 +93,12 @@ Or
 $ ./kubectl.sh get nodes
 ```
 
+### Reset to factory defaults
+
+```console
+$ ./cleanup.sh
+```
+
 ## License
 
 Usernetes is licensed under the terms of  [Apache License Version 2.0](LICENSE).
