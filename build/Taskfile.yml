@@ -9,6 +9,8 @@ vars:
   MOBY_COMMIT: ca359685a7c63419615dfb6174c51755fcc6acbc
   KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
   KUBERNETES_COMMIT: 831875979e75426c7385cd1fff2355ce51b5a0f7
+  CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
+  RUNC_COMMIT: 20aff4f0488c6d4b8df4d85b4f63f1f704c11abd
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.12-usernetes
   ETCD_RELEASE: v3.3.9
@@ -18,6 +20,14 @@ tasks:
   clean:
     cmds:
       - rm -rf ../bin ../_artifact
+  build-crio:
+    cmds:
+      - |
+        docker build -t usernetes-build-crio -f crio.Dockerfile \
+        --build-arg CRIO_COMMIT={{.CRIO_COMMIT}} \
+        --build-arg RUNC_COMMIT={{.RUNC_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-crio sh -c 'cd /; tar chf - crio' | tar Cxvf ../bin -
   build-rootlesskit:
     cmds:
       - |
@@ -77,6 +87,6 @@ tasks:
       - mkdir -p ../_artifact
       - ( cd .. ; tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz . )
   default:
-    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-kubernetes,build-etcd,build-go-task]
+    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-crio,build-kubernetes,build-etcd,build-go-task]
     cmds:
       - task: build-artifact

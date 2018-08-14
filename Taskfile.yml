@@ -1,4 +1,4 @@
-# Usernetes: Docker & Kubernetes without the root privileges
+# Usernetes: (CRIO|Docker) & Kubernetes without the root privileges
 #
 # You need to use `run.sh` for executing these tasks.
 # Please refer to `README.md` for the usage.
@@ -7,6 +7,20 @@ version: '2'
 output: prefixed
 
 tasks:
+  crio:
+    env:
+      _CRIO_ROOTLESS: 1
+    cmds:
+      - test $_USERNETES_CHILD
+      - mkdir -p $HOME/.local/share/containers
+      - |
+        crio \
+        --conmon $(pwd)/bin/crio/conmon \
+        --runroot $XDG_RUNTIME_DIR/crio \
+        --cni-config-dir $(pwd)/bin/crio/cni/conf \
+        --cni-plugin-dir $(pwd)/bin/crio/cni/plugins \
+        --root $HOME/.local/share/containers/storage --cgroup-manager=cgroupfs \
+        --storage-driver vfs --runtime $(pwd)/bin/crio/runc
   dockerd:
     cmds:
       - test $_USERNETES_CHILD
@@ -47,5 +61,23 @@ tasks:
         --authorization-mode=AlwaysAllow \
         --fail-swap-on=false \
         --feature-gates DevicePlugins=false
+  kubelet-crio:
+    cmds:
+      - test $_USERNETES_CHILD
+      - |
+        hyperkube kubelet \
+        --container-runtime remote \
+        --container-runtime-endpoint unix:///run/crio/crio.sock \
+        --cert-dir $HOME/.config/usernetes/pki \
+        --root-dir $HOME/.local/share/usernetes/kubelet \
+        --log-dir $HOME/.local/share/usernetes/kubelet-log \
+        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
+        --kubeconfig localhost.kubeconfig \
+        --anonymous-auth=true \
+        --authorization-mode=AlwaysAllow \
+        --fail-swap-on=false \
+        --feature-gates DevicePlugins=false
   default:
     deps: [dockerd,etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kubelet]
+  default-crio:
+    deps: [crio,etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kubelet-crio]

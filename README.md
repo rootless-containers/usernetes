@@ -58,11 +58,18 @@ $ task -d build
 
 ## Quick start
 
-### Start the daemons
+### Start the daemons using Docker
 
 ```console
 $ ./run.sh
 ```
+
+### Start the daemons using CRI-O
+
+```console
+$ ./run.sh default-crio
+```
+### Start dockerd only (No Kubernetes)
 
 If you don't need Kubernetes:
 ```console
