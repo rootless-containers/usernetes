@@ -5,7 +5,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 ## Status
 
 * Moby (`dockerd`): Almost usable (except Swarm-mode)
-* Kubernetes: Early POC with a single node. Don't use yet!
+* Kubernetes: Early POC with a single node
 
 We also plan to support containerd and CRI-O as CRI runtimes.
 
@@ -38,7 +38,7 @@ Moby (`dockerd`):
 * Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
 
 Kubernetes:
-* Pods crash intermittently
+* (Almost untested)
 
 ## Install from binary
 
