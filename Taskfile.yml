@@ -14,7 +14,7 @@ tasks:
       - test $_USERNETES_CHILD
       - mkdir -p $HOME/.local/share/containers
       - |
-        crio \
+        $(pwd)/bin/crio/crio \
         --conmon $(pwd)/bin/crio/conmon \
         --runroot $XDG_RUNTIME_DIR/crio \
         --cni-config-dir $(pwd)/bin/crio/cni/conf \
