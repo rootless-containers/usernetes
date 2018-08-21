@@ -2,18 +2,45 @@
 
 Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
 
+ - [Status](#status)
+ - [How it works](#how-it-works)
+ - [Requirements](#requirements)
+ - [Restrictions](#restrictions)
+ - [Install from binary](#install-from-binary)
+ - [Install from source](#install-from-source)
+ - [Quick start](#quick-start)
+   - [Start Kubernetes using Docker](#start-kubernetes-using-docker)
+   - [Start Kubernetes using CRI-O](#start-kubernetes-using-cri-o)
+   - [Start dockerd only (No Kubernetes)](#start-dockerd-only-no-kubernetes)
+   - [Use `docker`](#use-docker)
+   - [Use `kubectl`](#use-kubectl)
+   - [Reset to factory defaults](#reset-to-factory-defaults)
+ - [Advanced guide](#advanced-guide)
+   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
+   - [Routing ping packets](#routing-ping-packets)
+ - [License](#license)
+
 ## Status
 
-* Moby (`dockerd`): Almost usable (except Swarm-mode)
-* Kubernetes: Early POC with a single node
+* [X] Moby (`dockerd`): Almost usable (except Swarm-mode)
+* [X] Kubernetes: Early POC with a single node
+  * [X] dockershim
+  * [X] CRI-O
+  * [ ] containerd (planned)
 
-We also plan to support containerd and CRI-O as CRI runtimes.
+## How it works
+
+Usernetes executes Moby (aka Docker) and Kubernetes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), and [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html).
+
+To set up NAT across the host and the network namespace without the root privilege, Usernetes uses a usermode network stack ([slirp4netns](https://github.com/rootless-containers/slirp4netns)).
+
+No SETUID/SETCAP binary is needed. except [`newuidmap(1)`](http://man7.org/linux/man-pages/man1/newuidmap.1.html) and [`newgidmap(1)`](http://man7.org/linux/man-pages/man1/newgidmap.1.html), which are used for setting up [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html) with multiple sub-UIDs and sub-GIDs.
 
 ## Requirements
 
 * `newuidmap` and `newgidmap` need to be installed on the host. These commands are provided by the `uidmap` package on most distros.
 
-* `/etc/subuid` and `/etc/subgid` should contain >= 65536 sub-IDs. e.g. `penguin:231072:65536`.
+* `/etc/subuid` and `/etc/subgid` should contain more than 65536 sub-IDs. e.g. `penguin:231072:65536`. These files are automatically configured on most distros.
 
 ```console
 $ id -u
@@ -36,9 +63,14 @@ Moby (`dockerd`):
 * Cgroups (including `docker top`) and AppArmor are disabled at the moment. (FIXME: we could enable Cgroups if configured on the host)
 * Checkpoint is not supported at the moment.
 * Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
+* You can form Swarm-mode clusters but overlay networking is not functional.
+
+CRI-O:
+* To be documented (almost same as Moby)
 
 Kubernetes:
-* (Almost untested)
+* `kube-proxy` is not supported yet.
+* Multi-node networking is untested
 
 ## Install from binary
 
@@ -52,23 +84,26 @@ $ cd usernetes
 ## Install from source
 
 ```console
-$ go get github.com/go-task/task/cmd/task
+$ git clone https://github.com/rootless-containers/usernetes.git
+$ cd usernetes
+$ go get -u github.com/go-task/task/cmd/task
 $ task -d build
 ```
 
 ## Quick start
 
-### Start the daemons using Docker
+### Start Kubernetes using Docker
 
 ```console
 $ ./run.sh
 ```
 
-### Start the daemons using CRI-O
+### Start Kubernetes using CRI-O
 
 ```console
 $ ./run.sh default-crio
 ```
+
 ### Start dockerd only (No Kubernetes)
 
 If you don't need Kubernetes:
@@ -104,6 +139,29 @@ $ ./kubectl.sh get nodes
 
 ```console
 $ ./cleanup.sh
+```
+
+## Advanced guide
+
+### Expose netns ports to the host
+
+As Usernetes runs in a network namespace (with [slirp4netns](https://github.com/rootless-containers/slirp4netns)),
+you can't expose container ports to the host by just running `docker run -p`.
+
+In addition, you need to expose Usernetes netns ports to the host via `socat`.
+
+e.g.
+```console
+$ pid=$(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid)
+$ socat -t -- TCP-LISTEN:8080,reuseaddr,fork EXEC:"nsenter -U -n -t $pid socat -t -- STDIN TCP4\:127.0.0.1\:80"
+```
+
+### Routing ping packets
+
+To route ping packets, you need to set up `net.ipv4.ping_group_range` properly as the root.
+
+```console
+$ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
 ```
 
 ## License
