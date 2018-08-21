@@ -13,8 +13,19 @@ tasks:
     cmds:
       - test $_USERNETES_CHILD
       - mkdir -p $HOME/.local/share/containers
+      - mkdir -p $HOME/.config/crio
+# It looks like both crio.conf["registries"] and --registry CLI flags are needed
+# https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
+      - cmd: |
+          [ ! -f $HOME/.config/crio/crio.conf ] && \
+          cat  > $HOME/.config/crio/crio.conf << EOF
+          registries = ['registry.access.redhat.com', 'registry.fedoraproject.org', 'docker.io']
+          EOF
+        ignore_error: true
       - |
         $(pwd)/bin/crio/crio \
+        --config $HOME/.config/crio/crio.conf \
+        --registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
         --conmon $(pwd)/bin/crio/conmon \
         --runroot $XDG_RUNTIME_DIR/crio \
         --cni-config-dir $(pwd)/bin/crio/cni/conf \
