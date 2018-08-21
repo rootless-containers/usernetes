@@ -5,10 +5,10 @@ output: prefixed
 vars:
   ROOTLESSKIT_COMMIT: 28cb87941b51b7e542492d763218989a5260c07d
   SLIRP4NETNS_COMMIT: 0037042e2facc8818d0a254e320a739648283f2e
-  MOBY_REPO: https://github.com/AkihiroSuda/docker.git
-  MOBY_COMMIT: ca359685a7c63419615dfb6174c51755fcc6acbc
-  KUBERNETES_REPO: https://github.com/AkihiroSuda/kubernetes.git
-  KUBERNETES_COMMIT: 831875979e75426c7385cd1fff2355ce51b5a0f7
+# 08/21/2018
+  MOBY_COMMIT: 1800883bd16664846db1572b8c8fbe8c85892cee
+# 08/21/2018
+  KUBERNETES_COMMIT: 54dbbc41dfe93ce09c166f26f7621d88242cc3d5
   CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
   RUNC_COMMIT: 20aff4f0488c6d4b8df4d85b4f63f1f704c11abd
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
@@ -47,7 +47,7 @@ tasks:
       - docker rm -f usernetes-build-moby 2> /dev/null || true
       - |
         docker build -t usernetes-build-moby -f moby.Dockerfile \
-        --build-arg MOBY_REPO={{.MOBY_REPO}} --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
+        --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
       - |
         docker run --name usernetes-build-moby \
         -d  --privileged \
@@ -64,7 +64,7 @@ tasks:
       - docker rm -f usernetes-build-kubernetes 2> /dev/null || true
       - |
         docker build -t usernetes-build-kubernetes -f kubernetes.Dockerfile \
-        --build-arg KUBERNETES_REPO={{.KUBERNETES_REPO}} --build-arg KUBERNETES_COMMIT={{.KUBERNETES_COMMIT}} .
+        --build-arg KUBERNETES_COMMIT={{.KUBERNETES_COMMIT}} .
 # FIXME: how to build it as a static binary??
       - |
         docker run --name usernetes-build-kubernetes \
