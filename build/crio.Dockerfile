@@ -1,11 +1,13 @@
-FROM golang:alpine
-RUN apk add --no-cache git build-base gpgme-dev linux-headers glib-dev glib-static
+# We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
+# TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
+FROM golang:1.10
+RUN apt-get update && apt-get install -y build-essential libglib2.0-dev
 ARG CRIO_COMMIT
 RUN echo CRIO_COMMIT=${CRIO_COMMIT} RUNC_COMMIT=${RUNC_COMMIT}
 
 RUN git clone https://github.com/kubernetes-incubator/cri-o.git /go/src/github.com/kubernetes-incubator/cri-o && \
   cd /go/src/github.com/kubernetes-incubator/cri-o && git checkout ${CRIO_COMMIT} && \
-  make CFLAGS="-static" BUILDTAGS="exclude_graphdriver_btrfs exclude_graphdriver_devicemapper" binaries && \
+  make BUILDTAGS="exclude_graphdriver_btrfs exclude_graphdriver_devicemapper containers_image_openpgp" binaries && \
   mkdir -p /crio/cni/plugins/ /crio/cni/conf && \
   cp bin/conmon bin/crio /crio && \
   cp contrib/cni/* /crio/cni/conf && \
