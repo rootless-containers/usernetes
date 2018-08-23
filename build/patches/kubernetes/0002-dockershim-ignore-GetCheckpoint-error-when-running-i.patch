@@ -1,7 +1,7 @@
-From caa20fd0854f590099b3b8ea0d3a0609c298e1d9 Mon Sep 17 00:00:00 2001
+From 9998fba14114eae1fe5c558b79e65750421d166f Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
-Subject: [PATCH 2/3] dockershim: ignore GetCheckpoint error when running in
+Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
  userns
 
 Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
