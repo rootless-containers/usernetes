@@ -1,7 +1,7 @@
-From 5f98cdeb86bae3f09c53a6d62eabd5d476c4bf52 Mon Sep 17 00:00:00 2001
+From 8213b9f4099194ca68d63d9e3f024b20e6e4ab71 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
-Subject: [PATCH 3/3] [POC] kubelet/cm: ignore cgroups error when running in
+Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
  userns
 
 This is a hacky POC; we need to implement rootless PCM in the proper way.

@@ -69,7 +69,6 @@ CRI-O:
 * To be documented (almost same as Moby)
 
 Kubernetes:
-* `kube-proxy` is not supported yet.
 * Multi-node networking is untested
 
 ## Install from binary
@@ -146,7 +145,7 @@ $ ./cleanup.sh
 ### Expose netns ports to the host
 
 As Usernetes runs in a network namespace (with [slirp4netns](https://github.com/rootless-containers/slirp4netns)),
-you can't expose container ports to the host by just running `docker run -p`.
+you can't expose container ports to the host by just running `docker run -p` or `kubectl expose --type=NodePort`.
 
 In addition, you need to expose Usernetes netns ports to the host via `socat`.
 

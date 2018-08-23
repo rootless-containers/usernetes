@@ -57,6 +57,11 @@ tasks:
     cmds:
       - test $_USERNETES_CHILD
       - hyperkube kube-scheduler --master http://localhost:8080
+  kube-proxy:
+    cmds:
+      - test $_USERNETES_CHILD
+# TODO: figure out whether other proxy-mode work
+      - hyperkube kube-proxy --kubeconfig localhost.kubeconfig --proxy-mode=userspace
   kubelet:
     cmds:
       - test $_USERNETES_CHILD
@@ -88,7 +93,9 @@ tasks:
         --authorization-mode=AlwaysAllow \
         --fail-swap-on=false \
         --feature-gates DevicePlugins=false
+  kube-common:
+    deps: [etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kube-proxy]
   default:
-    deps: [dockerd,etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kubelet]
+    deps: [dockerd,kube-common,kubelet]
   default-crio:
-    deps: [crio,etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kubelet-crio]
+    deps: [crio,kube-common,kubelet-crio]

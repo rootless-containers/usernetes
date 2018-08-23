@@ -1,4 +1,4 @@
-From 58ebf278082fac95e7528efd676a51f91c199dde Mon Sep 17 00:00:00 2001
+From 92c0a69727fd3b82be2aab866972dab630a4ee57 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Wed, 27 Jun 2018 17:16:16 +0900
 Subject: [PATCH] allow running `dockerd` in an unprivileged user namespace
@@ -311,10 +311,10 @@ index 6a5790b4fc..1cec744470 100644
  }
  
 diff --git a/daemon/info.go b/daemon/info.go
-index 3575fdda38..205e836222 100644
+index 9dcfb95f03..10f5f651b0 100644
 --- a/daemon/info.go
 +++ b/daemon/info.go
-@@ -166,6 +166,9 @@ func (daemon *Daemon) fillSecurityOptions(v *types.Info, sysInfo *sysinfo.SysInf
+@@ -169,6 +169,9 @@ func (daemon *Daemon) fillSecurityOptions(v *types.Info, sysInfo *sysinfo.SysInf
  	if rootIDs := daemon.idMapping.RootPair(); rootIDs.UID != 0 || rootIDs.GID != 0 {
  		securityOptions = append(securityOptions, "name=userns")
  	}
