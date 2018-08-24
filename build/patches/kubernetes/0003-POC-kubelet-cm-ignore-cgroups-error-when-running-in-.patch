@@ -1,4 +1,4 @@
-From 8213b9f4099194ca68d63d9e3f024b20e6e4ab71 Mon Sep 17 00:00:00 2001
+From 18ff29bf0e37dc3c8bc00a5ed9f23410a6a802ea Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -182,7 +182,7 @@ index 17baaee11e..bb23ce11e8 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 3bf170bb3b..f418b0c057 100644
+index 7065e83188..ae81ebacf8 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -33,6 +33,7 @@ import (
@@ -193,7 +193,7 @@ index 3bf170bb3b..f418b0c057 100644
  	cadvisorapi "github.com/google/cadvisor/info/v1"
  	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
  	"k8s.io/api/core/v1"
-@@ -1516,10 +1517,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1536,10 +1537,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -208,7 +208,7 @@ index 3bf170bb3b..f418b0c057 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1538,7 +1542,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1558,7 +1562,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)
