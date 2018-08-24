@@ -22,8 +22,7 @@ if [ -z $_USERNETES_CHILD ]; then
 else
     [ $_USERNETES_CHILD = 1 ]
     # These bind-mounts are needed at the moment because the paths are hard-coded in Kube.
-    # ( /etc/containers for cri-o workaround https://github.com/rootless-containers/usernetes/issues/30 )
-    for f in /var/lib/kubelet /var/lib/dockershim /var/lib/cni /var/log /etc/containers; do
+    for f in /var/lib/kubelet /var/lib/dockershim /var/lib/cni /var/log; do
         src=$HOME/.local/share/usernetes/$(echo $f | sed -e s@/@_@g)
         mkdir -p $src $f
         mount --bind $src $f
