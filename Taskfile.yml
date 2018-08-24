@@ -22,6 +22,13 @@ tasks:
           registries = ['registry.access.redhat.com', 'registry.fedoraproject.org', 'docker.io']
           EOF
         ignore_error: true
+# workaround: https://github.com/rootless-containers/usernetes/issues/30
+      - cmd: |
+          [ ! -f /etc/containers/policy.json ] && \
+          cat  > /etc/containers/policy.json << EOF
+          {"default": [{"type": "insecureAcceptAnything"}]}
+          EOF
+        ignore_error: true
       - |
         $(pwd)/bin/crio/crio \
         --config $HOME/.config/crio/crio.conf \
