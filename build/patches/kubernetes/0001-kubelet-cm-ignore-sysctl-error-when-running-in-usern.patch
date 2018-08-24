@@ -1,4 +1,4 @@
-From 3277cf7d60bfd8f97133c499eb66277637c6c6b0 Mon Sep 17 00:00:00 2001
+From dcc888c0a4e54ac11d325711dfbf2d68fcd2f577 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -28,7 +28,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  20 files changed, 413 insertions(+), 138 deletions(-)
 
 diff --git a/Godeps/Godeps.json b/Godeps/Godeps.json
-index aa50deacd8..a63e3540d9 100644
+index 5a7a01d7bd..0be27a4271 100644
 --- a/Godeps/Godeps.json
 +++ b/Godeps/Godeps.json
 @@ -2662,83 +2662,83 @@
