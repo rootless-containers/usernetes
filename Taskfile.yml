@@ -24,13 +24,15 @@ tasks:
         ignore_error: true
 # workaround: https://github.com/rootless-containers/usernetes/issues/30
       - cmd: |
-          [ ! -f /etc/containers/policy.json ] && \
-          cat  > /etc/containers/policy.json << EOF
+          mkdir -p $HOME/.config/containers
+          [ ! -f $HOME/.config/containers/policy.json ] && \
+          cat  > $HOME/.config/containers/policy.json << EOF
           {"default": [{"type": "insecureAcceptAnything"}]}
           EOF
         ignore_error: true
       - |
         $(pwd)/bin/crio/crio \
+        --signature-policy $HOME/.config/containers/policy.json \
         --config $HOME/.config/crio/crio.conf \
         --registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
         --conmon $(pwd)/bin/crio/conmon \
