@@ -53,7 +53,17 @@ $ grep ^$(whoami): /etc/subgid
 penguin:231072:65536
 ```
 
-* Some distros such as Debian (excluding Ubuntu) and Arch Linux require `echo 1 > /proc/sys/kernel/unprivileged_userns_clone`.
+### Distribution-specific hint
+
+#### Debian (excluding Ubuntu)
+* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
+
+#### Arch Linux
+* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
+
+#### openSUSE (and SLES(?))
+* `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
+* `sudo prlimit --nofile=:65536 --pid $$` is required for Kubernetes
 
 ## Restrictions
 
