@@ -1,4 +1,4 @@
-FROM alpine
+FROM alpine:3.8
 RUN apk add --no-cache git build-base autoconf automake libtool linux-headers
 ARG SLIRP4NETNS_COMMIT
 RUN echo SLIRP4NETNS_COMMIT=${SLIRP4NETNS_COMMIT}
