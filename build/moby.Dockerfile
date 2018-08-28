@@ -1,4 +1,4 @@
-FROM docker:test-dind
+FROM docker:18.06-dind
 RUN apk --no-cache add bash make git
 ARG MOBY_COMMIT
 RUN echo MOBY_COMMIT=${MOBY_COMMIT}

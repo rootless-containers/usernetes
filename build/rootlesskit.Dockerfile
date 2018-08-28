@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:1.10-alpine
 RUN apk add --no-cache git
 ARG ROOTLESSKIT_COMMIT
 RUN echo ROOTLESSKIT_COMMIT=${ROOTLESSKIT_COMMIT}
