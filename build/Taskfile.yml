@@ -13,6 +13,7 @@ vars:
   KUBERNETES_COMMIT: 5b2a7c7347cf9ca86ef5dfaaea3e3aa4df3ae270
   CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
   RUNC_COMMIT: 20aff4f0488c6d4b8df4d85b4f63f1f704c11abd
+  CNI_PLUGINS_COMMIT: aade7b93eea9eaef8eb5f6b590a18b801b60827f
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.12-usernetes
   ETCD_RELEASE: v3.3.9
@@ -27,6 +28,7 @@ tasks:
       - |
         docker build -t usernetes-build-crio -f crio.Dockerfile \
         --build-arg CRIO_COMMIT={{.CRIO_COMMIT}} \
+        --build-arg CNI_PLUGINS_COMMIT={{.CNI_PLUGINS_COMMIT}} \
         --build-arg RUNC_COMMIT={{.RUNC_COMMIT}} .
       - mkdir -p ../bin
       - docker run --rm usernetes-build-crio sh -c 'cd /; tar chf - crio' | tar Cxvf ../bin -
