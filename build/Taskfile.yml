@@ -5,10 +5,10 @@ output: prefixed
 vars:
 # 08/28/2018
   ROOTLESSKIT_COMMIT: d843aadf00d72082fd7a31572ef018d1e792535f
-# 08/29/2018
-  SLIRP4NETNS_COMMIT: 8a95c92fb14274abceed8d8bbe512c871932406e
-# 08/24/2018
-  MOBY_COMMIT: 0d9d86107d1664d351aab6f593fdc083b4f2175b
+# 09/07/2018
+  SLIRP4NETNS_COMMIT: 39e87c0e66345edf7fd6e0bd1f61aa842617e757
+# 10/04/2018
+  MOBY_COMMIT: f4d74d38026fa8fc05443ae38e9e696630e25c63
 # 08/24/2018
   KUBERNETES_COMMIT: 5b2a7c7347cf9ca86ef5dfaaea3e3aa4df3ae270
   CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
@@ -16,6 +16,7 @@ vars:
   CNI_PLUGINS_COMMIT: aade7b93eea9eaef8eb5f6b590a18b801b60827f
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.12-usernetes
+  DOCKER_CLI_RELEASE: 18.09.0-ce-beta1
   ETCD_RELEASE: v3.3.9
   GOTASK_RELEASE: v2.1.0
 
@@ -58,11 +59,17 @@ tasks:
         -v ~/.cache/usernetes-build/build-moby:/var/lib/docker \
         usernetes-build-moby dockerd --experimental
       - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
-      - mkdir -p ../bin
+      - mkdir -p ../bin/moby
 # `docker exec -w` is not available in Docker 17.09
-      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd docker-containerd docker-containerd-ctr docker-containerd-shim docker-runc docker-init docker-proxy' | tar Cxvf ../bin -
-      - docker cp usernetes-build-moby:/usr/local/bin/docker ../bin
+      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd containerd ctr containerd-shim runc docker-init docker-proxy' | tar Cxvf ../bin/moby -
       - docker rm -f usernetes-build-moby
+  build-docker-cli:
+    cmds:
+      - docker rm -f usernetes-build-docker-cli 2> /dev/null || true
+      - docker create --name usernetes-build-docker-cli docker:{{.DOCKER_CLI_RELEASE}}
+      - mkdir -p ../bin
+      - docker cp usernetes-build-docker-cli:/usr/local/bin/docker ../bin
+      - docker rm -f usernetes-build-docker-cli
   build-kubernetes:
     cmds:
       - docker rm -f usernetes-build-kubernetes 2> /dev/null || true
@@ -91,6 +98,6 @@ tasks:
       - mkdir -p ../_artifact
       - ( cd .. ; tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz . )
   default:
-    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-crio,build-kubernetes,build-etcd,build-go-task]
+    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-docker-cli,build-crio,build-kubernetes,build-etcd,build-go-task]
     cmds:
       - task: build-artifact

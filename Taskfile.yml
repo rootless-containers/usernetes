@@ -44,7 +44,7 @@ tasks:
   dockerd:
     cmds:
       - test $_USERNETES_CHILD
-      - dockerd --experimental
+      - PATH=$(pwd)/bin/moby:$PATH $(pwd)/bin/moby/dockerd --experimental
   etcd:
     cmds:
       - test $_USERNETES_CHILD
