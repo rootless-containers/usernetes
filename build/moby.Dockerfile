@@ -1,4 +1,4 @@
-FROM docker:18.09.0-ce-beta1-dind
+FROM docker:18.09.0-beta3-dind
 RUN apk --no-cache add bash make git
 ARG MOBY_COMMIT
 RUN echo MOBY_COMMIT=${MOBY_COMMIT}
