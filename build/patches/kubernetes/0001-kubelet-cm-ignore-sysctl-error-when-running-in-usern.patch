@@ -1,4 +1,4 @@
-From dcc888c0a4e54ac11d325711dfbf2d68fcd2f577 Mon Sep 17 00:00:00 2001
+From 4afae9eacfe6b6865f3417c3a716a7c67459e16d Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -28,10 +28,10 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  20 files changed, 413 insertions(+), 138 deletions(-)
 
 diff --git a/Godeps/Godeps.json b/Godeps/Godeps.json
-index 5a7a01d7bd..0be27a4271 100644
+index 00b56987bd..fa6b6bf186 100644
 --- a/Godeps/Godeps.json
 +++ b/Godeps/Godeps.json
-@@ -2662,83 +2662,83 @@
+@@ -2743,83 +2743,83 @@
  		},
  		{
  			"ImportPath": "github.com/opencontainers/runc/libcontainer",
@@ -148,7 +148,7 @@ index 5a7a01d7bd..0be27a4271 100644
  		{
  			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
 diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 132c08b8b1..fde7965fbf 100644
+index 12c9d2f289..a0c6ff4a3a 100644
 --- a/pkg/kubelet/cm/BUILD
 +++ b/pkg/kubelet/cm/BUILD
 @@ -86,6 +86,7 @@ go_library(
@@ -160,7 +160,7 @@ index 132c08b8b1..fde7965fbf 100644
          "@io_bazel_rules_go//go/platform:nacl": [
              "//pkg/kubelet/cadvisor:go_default_library",
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index ce01468e9b..81db80d28b 100644
+index 96506163e4..cf323c83a7 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -33,6 +33,7 @@ import (
@@ -171,7 +171,7 @@ index ce01468e9b..81db80d28b 100644
  
  	"k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/api/resource"
-@@ -374,7 +375,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
+@@ -375,7 +376,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
  			glog.V(2).Infof("Updating kernel flag: %v, expected value: %v, actual value: %v", flag, expectedValue, val)
  			err = sysctl.SetSysctl(flag, expectedValue)
  			if err != nil {

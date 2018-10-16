@@ -1,4 +1,4 @@
-From a2689557c0154052e02ac2e7b7975b994b06d7df Mon Sep 17 00:00:00 2001
+From 804902164336df97a47f87180ee61bdb60121bc8 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Mon, 15 Oct 2018 16:47:02 +0900
 Subject: [PATCH 1/2] pkg/archive: support overlayfs in userns (Ubuntu kernel
@@ -41,7 +41,7 @@ index 32132fcfed..bb623fa856 100644
  	// Iterate through the files in the archive.
  loop:
 diff --git a/pkg/archive/archive_linux.go b/pkg/archive/archive_linux.go
-index 970d4d0680..7d098567c2 100644
+index 970d4d0680..3becfe0790 100644
 --- a/pkg/archive/archive_linux.go
 +++ b/pkg/archive/archive_linux.go
 @@ -2,22 +2,28 @@ package archive // import "github.com/docker/docker/pkg/archive"
@@ -90,7 +90,7 @@ index 970d4d0680..7d098567c2 100644
  		err := unix.Setxattr(dir, "trusted.overlay.opaque", []byte{'y'}, 0)
 +		if err != nil {
 +			if c.inUserNS {
-+				if err := replaceDirWithOverlayOpaque(dir); err != nil {
++				if err = replaceDirWithOverlayOpaque(dir); err != nil {
 +					return false, fmt.Errorf("replaceDirWithOverlayOpaque(%q) failed: %v", dir, err)
 +				}
 +			} else {
@@ -267,7 +267,7 @@ index 970d4d0680..7d098567c2 100644
 +	return upperDummy, nil
 +}
 diff --git a/pkg/archive/archive_other.go b/pkg/archive/archive_other.go
-index 462dfc6323..104a7c6f35 100644
+index 462dfc6323..65a73354c4 100644
 --- a/pkg/archive/archive_other.go
 +++ b/pkg/archive/archive_other.go
 @@ -2,6 +2,6 @@
@@ -275,7 +275,7 @@ index 462dfc6323..104a7c6f35 100644
  package archive // import "github.com/docker/docker/pkg/archive"
  
 -func getWhiteoutConverter(format WhiteoutFormat) tarWhiteoutConverter {
-+func getWhiteoutConverter(format WhiteoutFormat, bool inUserNS) tarWhiteoutConverter {
++func getWhiteoutConverter(format WhiteoutFormat, inUserNS bool) tarWhiteoutConverter {
  	return nil
  }
 -- 
