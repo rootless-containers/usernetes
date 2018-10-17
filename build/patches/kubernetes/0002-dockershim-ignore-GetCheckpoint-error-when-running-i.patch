@@ -1,4 +1,4 @@
-From 119881e6d8d82e8e58aabf0eb290e4d03bd3bfd5 Mon Sep 17 00:00:00 2001
+From 1e0314311955cf0b91a9e9ea611cdc441285faff Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
 Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
@@ -11,7 +11,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  2 files changed, 9 insertions(+), 5 deletions(-)
 
 diff --git a/pkg/kubelet/dockershim/BUILD b/pkg/kubelet/dockershim/BUILD
-index d2496b4646..7729197ec9 100644
+index d835f25706..f3415bbf65 100644
 --- a/pkg/kubelet/dockershim/BUILD
 +++ b/pkg/kubelet/dockershim/BUILD
 @@ -68,6 +68,7 @@ go_library(
@@ -23,7 +23,7 @@ index d2496b4646..7729197ec9 100644
      ] + select({
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/pkg/kubelet/dockershim/docker_sandbox.go b/pkg/kubelet/dockershim/docker_sandbox.go
-index 13e9c42366..3cfc0f3c0f 100644
+index b114bf052b..f5ab2ea53c 100644
 --- a/pkg/kubelet/dockershim/docker_sandbox.go
 +++ b/pkg/kubelet/dockershim/docker_sandbox.go
 @@ -27,6 +27,7 @@ import (
@@ -34,7 +34,7 @@ index 13e9c42366..3cfc0f3c0f 100644
  
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
  	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-@@ -523,11 +524,13 @@ func (ds *dockerService) ListPodSandbox(_ context.Context, r *runtimeapi.ListPod
+@@ -526,11 +527,13 @@ func (ds *dockerService) ListPodSandbox(_ context.Context, r *runtimeapi.ListPod
  		checkpoint := NewPodSandboxCheckpoint("", "", &CheckpointData{})
  		err := ds.checkpointManager.GetCheckpoint(id, checkpoint)
  		if err != nil {

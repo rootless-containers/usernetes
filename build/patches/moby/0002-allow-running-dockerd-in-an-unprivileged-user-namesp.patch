@@ -1,4 +1,4 @@
-From d210e2027c49d145b1d595c182d4ca1c9c8e2eb9 Mon Sep 17 00:00:00 2001
+From 79c8968441db2b6136fbd612564dfd0c2c370046 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Mon, 15 Oct 2018 16:52:53 +0900
 Subject: [PATCH 2/2] allow running `dockerd` in an unprivileged user namespace
@@ -13,56 +13,39 @@ TLDR:
 
 Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 ---
- Dockerfile                                    |  14 +
- cmd/dockerd/config.go                         |   5 +
- cmd/dockerd/config_common_unix.go             |  22 +
- cmd/dockerd/daemon.go                         |  14 +-
- cmd/dockerd/daemon_unix.go                    |  24 +-
- contrib/dockerd-rootless.sh                   |  36 +
- daemon/config/config_unix.go                  |   1 +
- daemon/daemon.go                              |   1 +
- daemon/info.go                                |   3 +
- daemon/oci_linux.go                           |  14 +-
- docs/rootless.md                              |  76 ++
- hack/dockerfile/install/rootlesskit.installer |  34 +
- hack/dockerfile/install/runc.installer        |   2 +-
- hack/dockerfile/install/slirp4netns.installer |  27 +
- hack/make/.binary-setup                       |   3 +
- hack/make/binary-daemon                       |   3 +-
- hack/make/install-binary                      |   3 +
- opts/hosts.go                                 |  20 +-
- pkg/sysinfo/sysinfo_linux.go                  |   5 +-
- rootless/doc.go                               |   2 +
- rootless/rootless.go                          |  38 +
- rootless/specconv/README.md                   |   1 +
- rootless/specconv/specconv_linux.go           | 160 ++++
- rootless/specconv/specconv_linux_test.go      |  59 ++
- .../runc/libcontainer/seccomp/config.go       |  76 ++
- .../libcontainer/seccomp/seccomp_linux.go     | 258 ++++++
- .../seccomp/seccomp_unsupported.go            |  24 +
- .../runc/libcontainer/specconv/example.go     | 221 +++++
- .../runc/libcontainer/specconv/spec_linux.go  | 836 ++++++++++++++++++
- .../runc/libcontainer/utils/cmsg.go           |  93 ++
- .../runc/libcontainer/utils/utils.go          | 127 +++
- .../runc/libcontainer/utils/utils_unix.go     |  44 +
- 32 files changed, 2235 insertions(+), 11 deletions(-)
+ Dockerfile                                    | 14 ++++
+ cmd/dockerd/config_common_unix.go             | 22 ++++++
+ cmd/dockerd/config_unix.go                    |  4 +-
+ cmd/dockerd/daemon.go                         | 14 +++-
+ cmd/dockerd/daemon_unix.go                    | 24 +++++-
+ contrib/dockerd-rootless.sh                   | 36 +++++++++
+ daemon/config/config_unix.go                  |  6 ++
+ daemon/config/config_windows.go               |  5 ++
+ daemon/daemon.go                              |  1 +
+ daemon/info.go                                |  3 +
+ daemon/info_unix.go                           |  4 +
+ daemon/info_windows.go                        |  4 +
+ daemon/oci_linux.go                           |  9 ++-
+ docs/rootless.md                              | 76 +++++++++++++++++++
+ hack/dockerfile/install/rootlesskit.installer | 34 +++++++++
+ hack/dockerfile/install/slirp4netns.installer | 27 +++++++
+ hack/make/.binary-setup                       |  3 +
+ hack/make/binary-daemon                       |  3 +-
+ hack/make/install-binary                      |  3 +
+ opts/hosts.go                                 | 20 ++++-
+ opts/hosts_test.go                            |  4 +-
+ pkg/sysinfo/sysinfo_linux.go                  |  4 +-
+ rootless/doc.go                               |  2 +
+ rootless/rootless.go                          | 22 ++++++
+ rootless/specconv/specconv_linux.go           | 49 ++++++++++++
+ 25 files changed, 382 insertions(+), 11 deletions(-)
  create mode 100755 contrib/dockerd-rootless.sh
  create mode 100644 docs/rootless.md
  create mode 100755 hack/dockerfile/install/rootlesskit.installer
  create mode 100755 hack/dockerfile/install/slirp4netns.installer
  create mode 100644 rootless/doc.go
  create mode 100644 rootless/rootless.go
- create mode 100644 rootless/specconv/README.md
  create mode 100644 rootless/specconv/specconv_linux.go
- create mode 100644 rootless/specconv/specconv_linux_test.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/seccomp/config.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_linux.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_unsupported.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/specconv/example.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/specconv/spec_linux.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/utils/cmsg.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/utils/utils.go
- create mode 100644 vendor/github.com/opencontainers/runc/libcontainer/utils/utils_unix.go
 
 diff --git a/Dockerfile b/Dockerfile
 index aac99c5090..e84c3b1d45 100644
@@ -97,29 +80,6 @@ index aac99c5090..e84c3b1d45 100644
  
  ENV PATH=/usr/local/cli:$PATH
  ENV DOCKER_BUILDTAGS apparmor seccomp selinux
-diff --git a/cmd/dockerd/config.go b/cmd/dockerd/config.go
-index 2c8ed8edb4..d5e7d89d82 100644
---- a/cmd/dockerd/config.go
-+++ b/cmd/dockerd/config.go
-@@ -6,6 +6,7 @@ import (
- 	"github.com/docker/docker/daemon/config"
- 	"github.com/docker/docker/opts"
- 	"github.com/docker/docker/registry"
-+	"github.com/docker/docker/rootless"
- 	"github.com/spf13/pflag"
- )
- 
-@@ -80,6 +81,10 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
- 
- 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
- 	conf.MaxConcurrentUploads = &maxConcurrentUploads
-+
-+	// Mostly users don't need to set this flag explicitly.
-+	// However, when running Docker as the mapped root with in a rootless Docker, users might need to set this flag explicitly.
-+	flags.BoolVar(&conf.Rootless, "rootless", rootless.RunningWithNonRootUsername, "Enable rootless mode (experimental)")
- }
- 
- func installRegistryServiceFlags(options *registry.ServiceOptions, flags *pflag.FlagSet) {
 diff --git a/cmd/dockerd/config_common_unix.go b/cmd/dockerd/config_common_unix.go
 index febf30ae9f..c1ee4dd1b2 100644
 --- a/cmd/dockerd/config_common_unix.go
@@ -163,8 +123,28 @@ index febf30ae9f..c1ee4dd1b2 100644
  // installUnixConfigFlags adds command-line options to the top-level flag parser for
  // the current process that are common across Unix platforms.
  func installUnixConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
+diff --git a/cmd/dockerd/config_unix.go b/cmd/dockerd/config_unix.go
+index 2dbd84b1db..a730b81228 100644
+--- a/cmd/dockerd/config_unix.go
++++ b/cmd/dockerd/config_unix.go
+@@ -5,6 +5,7 @@ package main
+ import (
+ 	"github.com/docker/docker/daemon/config"
+ 	"github.com/docker/docker/opts"
++	"github.com/docker/docker/rootless"
+ 	"github.com/docker/go-units"
+ 	"github.com/spf13/pflag"
+ )
+@@ -46,5 +47,6 @@ func installConfigFlags(conf *config.Config, flags *pflag.FlagSet) {
+ 	flags.BoolVar(&conf.NoNewPrivileges, "no-new-privileges", false, "Set no-new-privileges by default for new containers")
+ 	flags.StringVar(&conf.IpcMode, "default-ipc-mode", config.DefaultIpcMode, `Default mode for containers ipc ("shareable" | "private")`)
+ 	flags.Var(&conf.NetworkConfig.DefaultAddressPools, "default-address-pool", "Default address pools for node specific local networks")
+-
++	// Mostly users don't need to set this flag explicitly.
++	flags.BoolVar(&conf.Rootless, "rootless", rootless.RunningWithNonRootUsername, "Enable rootless mode (experimental)")
+ }
 diff --git a/cmd/dockerd/daemon.go b/cmd/dockerd/daemon.go
-index 2efa60b5c5..a48dd4b57d 100644
+index 2efa60b5c5..2db746ac48 100644
 --- a/cmd/dockerd/daemon.go
 +++ b/cmd/dockerd/daemon.go
 @@ -46,6 +46,7 @@ import (
@@ -183,7 +163,7 @@ index 2efa60b5c5..a48dd4b57d 100644
 +	if runtime.GOOS == "linux" && os.Geteuid() != 0 {
 +		return fmt.Errorf("rootless mode needs dockerd to be executed in userns")
 +	}
-+	if cli.Config.Rootless {
++	if cli.Config.IsRootless() {
 +		logrus.Warn("Running in rootless mode (experimental). Cgroups, AppArmor, and CRIU are not likely to work.")
 +		if !cli.Config.Experimental {
 +			return fmt.Errorf("rootless mode is only supported when experimental is enabled")
@@ -297,7 +277,7 @@ index 0000000000..5d6599db8a
 +    dockerd $@
 +fi
 diff --git a/daemon/config/config_unix.go b/daemon/config/config_unix.go
-index 5ed6abd89e..4a5307ce3a 100644
+index 5ed6abd89e..2a31b874c1 100644
 --- a/daemon/config/config_unix.go
 +++ b/daemon/config/config_unix.go
 @@ -39,6 +39,7 @@ type Config struct {
@@ -308,6 +288,28 @@ index 5ed6abd89e..4a5307ce3a 100644
  }
  
  // BridgeConfig stores all the bridge driver specific
+@@ -87,3 +88,8 @@ func verifyDefaultIpcMode(mode string) error {
+ func (conf *Config) ValidatePlatformConfig() error {
+ 	return verifyDefaultIpcMode(conf.IpcMode)
+ }
++
++// IsRootless returns conf.Rootless
++func (conf *Config) IsRootless() bool {
++	return conf.Rootless
++}
+diff --git a/daemon/config/config_windows.go b/daemon/config/config_windows.go
+index 0aa7d54bf2..47624fab46 100644
+--- a/daemon/config/config_windows.go
++++ b/daemon/config/config_windows.go
+@@ -55,3 +55,8 @@ func (conf *Config) IsSwarmCompatible() error {
+ func (conf *Config) ValidatePlatformConfig() error {
+ 	return nil
+ }
++
++// IsRootless returns conf.Rootless on Unix but false on Windows
++func (conf *Config) IsRootless() bool {
++	return false
++}
 diff --git a/daemon/daemon.go b/daemon/daemon.go
 index 14b31e7667..b257050893 100644
 --- a/daemon/daemon.go
@@ -321,21 +323,45 @@ index 14b31e7667..b257050893 100644
  		logrus.Errorf(err.Error())
  	}
 diff --git a/daemon/info.go b/daemon/info.go
-index 603474ab97..4fdea227d3 100644
+index 603474ab97..02ab2ff4bc 100644
 --- a/daemon/info.go
 +++ b/daemon/info.go
 @@ -174,6 +174,9 @@ func (daemon *Daemon) fillSecurityOptions(v *types.Info, sysInfo *sysinfo.SysInf
  	if rootIDs := daemon.idMapping.RootPair(); rootIDs.UID != 0 || rootIDs.GID != 0 {
  		securityOptions = append(securityOptions, "name=userns")
  	}
-+	if daemon.configStore.Rootless {
++	if daemon.configStoreRootless() {
 +		securityOptions = append(securityOptions, "name=rootless")
 +	}
  	v.SecurityOptions = securityOptions
  }
  
+diff --git a/daemon/info_unix.go b/daemon/info_unix.go
+index 60b2f99870..30ef92f898 100644
+--- a/daemon/info_unix.go
++++ b/daemon/info_unix.go
+@@ -166,3 +166,7 @@ func parseInitVersion(v string) (types.Commit, error) {
+ 	}
+ 	return version, nil
+ }
++
++func (daemon *Daemon) configStoreRootless() bool {
++	return daemon.configStore.Rootless
++}
+diff --git a/daemon/info_windows.go b/daemon/info_windows.go
+index 2c1ff460c3..62f5d46a6e 100644
+--- a/daemon/info_windows.go
++++ b/daemon/info_windows.go
+@@ -11,3 +11,7 @@ func (daemon *Daemon) fillPlatformInfo(v *types.Info, sysInfo *sysinfo.SysInfo)
+ 
+ func fillDriverWarnings(v *types.Info) {
+ }
++
++func (daemon *Daemon) configStoreRootless() bool {
++	return false
++}
 diff --git a/daemon/oci_linux.go b/daemon/oci_linux.go
-index dfe02796a5..4415e93997 100644
+index dfe02796a5..21f6bd2d27 100644
 --- a/daemon/oci_linux.go
 +++ b/daemon/oci_linux.go
 @@ -16,10 +16,12 @@ import (
@@ -372,18 +398,9 @@ index dfe02796a5..4415e93997 100644
  	return &s, nil
  }
  
-@@ -874,3 +881,8 @@ func (daemon *Daemon) mergeUlimits(c *containertypes.HostConfig) {
- 	}
- 	c.Ulimits = ulimits
- }
-+
-+func toRootless(s *specs.Spec) error {
-+
-+	return nil
-+}
 diff --git a/docs/rootless.md b/docs/rootless.md
 new file mode 100644
-index 0000000000..c55cae0e48
+index 0000000000..6aae49d6e4
 --- /dev/null
 +++ b/docs/rootless.md
 @@ -0,0 +1,76 @@
@@ -415,7 +432,7 @@ index 0000000000..c55cae0e48
 +## Restrictions
 +
 +* Only `vfs` graphdriver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported. [Starting with Linux 4.18](https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.18-FUSE), we will be also able to implement FUSE snapshotters.
-+* Cgroups (including `docker top`) and AppArmor are disabled at the moment. (FIXME: we could enable Cgroups if configured on the host)
++* Cgroups (including `docker top`) and AppArmor are disabled at the moment. In future, Cgroups will be optionally available when delegation permission is configured on the host.
 +* Checkpoint is not supported at the moment.
 +* Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
 +
@@ -465,14 +482,14 @@ index 0000000000..c55cae0e48
 +```
 diff --git a/hack/dockerfile/install/rootlesskit.installer b/hack/dockerfile/install/rootlesskit.installer
 new file mode 100755
-index 0000000000..27bd5b89c9
+index 0000000000..abcf604576
 --- /dev/null
 +++ b/hack/dockerfile/install/rootlesskit.installer
 @@ -0,0 +1,34 @@
 +#!/bin/sh
 +
 +
-+ROOTLESSKIT_COMMIT=d843aadf00d72082fd7a31572ef018d1e792535f
++ROOTLESSKIT_COMMIT=575e91bc329a5486acef25b6c8a9b22dde1ca26c
 +
 +install_rootlesskit() {
 +	  case "$1" in
@@ -503,19 +520,6 @@ index 0000000000..27bd5b89c9
 +	  git checkout -q "$ROOTLESSKIT_COMMIT"
 +	  go build $BUILD_MODE -ldflags="$ROOTLESSKIT_LDFLAGS" -o ${PREFIX}/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit
 +}
-diff --git a/hack/dockerfile/install/runc.installer b/hack/dockerfile/install/runc.installer
-index ed483e0f40..9c7fe6bf5f 100755
---- a/hack/dockerfile/install/runc.installer
-+++ b/hack/dockerfile/install/runc.installer
-@@ -1,7 +1,7 @@
- #!/bin/sh
- 
- # When updating RUNC_COMMIT, also update runc in vendor.conf accordingly
--RUNC_COMMIT=69663f0bd4b60df09991c08812a60108003fa340
-+RUNC_COMMIT=2c632d1a2de0192c3f18a2542ccb6f30a8719b1f
- 
- install_runc() {
- 	# Do not build with ambient capabilities support
 diff --git a/hack/dockerfile/install/slirp4netns.installer b/hack/dockerfile/install/slirp4netns.installer
 new file mode 100755
 index 0000000000..708aa4318a
@@ -648,59 +652,55 @@ index 2adf4211d5..1ba32ce932 100644
  		}
  	} else {
  		var err error
+diff --git a/opts/hosts_test.go b/opts/hosts_test.go
+index e46326a5be..ec42a6c303 100644
+--- a/opts/hosts_test.go
++++ b/opts/hosts_test.go
+@@ -38,13 +38,13 @@ func TestParseHost(t *testing.T) {
+ 	}
+ 
+ 	for _, value := range invalid {
+-		if _, err := ParseHost(false, value); err == nil {
++		if _, err := ParseHost(false, value, false); err == nil {
+ 			t.Errorf("Expected an error for %v, got [nil]", value)
+ 		}
+ 	}
+ 
+ 	for value, expected := range valid {
+-		if actual, err := ParseHost(false, value); err != nil || actual != expected {
++		if actual, err := ParseHost(false, value, false); err != nil || actual != expected {
+ 			t.Errorf("Expected for %v [%v], got [%v, %v]", value, expected, actual, err)
+ 		}
+ 	}
 diff --git a/pkg/sysinfo/sysinfo_linux.go b/pkg/sysinfo/sysinfo_linux.go
-index dde5be19bc..9f3150f941 100644
+index dde5be19bc..eb3bdfe8b0 100644
 --- a/pkg/sysinfo/sysinfo_linux.go
 +++ b/pkg/sysinfo/sysinfo_linux.go
-@@ -7,6 +7,7 @@ import (
- 	"path"
- 	"strings"
- 
-+	"github.com/opencontainers/runc/libcontainer/apparmor"
- 	"github.com/opencontainers/runc/libcontainer/cgroups"
- 	"github.com/sirupsen/logrus"
- 	"golang.org/x/sys/unix"
-@@ -50,9 +51,7 @@ func New(quiet bool) *SysInfo {
- 	sysInfo.BridgeNFCallIP6TablesDisabled = !readProcBool("/proc/sys/net/bridge/bridge-nf-call-ip6tables")
+@@ -51,7 +51,9 @@ func New(quiet bool) *SysInfo {
  
  	// Check if AppArmor is supported.
--	if _, err := os.Stat("/sys/kernel/security/apparmor"); !os.IsNotExist(err) {
+ 	if _, err := os.Stat("/sys/kernel/security/apparmor"); !os.IsNotExist(err) {
 -		sysInfo.AppArmor = true
--	}
-+	sysInfo.AppArmor = apparmor.IsEnabled()
++		if _, err := ioutil.ReadFile("/sys/kernel/security/apparmor/profiles"); err == nil {
++			sysInfo.AppArmor = true
++		}
+ 	}
  
  	// Check if Seccomp is supported, via CONFIG_SECCOMP.
- 	if err := unix.Prctl(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != unix.EINVAL {
 diff --git a/rootless/doc.go b/rootless/doc.go
 new file mode 100644
-index 0000000000..563a9dc9e4
+index 0000000000..f013e985b7
 --- /dev/null
 +++ b/rootless/doc.go
 @@ -0,0 +1,2 @@
-+// Package rootless is temporary forked from https://github.com/containerd/containerd/pull/2006
++// Package rootless provides spec converter
 +package rootless
 diff --git a/rootless/rootless.go b/rootless/rootless.go
 new file mode 100644
-index 0000000000..3ac8c3f387
+index 0000000000..525d5c1610
 --- /dev/null
 +++ b/rootless/rootless.go
-@@ -0,0 +1,38 @@
-+/*
-+   Copyright The containerd Authors.
-+
-+   Licensed under the Apache License, Version 2.0 (the "License");
-+   you may not use this file except in compliance with the License.
-+   You may obtain a copy of the License at
-+
-+       http://www.apache.org/licenses/LICENSE-2.0
-+
-+   Unless required by applicable law or agreed to in writing, software
-+   distributed under the License is distributed on an "AS IS" BASIS,
-+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+   See the License for the specific language governing permissions and
-+   limitations under the License.
-+*/
-+
+@@ -0,0 +1,22 @@
 +package rootless
 +
 +import (
@@ -723,68 +723,26 @@ index 0000000000..3ac8c3f387
 +	u := os.Getenv("USER")
 +	RunningWithNonRootUsername = u != "" && u != "root"
 +}
-diff --git a/rootless/specconv/README.md b/rootless/specconv/README.md
-new file mode 100644
-index 0000000000..63ebff3ed3
---- /dev/null
-+++ b/rootless/specconv/README.md
-@@ -0,0 +1 @@
-+Forked from https://github.com/containerd/containerd/pull/2006
 diff --git a/rootless/specconv/specconv_linux.go b/rootless/specconv/specconv_linux.go
 new file mode 100644
-index 0000000000..a9e61ec6b7
+index 0000000000..b1cb4a225d
 --- /dev/null
 +++ b/rootless/specconv/specconv_linux.go
-@@ -0,0 +1,160 @@
-+/*
-+   Copyright The containerd Authors.
-+
-+   Licensed under the Apache License, Version 2.0 (the "License");
-+   you may not use this file except in compliance with the License.
-+   You may obtain a copy of the License at
-+
-+       http://www.apache.org/licenses/LICENSE-2.0
-+
-+   Unless required by applicable law or agreed to in writing, software
-+   distributed under the License is distributed on an "AS IS" BASIS,
-+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+   See the License for the specific language governing permissions and
-+   limitations under the License.
-+*/
-+
-+// Package specconv was ported over from https://github.com/moby/buildkit/pull/486
+@@ -0,0 +1,49 @@
 +package specconv
 +
 +import (
 +	"io/ioutil"
-+	"os"
-+	"sort"
 +	"strconv"
-+	"strings"
 +
-+	"github.com/opencontainers/runc/libcontainer/system"
-+	"github.com/opencontainers/runc/libcontainer/user"
 +	"github.com/opencontainers/runtime-spec/specs-go"
-+	"github.com/pkg/errors"
 +)
 +
 +// ToRootless converts spec to be compatible with "rootless" runc.
-+// * Adds userns (Note: since we are already in userns, ideally we should not need to do this. runc-side issue is tracked at https://github.com/opencontainers/runc/issues/1837)
-+// * Fix up mount flags (same as above)
-+// * Replace /sys with bind-mount (FIXME: we don't need to do this if netns is unshared)
++// * Remove mqueue
++// * Remove cgroups (will be supported in separate PR when delegation permission is configured)
 +func ToRootless(spec *specs.Spec) error {
-+	if !system.RunningInUserNS() {
-+		return errors.New("needs to be in user namespace")
-+	}
-+	uidMap, err := user.CurrentProcessUIDMap()
-+	if err != nil && !os.IsNotExist(err) {
-+		return err
-+	}
-+	gidMap, err := user.CurrentProcessUIDMap()
-+	if err != nil && !os.IsNotExist(err) {
-+		return err
-+	}
-+	return toRootless(spec, uidMap, gidMap, getCurrentOOMScoreAdj())
++	return toRootless(spec, getCurrentOOMScoreAdj())
 +}
 +
 +func getCurrentOOMScoreAdj() int {
@@ -799,21 +757,12 @@ index 0000000000..a9e61ec6b7
 +	return i
 +}
 +
-+// toRootless was forked from github.com/opencontainers/runc/libcontainer/specconv
-+func toRootless(spec *specs.Spec, uidMap, gidMap []user.IDMap, currentOOMScoreAdj int) error {
-+	if err := configureUserNS(spec, uidMap, gidMap); err != nil {
-+		return err
-+	}
-+	if err := configureMounts(spec); err != nil {
-+		return err
-+	}
++func toRootless(spec *specs.Spec, currentOOMScoreAdj int) error {
++	configureMqueue(spec)
 +
 +	// Remove cgroup settings.
 +	spec.Linux.Resources = nil
 +	spec.Linux.CgroupsPath = ""
-+
-+	// workaround for https://github.com/opencontainers/runc/issues/1835
-+	spec.Process.User.AdditionalGids = nil
 +
 +	if spec.Process.OOMScoreAdj != nil && *spec.Process.OOMScoreAdj < currentOOMScoreAdj {
 +		*spec.Process.OOMScoreAdj = currentOOMScoreAdj
@@ -821,1872 +770,13 @@ index 0000000000..a9e61ec6b7
 +	return nil
 +}
 +
-+// configureUserNS add suserns and the current ID map to the spec.
-+// Since we are already in userns, ideally we should not need to add userns.
-+// However, currently rootless runc always requires userns to be added.
-+// https://github.com/opencontainers/runc/issues/1837
-+func configureUserNS(spec *specs.Spec, uidMap, gidMap []user.IDMap) error {
-+	spec.Linux.Namespaces = append(spec.Linux.Namespaces, specs.LinuxNamespace{
-+		Type: specs.UserNamespace,
-+	})
-+
-+	sort.Slice(uidMap, func(i, j int) bool { return uidMap[i].ID < uidMap[j].ID })
-+	uNextContainerID := int64(0)
-+	for _, u := range uidMap {
-+		spec.Linux.UIDMappings = append(spec.Linux.UIDMappings,
-+			specs.LinuxIDMapping{
-+				HostID:      uint32(u.ID),
-+				ContainerID: uint32(uNextContainerID),
-+				Size:        uint32(u.Count),
-+			})
-+		uNextContainerID += u.Count
-+	}
-+	sort.Slice(gidMap, func(i, j int) bool { return gidMap[i].ID < gidMap[j].ID })
-+	gNextContainerID := int64(0)
-+	for _, g := range gidMap {
-+		spec.Linux.GIDMappings = append(spec.Linux.GIDMappings,
-+			specs.LinuxIDMapping{
-+				HostID:      uint32(g.ID),
-+				ContainerID: uint32(gNextContainerID),
-+				Size:        uint32(g.Count),
-+			})
-+		gNextContainerID += g.Count
-+	}
-+	return nil
-+}
-+
-+func configureMounts(spec *specs.Spec) error {
-+	var mounts []specs.Mount
-+	for _, mount := range spec.Mounts {
-+		// Ignore all mounts that are under /sys, because we add /sys later.
-+		if strings.HasPrefix(mount.Destination, "/sys") {
-+			continue
-+		}
-+
-+		// Remove all gid= and uid= mappings.
-+		// Since we are already in userns, ideally we should not need to do this.
-+		// https://github.com/opencontainers/runc/issues/1837
-+		var options []string
-+		for _, option := range mount.Options {
-+			if !strings.HasPrefix(option, "gid=") && !strings.HasPrefix(option, "uid=") {
-+				options = append(options, option)
-+			}
-+		}
-+		mount.Options = options
-+		mounts = append(mounts, mount)
-+	}
-+
-+	// Add the sysfs mount as an rbind, because we can't mount /sys unless we have netns.
-+	// TODO: keep original /sys mount when we have netns.
-+	// CAUTION: rbind is not readonly. making this readonly requires https://github.com/opencontainers/runc/pull/1869 to be merged.
-+	mounts = append(mounts, specs.Mount{
-+		Source:      "/sys",
-+		Destination: "/sys",
-+		Type:        "none",
-+		Options:     []string{"rbind", "nosuid", "noexec", "nodev", "ro"},
-+	})
-+
-+	// CARGOCULT: remove mqueue so as to get kube to work. non-kube does not need this. Not sure why...
-+	for i, m := range mounts {
++func configureMqueue(spec *specs.Spec) {
++	// FIXME(AkihiroSuda): CARGOCULT: remove mqueue so as to get kube to work. non-kube does not need this. Not sure why...
++	for i, m := range spec.Mounts {
 +		if m.Type == "mqueue" {
-+			mounts = append(mounts[:i], mounts[i+1:]...)
++			spec.Mounts = append(spec.Mounts[:i], spec.Mounts[i+1:]...)
 +		}
 +	}
-+
-+	spec.Mounts = mounts
-+	return nil
-+}
-diff --git a/rootless/specconv/specconv_linux_test.go b/rootless/specconv/specconv_linux_test.go
-new file mode 100644
-index 0000000000..a0dc79d799
---- /dev/null
-+++ b/rootless/specconv/specconv_linux_test.go
-@@ -0,0 +1,59 @@
-+/*
-+   Copyright The containerd Authors.
-+
-+   Licensed under the Apache License, Version 2.0 (the "License");
-+   you may not use this file except in compliance with the License.
-+   You may obtain a copy of the License at
-+
-+       http://www.apache.org/licenses/LICENSE-2.0
-+
-+   Unless required by applicable law or agreed to in writing, software
-+   distributed under the License is distributed on an "AS IS" BASIS,
-+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+   See the License for the specific language governing permissions and
-+   limitations under the License.
-+*/
-+
-+package specconv
-+
-+import (
-+	"testing"
-+
-+	"github.com/opencontainers/runc/libcontainer/specconv"
-+	"github.com/opencontainers/runc/libcontainer/user"
-+	"github.com/opencontainers/runtime-spec/specs-go"
-+	"gotest.tools/assert"
-+	is "gotest.tools/assert/cmp"
-+)
-+
-+func TestToRootless(t *testing.T) {
-+	spec := specconv.Example()
-+	uidMap := []user.IDMap{
-+		{
-+			ID:       0,
-+			ParentID: 4242,
-+			Count:    1,
-+		},
-+		{
-+			ID:       1,
-+			ParentID: 231072,
-+			Count:    65536,
-+		},
-+	}
-+	gidMap := uidMap
-+	expectedUIDMappings := []specs.LinuxIDMapping{
-+		{
-+			HostID:      0,
-+			ContainerID: 0,
-+			Size:        1,
-+		},
-+		{
-+			HostID:      1,
-+			ContainerID: 1,
-+			Size:        65536,
-+		},
-+	}
-+	err := toRootless(spec, uidMap, gidMap, 0)
-+	assert.NilError(t, err)
-+	assert.Assert(t, is.DeepEqual(expectedUIDMappings, spec.Linux.UIDMappings))
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/seccomp/config.go b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/config.go
-new file mode 100644
-index 0000000000..ded5a6bbc8
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/config.go
-@@ -0,0 +1,76 @@
-+package seccomp
-+
-+import (
-+	"fmt"
-+
-+	"github.com/opencontainers/runc/libcontainer/configs"
-+)
-+
-+var operators = map[string]configs.Operator{
-+	"SCMP_CMP_NE":        configs.NotEqualTo,
-+	"SCMP_CMP_LT":        configs.LessThan,
-+	"SCMP_CMP_LE":        configs.LessThanOrEqualTo,
-+	"SCMP_CMP_EQ":        configs.EqualTo,
-+	"SCMP_CMP_GE":        configs.GreaterThanOrEqualTo,
-+	"SCMP_CMP_GT":        configs.GreaterThan,
-+	"SCMP_CMP_MASKED_EQ": configs.MaskEqualTo,
-+}
-+
-+var actions = map[string]configs.Action{
-+	"SCMP_ACT_KILL":  configs.Kill,
-+	"SCMP_ACT_ERRNO": configs.Errno,
-+	"SCMP_ACT_TRAP":  configs.Trap,
-+	"SCMP_ACT_ALLOW": configs.Allow,
-+	"SCMP_ACT_TRACE": configs.Trace,
-+}
-+
-+var archs = map[string]string{
-+	"SCMP_ARCH_X86":         "x86",
-+	"SCMP_ARCH_X86_64":      "amd64",
-+	"SCMP_ARCH_X32":         "x32",
-+	"SCMP_ARCH_ARM":         "arm",
-+	"SCMP_ARCH_AARCH64":     "arm64",
-+	"SCMP_ARCH_MIPS":        "mips",
-+	"SCMP_ARCH_MIPS64":      "mips64",
-+	"SCMP_ARCH_MIPS64N32":   "mips64n32",
-+	"SCMP_ARCH_MIPSEL":      "mipsel",
-+	"SCMP_ARCH_MIPSEL64":    "mipsel64",
-+	"SCMP_ARCH_MIPSEL64N32": "mipsel64n32",
-+	"SCMP_ARCH_PPC":         "ppc",
-+	"SCMP_ARCH_PPC64":       "ppc64",
-+	"SCMP_ARCH_PPC64LE":     "ppc64le",
-+	"SCMP_ARCH_S390":        "s390",
-+	"SCMP_ARCH_S390X":       "s390x",
-+}
-+
-+// ConvertStringToOperator converts a string into a Seccomp comparison operator.
-+// Comparison operators use the names they are assigned by Libseccomp's header.
-+// Attempting to convert a string that is not a valid operator results in an
-+// error.
-+func ConvertStringToOperator(in string) (configs.Operator, error) {
-+	if op, ok := operators[in]; ok == true {
-+		return op, nil
-+	}
-+	return 0, fmt.Errorf("string %s is not a valid operator for seccomp", in)
-+}
-+
-+// ConvertStringToAction converts a string into a Seccomp rule match action.
-+// Actions use the names they are assigned in Libseccomp's header, though some
-+// (notable, SCMP_ACT_TRACE) are not available in this implementation and will
-+// return errors.
-+// Attempting to convert a string that is not a valid action results in an
-+// error.
-+func ConvertStringToAction(in string) (configs.Action, error) {
-+	if act, ok := actions[in]; ok == true {
-+		return act, nil
-+	}
-+	return 0, fmt.Errorf("string %s is not a valid action for seccomp", in)
-+}
-+
-+// ConvertStringToArch converts a string into a Seccomp comparison arch.
-+func ConvertStringToArch(in string) (string, error) {
-+	if arch, ok := archs[in]; ok == true {
-+		return arch, nil
-+	}
-+	return "", fmt.Errorf("string %s is not a valid arch for seccomp", in)
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_linux.go b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_linux.go
-new file mode 100644
-index 0000000000..d99f3fe640
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_linux.go
-@@ -0,0 +1,258 @@
-+// +build linux,cgo,seccomp
-+
-+package seccomp
-+
-+import (
-+	"bufio"
-+	"fmt"
-+	"os"
-+	"strings"
-+
-+	"github.com/opencontainers/runc/libcontainer/configs"
-+	libseccomp "github.com/seccomp/libseccomp-golang"
-+
-+	"golang.org/x/sys/unix"
-+)
-+
-+var (
-+	actAllow = libseccomp.ActAllow
-+	actTrap  = libseccomp.ActTrap
-+	actKill  = libseccomp.ActKill
-+	actTrace = libseccomp.ActTrace.SetReturnCode(int16(unix.EPERM))
-+	actErrno = libseccomp.ActErrno.SetReturnCode(int16(unix.EPERM))
-+)
-+
-+const (
-+	// Linux system calls can have at most 6 arguments
-+	syscallMaxArguments int = 6
-+)
-+
-+// Filters given syscalls in a container, preventing them from being used
-+// Started in the container init process, and carried over to all child processes
-+// Setns calls, however, require a separate invocation, as they are not children
-+// of the init until they join the namespace
-+func InitSeccomp(config *configs.Seccomp) error {
-+	if config == nil {
-+		return fmt.Errorf("cannot initialize Seccomp - nil config passed")
-+	}
-+
-+	defaultAction, err := getAction(config.DefaultAction)
-+	if err != nil {
-+		return fmt.Errorf("error initializing seccomp - invalid default action")
-+	}
-+
-+	filter, err := libseccomp.NewFilter(defaultAction)
-+	if err != nil {
-+		return fmt.Errorf("error creating filter: %s", err)
-+	}
-+
-+	// Add extra architectures
-+	for _, arch := range config.Architectures {
-+		scmpArch, err := libseccomp.GetArchFromString(arch)
-+		if err != nil {
-+			return fmt.Errorf("error validating Seccomp architecture: %s", err)
-+		}
-+
-+		if err := filter.AddArch(scmpArch); err != nil {
-+			return fmt.Errorf("error adding architecture to seccomp filter: %s", err)
-+		}
-+	}
-+
-+	// Unset no new privs bit
-+	if err := filter.SetNoNewPrivsBit(false); err != nil {
-+		return fmt.Errorf("error setting no new privileges: %s", err)
-+	}
-+
-+	// Add a rule for each syscall
-+	for _, call := range config.Syscalls {
-+		if call == nil {
-+			return fmt.Errorf("encountered nil syscall while initializing Seccomp")
-+		}
-+
-+		if err = matchCall(filter, call); err != nil {
-+			return err
-+		}
-+	}
-+
-+	if err = filter.Load(); err != nil {
-+		return fmt.Errorf("error loading seccomp filter into kernel: %s", err)
-+	}
-+
-+	return nil
-+}
-+
-+// IsEnabled returns if the kernel has been configured to support seccomp.
-+func IsEnabled() bool {
-+	// Try to read from /proc/self/status for kernels > 3.8
-+	s, err := parseStatusFile("/proc/self/status")
-+	if err != nil {
-+		// Check if Seccomp is supported, via CONFIG_SECCOMP.
-+		if err := unix.Prctl(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != unix.EINVAL {
-+			// Make sure the kernel has CONFIG_SECCOMP_FILTER.
-+			if err := unix.Prctl(unix.PR_SET_SECCOMP, unix.SECCOMP_MODE_FILTER, 0, 0, 0); err != unix.EINVAL {
-+				return true
-+			}
-+		}
-+		return false
-+	}
-+	_, ok := s["Seccomp"]
-+	return ok
-+}
-+
-+// Convert Libcontainer Action to Libseccomp ScmpAction
-+func getAction(act configs.Action) (libseccomp.ScmpAction, error) {
-+	switch act {
-+	case configs.Kill:
-+		return actKill, nil
-+	case configs.Errno:
-+		return actErrno, nil
-+	case configs.Trap:
-+		return actTrap, nil
-+	case configs.Allow:
-+		return actAllow, nil
-+	case configs.Trace:
-+		return actTrace, nil
-+	default:
-+		return libseccomp.ActInvalid, fmt.Errorf("invalid action, cannot use in rule")
-+	}
-+}
-+
-+// Convert Libcontainer Operator to Libseccomp ScmpCompareOp
-+func getOperator(op configs.Operator) (libseccomp.ScmpCompareOp, error) {
-+	switch op {
-+	case configs.EqualTo:
-+		return libseccomp.CompareEqual, nil
-+	case configs.NotEqualTo:
-+		return libseccomp.CompareNotEqual, nil
-+	case configs.GreaterThan:
-+		return libseccomp.CompareGreater, nil
-+	case configs.GreaterThanOrEqualTo:
-+		return libseccomp.CompareGreaterEqual, nil
-+	case configs.LessThan:
-+		return libseccomp.CompareLess, nil
-+	case configs.LessThanOrEqualTo:
-+		return libseccomp.CompareLessOrEqual, nil
-+	case configs.MaskEqualTo:
-+		return libseccomp.CompareMaskedEqual, nil
-+	default:
-+		return libseccomp.CompareInvalid, fmt.Errorf("invalid operator, cannot use in rule")
-+	}
-+}
-+
-+// Convert Libcontainer Arg to Libseccomp ScmpCondition
-+func getCondition(arg *configs.Arg) (libseccomp.ScmpCondition, error) {
-+	cond := libseccomp.ScmpCondition{}
-+
-+	if arg == nil {
-+		return cond, fmt.Errorf("cannot convert nil to syscall condition")
-+	}
-+
-+	op, err := getOperator(arg.Op)
-+	if err != nil {
-+		return cond, err
-+	}
-+
-+	return libseccomp.MakeCondition(arg.Index, op, arg.Value, arg.ValueTwo)
-+}
-+
-+// Add a rule to match a single syscall
-+func matchCall(filter *libseccomp.ScmpFilter, call *configs.Syscall) error {
-+	if call == nil || filter == nil {
-+		return fmt.Errorf("cannot use nil as syscall to block")
-+	}
-+
-+	if len(call.Name) == 0 {
-+		return fmt.Errorf("empty string is not a valid syscall")
-+	}
-+
-+	// If we can't resolve the syscall, assume it's not supported on this kernel
-+	// Ignore it, don't error out
-+	callNum, err := libseccomp.GetSyscallFromName(call.Name)
-+	if err != nil {
-+		return nil
-+	}
-+
-+	// Convert the call's action to the libseccomp equivalent
-+	callAct, err := getAction(call.Action)
-+	if err != nil {
-+		return fmt.Errorf("action in seccomp profile is invalid: %s", err)
-+	}
-+
-+	// Unconditional match - just add the rule
-+	if len(call.Args) == 0 {
-+		if err = filter.AddRule(callNum, callAct); err != nil {
-+			return fmt.Errorf("error adding seccomp filter rule for syscall %s: %s", call.Name, err)
-+		}
-+	} else {
-+		// If two or more arguments have the same condition,
-+		// Revert to old behavior, adding each condition as a separate rule
-+		argCounts := make([]uint, syscallMaxArguments)
-+		conditions := []libseccomp.ScmpCondition{}
-+
-+		for _, cond := range call.Args {
-+			newCond, err := getCondition(cond)
-+			if err != nil {
-+				return fmt.Errorf("error creating seccomp syscall condition for syscall %s: %s", call.Name, err)
-+			}
-+
-+			argCounts[cond.Index] += 1
-+
-+			conditions = append(conditions, newCond)
-+		}
-+
-+		hasMultipleArgs := false
-+		for _, count := range argCounts {
-+			if count > 1 {
-+				hasMultipleArgs = true
-+				break
-+			}
-+		}
-+
-+		if hasMultipleArgs {
-+			// Revert to old behavior
-+			// Add each condition attached to a separate rule
-+			for _, cond := range conditions {
-+				condArr := []libseccomp.ScmpCondition{cond}
-+
-+				if err = filter.AddRuleConditional(callNum, callAct, condArr); err != nil {
-+					return fmt.Errorf("error adding seccomp rule for syscall %s: %s", call.Name, err)
-+				}
-+			}
-+		} else {
-+			// No conditions share same argument
-+			// Use new, proper behavior
-+			if err = filter.AddRuleConditional(callNum, callAct, conditions); err != nil {
-+				return fmt.Errorf("error adding seccomp rule for syscall %s: %s", call.Name, err)
-+			}
-+		}
-+	}
-+
-+	return nil
-+}
-+
-+func parseStatusFile(path string) (map[string]string, error) {
-+	f, err := os.Open(path)
-+	if err != nil {
-+		return nil, err
-+	}
-+	defer f.Close()
-+
-+	s := bufio.NewScanner(f)
-+	status := make(map[string]string)
-+
-+	for s.Scan() {
-+		text := s.Text()
-+		parts := strings.Split(text, ":")
-+
-+		if len(parts) <= 1 {
-+			continue
-+		}
-+
-+		status[parts[0]] = parts[1]
-+	}
-+	if err := s.Err(); err != nil {
-+		return nil, err
-+	}
-+
-+	return status, nil
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_unsupported.go b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_unsupported.go
-new file mode 100644
-index 0000000000..44df1ad4c2
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/seccomp/seccomp_unsupported.go
-@@ -0,0 +1,24 @@
-+// +build !linux !cgo !seccomp
-+
-+package seccomp
-+
-+import (
-+	"errors"
-+
-+	"github.com/opencontainers/runc/libcontainer/configs"
-+)
-+
-+var ErrSeccompNotEnabled = errors.New("seccomp: config provided but seccomp not supported")
-+
-+// InitSeccomp does nothing because seccomp is not supported.
-+func InitSeccomp(config *configs.Seccomp) error {
-+	if config != nil {
-+		return ErrSeccompNotEnabled
-+	}
-+	return nil
-+}
-+
-+// IsEnabled returns false, because it is not supported.
-+func IsEnabled() bool {
-+	return false
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/specconv/example.go b/vendor/github.com/opencontainers/runc/libcontainer/specconv/example.go
-new file mode 100644
-index 0000000000..c113b337f3
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/specconv/example.go
-@@ -0,0 +1,221 @@
-+package specconv
-+
-+import (
-+	"os"
-+	"strings"
-+
-+	"github.com/opencontainers/runtime-spec/specs-go"
-+)
-+
-+// Example returns an example spec file, with many options set so a user can
-+// see what a standard spec file looks like.
-+func Example() *specs.Spec {
-+	return &specs.Spec{
-+		Version: specs.Version,
-+		Root: &specs.Root{
-+			Path:     "rootfs",
-+			Readonly: true,
-+		},
-+		Process: &specs.Process{
-+			Terminal: true,
-+			User:     specs.User{},
-+			Args: []string{
-+				"sh",
-+			},
-+			Env: []string{
-+				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-+				"TERM=xterm",
-+			},
-+			Cwd:             "/",
-+			NoNewPrivileges: true,
-+			Capabilities: &specs.LinuxCapabilities{
-+				Bounding: []string{
-+					"CAP_AUDIT_WRITE",
-+					"CAP_KILL",
-+					"CAP_NET_BIND_SERVICE",
-+				},
-+				Permitted: []string{
-+					"CAP_AUDIT_WRITE",
-+					"CAP_KILL",
-+					"CAP_NET_BIND_SERVICE",
-+				},
-+				Inheritable: []string{
-+					"CAP_AUDIT_WRITE",
-+					"CAP_KILL",
-+					"CAP_NET_BIND_SERVICE",
-+				},
-+				Ambient: []string{
-+					"CAP_AUDIT_WRITE",
-+					"CAP_KILL",
-+					"CAP_NET_BIND_SERVICE",
-+				},
-+				Effective: []string{
-+					"CAP_AUDIT_WRITE",
-+					"CAP_KILL",
-+					"CAP_NET_BIND_SERVICE",
-+				},
-+			},
-+			Rlimits: []specs.POSIXRlimit{
-+				{
-+					Type: "RLIMIT_NOFILE",
-+					Hard: uint64(1024),
-+					Soft: uint64(1024),
-+				},
-+			},
-+		},
-+		Hostname: "runc",
-+		Mounts: []specs.Mount{
-+			{
-+				Destination: "/proc",
-+				Type:        "proc",
-+				Source:      "proc",
-+				Options:     nil,
-+			},
-+			{
-+				Destination: "/dev",
-+				Type:        "tmpfs",
-+				Source:      "tmpfs",
-+				Options:     []string{"nosuid", "strictatime", "mode=755", "size=65536k"},
-+			},
-+			{
-+				Destination: "/dev/pts",
-+				Type:        "devpts",
-+				Source:      "devpts",
-+				Options:     []string{"nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620", "gid=5"},
-+			},
-+			{
-+				Destination: "/dev/shm",
-+				Type:        "tmpfs",
-+				Source:      "shm",
-+				Options:     []string{"nosuid", "noexec", "nodev", "mode=1777", "size=65536k"},
-+			},
-+			{
-+				Destination: "/dev/mqueue",
-+				Type:        "mqueue",
-+				Source:      "mqueue",
-+				Options:     []string{"nosuid", "noexec", "nodev"},
-+			},
-+			{
-+				Destination: "/sys",
-+				Type:        "sysfs",
-+				Source:      "sysfs",
-+				Options:     []string{"nosuid", "noexec", "nodev", "ro"},
-+			},
-+			{
-+				Destination: "/sys/fs/cgroup",
-+				Type:        "cgroup",
-+				Source:      "cgroup",
-+				Options:     []string{"nosuid", "noexec", "nodev", "relatime", "ro"},
-+			},
-+		},
-+		Linux: &specs.Linux{
-+			MaskedPaths: []string{
-+				"/proc/kcore",
-+				"/proc/latency_stats",
-+				"/proc/timer_list",
-+				"/proc/timer_stats",
-+				"/proc/sched_debug",
-+				"/sys/firmware",
-+				"/proc/scsi",
-+			},
-+			ReadonlyPaths: []string{
-+				"/proc/asound",
-+				"/proc/bus",
-+				"/proc/fs",
-+				"/proc/irq",
-+				"/proc/sys",
-+				"/proc/sysrq-trigger",
-+			},
-+			Resources: &specs.LinuxResources{
-+				Devices: []specs.LinuxDeviceCgroup{
-+					{
-+						Allow:  false,
-+						Access: "rwm",
-+					},
-+				},
-+			},
-+			Namespaces: []specs.LinuxNamespace{
-+				{
-+					Type: "pid",
-+				},
-+				{
-+					Type: "network",
-+				},
-+				{
-+					Type: "ipc",
-+				},
-+				{
-+					Type: "uts",
-+				},
-+				{
-+					Type: "mount",
-+				},
-+			},
-+		},
-+	}
-+}
-+
-+// ToRootless converts the given spec file into one that should work with
-+// rootless containers, by removing incompatible options and adding others that
-+// are needed.
-+func ToRootless(spec *specs.Spec) {
-+	var namespaces []specs.LinuxNamespace
-+
-+	// Remove networkns from the spec.
-+	for _, ns := range spec.Linux.Namespaces {
-+		switch ns.Type {
-+		case specs.NetworkNamespace, specs.UserNamespace:
-+			// Do nothing.
-+		default:
-+			namespaces = append(namespaces, ns)
-+		}
-+	}
-+	// Add userns to the spec.
-+	namespaces = append(namespaces, specs.LinuxNamespace{
-+		Type: specs.UserNamespace,
-+	})
-+	spec.Linux.Namespaces = namespaces
-+
-+	// Add mappings for the current user.
-+	spec.Linux.UIDMappings = []specs.LinuxIDMapping{{
-+		HostID:      uint32(os.Geteuid()),
-+		ContainerID: 0,
-+		Size:        1,
-+	}}
-+	spec.Linux.GIDMappings = []specs.LinuxIDMapping{{
-+		HostID:      uint32(os.Getegid()),
-+		ContainerID: 0,
-+		Size:        1,
-+	}}
-+
-+	// Fix up mounts.
-+	var mounts []specs.Mount
-+	for _, mount := range spec.Mounts {
-+		// Ignore all mounts that are under /sys.
-+		if strings.HasPrefix(mount.Destination, "/sys") {
-+			continue
-+		}
-+
-+		// Remove all gid= and uid= mappings.
-+		var options []string
-+		for _, option := range mount.Options {
-+			if !strings.HasPrefix(option, "gid=") && !strings.HasPrefix(option, "uid=") {
-+				options = append(options, option)
-+			}
-+		}
-+
-+		mount.Options = options
-+		mounts = append(mounts, mount)
-+	}
-+	// Add the sysfs mount as an rbind.
-+	mounts = append(mounts, specs.Mount{
-+		Source:      "/sys",
-+		Destination: "/sys",
-+		Type:        "none",
-+		Options:     []string{"rbind", "nosuid", "noexec", "nodev", "ro"},
-+	})
-+	spec.Mounts = mounts
-+
-+	// Remove cgroup settings.
-+	spec.Linux.Resources = nil
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/specconv/spec_linux.go b/vendor/github.com/opencontainers/runc/libcontainer/specconv/spec_linux.go
-new file mode 100644
-index 0000000000..1fb4f224da
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/specconv/spec_linux.go
-@@ -0,0 +1,836 @@
-+// +build linux
-+
-+// Package specconv implements conversion of specifications to libcontainer
-+// configurations
-+package specconv
-+
-+import (
-+	"fmt"
-+	"os"
-+	"path/filepath"
-+	"strings"
-+	"time"
-+
-+	"github.com/opencontainers/runc/libcontainer/configs"
-+	"github.com/opencontainers/runc/libcontainer/seccomp"
-+	libcontainerUtils "github.com/opencontainers/runc/libcontainer/utils"
-+	"github.com/opencontainers/runtime-spec/specs-go"
-+
-+	"golang.org/x/sys/unix"
-+)
-+
-+const wildcard = -1
-+
-+var namespaceMapping = map[specs.LinuxNamespaceType]configs.NamespaceType{
-+	specs.PIDNamespace:     configs.NEWPID,
-+	specs.NetworkNamespace: configs.NEWNET,
-+	specs.MountNamespace:   configs.NEWNS,
-+	specs.UserNamespace:    configs.NEWUSER,
-+	specs.IPCNamespace:     configs.NEWIPC,
-+	specs.UTSNamespace:     configs.NEWUTS,
-+}
-+
-+var mountPropagationMapping = map[string]int{
-+	"rprivate":    unix.MS_PRIVATE | unix.MS_REC,
-+	"private":     unix.MS_PRIVATE,
-+	"rslave":      unix.MS_SLAVE | unix.MS_REC,
-+	"slave":       unix.MS_SLAVE,
-+	"rshared":     unix.MS_SHARED | unix.MS_REC,
-+	"shared":      unix.MS_SHARED,
-+	"runbindable": unix.MS_UNBINDABLE | unix.MS_REC,
-+	"unbindable":  unix.MS_UNBINDABLE,
-+	"":            0,
-+}
-+
-+var allowedDevices = []*configs.Device{
-+	// allow mknod for any device
-+	{
-+		Type:        'c',
-+		Major:       wildcard,
-+		Minor:       wildcard,
-+		Permissions: "m",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'b',
-+		Major:       wildcard,
-+		Minor:       wildcard,
-+		Permissions: "m",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/null",
-+		Major:       1,
-+		Minor:       3,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/random",
-+		Major:       1,
-+		Minor:       8,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/full",
-+		Major:       1,
-+		Minor:       7,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/tty",
-+		Major:       5,
-+		Minor:       0,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/zero",
-+		Major:       1,
-+		Minor:       5,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Type:        'c',
-+		Path:        "/dev/urandom",
-+		Major:       1,
-+		Minor:       9,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Path:        "/dev/console",
-+		Type:        'c',
-+		Major:       5,
-+		Minor:       1,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	// /dev/pts/ - pts namespaces are "coming soon"
-+	{
-+		Path:        "",
-+		Type:        'c',
-+		Major:       136,
-+		Minor:       wildcard,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	{
-+		Path:        "",
-+		Type:        'c',
-+		Major:       5,
-+		Minor:       2,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+	// tuntap
-+	{
-+		Path:        "",
-+		Type:        'c',
-+		Major:       10,
-+		Minor:       200,
-+		Permissions: "rwm",
-+		Allow:       true,
-+	},
-+}
-+
-+type CreateOpts struct {
-+	CgroupName       string
-+	UseSystemdCgroup bool
-+	NoPivotRoot      bool
-+	NoNewKeyring     bool
-+	Spec             *specs.Spec
-+	Rootless         bool
-+}
-+
-+// CreateLibcontainerConfig creates a new libcontainer configuration from a
-+// given specification and a cgroup name
-+func CreateLibcontainerConfig(opts *CreateOpts) (*configs.Config, error) {
-+	// runc's cwd will always be the bundle path
-+	rcwd, err := os.Getwd()
-+	if err != nil {
-+		return nil, err
-+	}
-+	cwd, err := filepath.Abs(rcwd)
-+	if err != nil {
-+		return nil, err
-+	}
-+	spec := opts.Spec
-+	if spec.Root == nil {
-+		return nil, fmt.Errorf("Root must be specified")
-+	}
-+	rootfsPath := spec.Root.Path
-+	if !filepath.IsAbs(rootfsPath) {
-+		rootfsPath = filepath.Join(cwd, rootfsPath)
-+	}
-+	labels := []string{}
-+	for k, v := range spec.Annotations {
-+		labels = append(labels, fmt.Sprintf("%s=%s", k, v))
-+	}
-+	config := &configs.Config{
-+		Rootfs:       rootfsPath,
-+		NoPivotRoot:  opts.NoPivotRoot,
-+		Readonlyfs:   spec.Root.Readonly,
-+		Hostname:     spec.Hostname,
-+		Labels:       append(labels, fmt.Sprintf("bundle=%s", cwd)),
-+		NoNewKeyring: opts.NoNewKeyring,
-+		Rootless:     opts.Rootless,
-+	}
-+
-+	exists := false
-+	for _, m := range spec.Mounts {
-+		config.Mounts = append(config.Mounts, createLibcontainerMount(cwd, m))
-+	}
-+	if err := createDevices(spec, config); err != nil {
-+		return nil, err
-+	}
-+	c, err := createCgroupConfig(opts)
-+	if err != nil {
-+		return nil, err
-+	}
-+	config.Cgroups = c
-+	// set linux-specific config
-+	if spec.Linux != nil {
-+		if config.RootPropagation, exists = mountPropagationMapping[spec.Linux.RootfsPropagation]; !exists {
-+			return nil, fmt.Errorf("rootfsPropagation=%v is not supported", spec.Linux.RootfsPropagation)
-+		}
-+		if config.NoPivotRoot && (config.RootPropagation&unix.MS_PRIVATE != 0) {
-+			return nil, fmt.Errorf("rootfsPropagation of [r]private is not safe without pivot_root")
-+		}
-+
-+		for _, ns := range spec.Linux.Namespaces {
-+			t, exists := namespaceMapping[ns.Type]
-+			if !exists {
-+				return nil, fmt.Errorf("namespace %q does not exist", ns)
-+			}
-+			if config.Namespaces.Contains(t) {
-+				return nil, fmt.Errorf("malformed spec file: duplicated ns %q", ns)
-+			}
-+			config.Namespaces.Add(t, ns.Path)
-+		}
-+		if config.Namespaces.Contains(configs.NEWNET) && config.Namespaces.PathOf(configs.NEWNET) == "" {
-+			config.Networks = []*configs.Network{
-+				{
-+					Type: "loopback",
-+				},
-+			}
-+		}
-+		if config.Namespaces.Contains(configs.NEWUSER) {
-+			if err := setupUserNamespace(spec, config); err != nil {
-+				return nil, err
-+			}
-+		}
-+		config.MaskPaths = spec.Linux.MaskedPaths
-+		config.ReadonlyPaths = spec.Linux.ReadonlyPaths
-+		config.MountLabel = spec.Linux.MountLabel
-+		config.Sysctl = spec.Linux.Sysctl
-+		if spec.Linux.Seccomp != nil {
-+			seccomp, err := SetupSeccomp(spec.Linux.Seccomp)
-+			if err != nil {
-+				return nil, err
-+			}
-+			config.Seccomp = seccomp
-+		}
-+	}
-+	if spec.Process.SelinuxLabel != "" {
-+		config.ProcessLabel = spec.Process.SelinuxLabel
-+	}
-+	if spec.Process != nil {
-+		config.OomScoreAdj = spec.Process.OOMScoreAdj
-+	}
-+	if spec.Process.Capabilities != nil {
-+		config.Capabilities = &configs.Capabilities{
-+			Bounding:    spec.Process.Capabilities.Bounding,
-+			Effective:   spec.Process.Capabilities.Effective,
-+			Permitted:   spec.Process.Capabilities.Permitted,
-+			Inheritable: spec.Process.Capabilities.Inheritable,
-+			Ambient:     spec.Process.Capabilities.Ambient,
-+		}
-+	}
-+	createHooks(spec, config)
-+	config.Version = specs.Version
-+	if spec.Linux.IntelRdt != nil {
-+		config.IntelRdt = &configs.IntelRdt{}
-+		if spec.Linux.IntelRdt.L3CacheSchema != "" {
-+			config.IntelRdt.L3CacheSchema = spec.Linux.IntelRdt.L3CacheSchema
-+		}
-+	}
-+	return config, nil
-+}
-+
-+func createLibcontainerMount(cwd string, m specs.Mount) *configs.Mount {
-+	flags, pgflags, data, ext := parseMountOptions(m.Options)
-+	source := m.Source
-+	device := m.Type
-+	if flags|unix.MS_BIND != 0 {
-+		if device == "" {
-+			device = "bind"
-+		}
-+		if !filepath.IsAbs(source) {
-+			source = filepath.Join(cwd, m.Source)
-+		}
-+	}
-+	return &configs.Mount{
-+		Device:           device,
-+		Source:           source,
-+		Destination:      m.Destination,
-+		Data:             data,
-+		Flags:            flags,
-+		PropagationFlags: pgflags,
-+		Extensions:       ext,
-+	}
-+}
-+
-+func createCgroupConfig(opts *CreateOpts) (*configs.Cgroup, error) {
-+	var (
-+		myCgroupPath string
-+
-+		spec             = opts.Spec
-+		useSystemdCgroup = opts.UseSystemdCgroup
-+		name             = opts.CgroupName
-+	)
-+
-+	c := &configs.Cgroup{
-+		Resources: &configs.Resources{},
-+	}
-+
-+	if spec.Linux != nil && spec.Linux.CgroupsPath != "" {
-+		myCgroupPath = libcontainerUtils.CleanPath(spec.Linux.CgroupsPath)
-+		if useSystemdCgroup {
-+			myCgroupPath = spec.Linux.CgroupsPath
-+		}
-+	}
-+
-+	if useSystemdCgroup {
-+		if myCgroupPath == "" {
-+			c.Parent = "system.slice"
-+			c.ScopePrefix = "runc"
-+			c.Name = name
-+		} else {
-+			// Parse the path from expected "slice:prefix:name"
-+			// for e.g. "system.slice:docker:1234"
-+			parts := strings.Split(myCgroupPath, ":")
-+			if len(parts) != 3 {
-+				return nil, fmt.Errorf("expected cgroupsPath to be of format \"slice:prefix:name\" for systemd cgroups")
-+			}
-+			c.Parent = parts[0]
-+			c.ScopePrefix = parts[1]
-+			c.Name = parts[2]
-+		}
-+	} else {
-+		if myCgroupPath == "" {
-+			c.Name = name
-+		}
-+		c.Path = myCgroupPath
-+	}
-+
-+	// In rootless containers, any attempt to make cgroup changes will fail.
-+	// libcontainer will validate this and we shouldn't add any cgroup options
-+	// the user didn't specify.
-+	if !opts.Rootless {
-+		c.Resources.AllowedDevices = allowedDevices
-+	}
-+	if spec.Linux != nil {
-+		r := spec.Linux.Resources
-+		if r == nil {
-+			return c, nil
-+		}
-+		for i, d := range spec.Linux.Resources.Devices {
-+			var (
-+				t     = "a"
-+				major = int64(-1)
-+				minor = int64(-1)
-+			)
-+			if d.Type != "" {
-+				t = d.Type
-+			}
-+			if d.Major != nil {
-+				major = *d.Major
-+			}
-+			if d.Minor != nil {
-+				minor = *d.Minor
-+			}
-+			if d.Access == "" {
-+				return nil, fmt.Errorf("device access at %d field cannot be empty", i)
-+			}
-+			dt, err := stringToCgroupDeviceRune(t)
-+			if err != nil {
-+				return nil, err
-+			}
-+			dd := &configs.Device{
-+				Type:        dt,
-+				Major:       major,
-+				Minor:       minor,
-+				Permissions: d.Access,
-+				Allow:       d.Allow,
-+			}
-+			c.Resources.Devices = append(c.Resources.Devices, dd)
-+		}
-+		if r.Memory != nil {
-+			if r.Memory.Limit != nil {
-+				c.Resources.Memory = *r.Memory.Limit
-+			}
-+			if r.Memory.Reservation != nil {
-+				c.Resources.MemoryReservation = *r.Memory.Reservation
-+			}
-+			if r.Memory.Swap != nil {
-+				c.Resources.MemorySwap = *r.Memory.Swap
-+			}
-+			if r.Memory.Kernel != nil {
-+				c.Resources.KernelMemory = *r.Memory.Kernel
-+			}
-+			if r.Memory.KernelTCP != nil {
-+				c.Resources.KernelMemoryTCP = *r.Memory.KernelTCP
-+			}
-+			if r.Memory.Swappiness != nil {
-+				c.Resources.MemorySwappiness = r.Memory.Swappiness
-+			}
-+			if r.Memory.DisableOOMKiller != nil {
-+				c.Resources.OomKillDisable = *r.Memory.DisableOOMKiller
-+			}
-+		}
-+		if r.CPU != nil {
-+			if r.CPU.Shares != nil {
-+				c.Resources.CpuShares = *r.CPU.Shares
-+			}
-+			if r.CPU.Quota != nil {
-+				c.Resources.CpuQuota = *r.CPU.Quota
-+			}
-+			if r.CPU.Period != nil {
-+				c.Resources.CpuPeriod = *r.CPU.Period
-+			}
-+			if r.CPU.RealtimeRuntime != nil {
-+				c.Resources.CpuRtRuntime = *r.CPU.RealtimeRuntime
-+			}
-+			if r.CPU.RealtimePeriod != nil {
-+				c.Resources.CpuRtPeriod = *r.CPU.RealtimePeriod
-+			}
-+			if r.CPU.Cpus != "" {
-+				c.Resources.CpusetCpus = r.CPU.Cpus
-+			}
-+			if r.CPU.Mems != "" {
-+				c.Resources.CpusetMems = r.CPU.Mems
-+			}
-+		}
-+		if r.Pids != nil {
-+			c.Resources.PidsLimit = r.Pids.Limit
-+		}
-+		if r.BlockIO != nil {
-+			if r.BlockIO.Weight != nil {
-+				c.Resources.BlkioWeight = *r.BlockIO.Weight
-+			}
-+			if r.BlockIO.LeafWeight != nil {
-+				c.Resources.BlkioLeafWeight = *r.BlockIO.LeafWeight
-+			}
-+			if r.BlockIO.WeightDevice != nil {
-+				for _, wd := range r.BlockIO.WeightDevice {
-+					var weight, leafWeight uint16
-+					if wd.Weight != nil {
-+						weight = *wd.Weight
-+					}
-+					if wd.LeafWeight != nil {
-+						leafWeight = *wd.LeafWeight
-+					}
-+					weightDevice := configs.NewWeightDevice(wd.Major, wd.Minor, weight, leafWeight)
-+					c.Resources.BlkioWeightDevice = append(c.Resources.BlkioWeightDevice, weightDevice)
-+				}
-+			}
-+			if r.BlockIO.ThrottleReadBpsDevice != nil {
-+				for _, td := range r.BlockIO.ThrottleReadBpsDevice {
-+					rate := td.Rate
-+					throttleDevice := configs.NewThrottleDevice(td.Major, td.Minor, rate)
-+					c.Resources.BlkioThrottleReadBpsDevice = append(c.Resources.BlkioThrottleReadBpsDevice, throttleDevice)
-+				}
-+			}
-+			if r.BlockIO.ThrottleWriteBpsDevice != nil {
-+				for _, td := range r.BlockIO.ThrottleWriteBpsDevice {
-+					rate := td.Rate
-+					throttleDevice := configs.NewThrottleDevice(td.Major, td.Minor, rate)
-+					c.Resources.BlkioThrottleWriteBpsDevice = append(c.Resources.BlkioThrottleWriteBpsDevice, throttleDevice)
-+				}
-+			}
-+			if r.BlockIO.ThrottleReadIOPSDevice != nil {
-+				for _, td := range r.BlockIO.ThrottleReadIOPSDevice {
-+					rate := td.Rate
-+					throttleDevice := configs.NewThrottleDevice(td.Major, td.Minor, rate)
-+					c.Resources.BlkioThrottleReadIOPSDevice = append(c.Resources.BlkioThrottleReadIOPSDevice, throttleDevice)
-+				}
-+			}
-+			if r.BlockIO.ThrottleWriteIOPSDevice != nil {
-+				for _, td := range r.BlockIO.ThrottleWriteIOPSDevice {
-+					rate := td.Rate
-+					throttleDevice := configs.NewThrottleDevice(td.Major, td.Minor, rate)
-+					c.Resources.BlkioThrottleWriteIOPSDevice = append(c.Resources.BlkioThrottleWriteIOPSDevice, throttleDevice)
-+				}
-+			}
-+		}
-+		for _, l := range r.HugepageLimits {
-+			c.Resources.HugetlbLimit = append(c.Resources.HugetlbLimit, &configs.HugepageLimit{
-+				Pagesize: l.Pagesize,
-+				Limit:    l.Limit,
-+			})
-+		}
-+		if r.Network != nil {
-+			if r.Network.ClassID != nil {
-+				c.Resources.NetClsClassid = *r.Network.ClassID
-+			}
-+			for _, m := range r.Network.Priorities {
-+				c.Resources.NetPrioIfpriomap = append(c.Resources.NetPrioIfpriomap, &configs.IfPrioMap{
-+					Interface: m.Name,
-+					Priority:  int64(m.Priority),
-+				})
-+			}
-+		}
-+	}
-+	if !opts.Rootless {
-+		// append the default allowed devices to the end of the list
-+		c.Resources.Devices = append(c.Resources.Devices, allowedDevices...)
-+	}
-+	return c, nil
-+}
-+
-+func stringToCgroupDeviceRune(s string) (rune, error) {
-+	switch s {
-+	case "a":
-+		return 'a', nil
-+	case "b":
-+		return 'b', nil
-+	case "c":
-+		return 'c', nil
-+	default:
-+		return 0, fmt.Errorf("invalid cgroup device type %q", s)
-+	}
-+}
-+
-+func stringToDeviceRune(s string) (rune, error) {
-+	switch s {
-+	case "p":
-+		return 'p', nil
-+	case "u":
-+		return 'u', nil
-+	case "b":
-+		return 'b', nil
-+	case "c":
-+		return 'c', nil
-+	default:
-+		return 0, fmt.Errorf("invalid device type %q", s)
-+	}
-+}
-+
-+func createDevices(spec *specs.Spec, config *configs.Config) error {
-+	// add whitelisted devices
-+	config.Devices = []*configs.Device{
-+		{
-+			Type:     'c',
-+			Path:     "/dev/null",
-+			Major:    1,
-+			Minor:    3,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+		{
-+			Type:     'c',
-+			Path:     "/dev/random",
-+			Major:    1,
-+			Minor:    8,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+		{
-+			Type:     'c',
-+			Path:     "/dev/full",
-+			Major:    1,
-+			Minor:    7,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+		{
-+			Type:     'c',
-+			Path:     "/dev/tty",
-+			Major:    5,
-+			Minor:    0,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+		{
-+			Type:     'c',
-+			Path:     "/dev/zero",
-+			Major:    1,
-+			Minor:    5,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+		{
-+			Type:     'c',
-+			Path:     "/dev/urandom",
-+			Major:    1,
-+			Minor:    9,
-+			FileMode: 0666,
-+			Uid:      0,
-+			Gid:      0,
-+		},
-+	}
-+	// merge in additional devices from the spec
-+	if spec.Linux != nil {
-+		for _, d := range spec.Linux.Devices {
-+			var uid, gid uint32
-+			var filemode os.FileMode = 0666
-+
-+			if d.UID != nil {
-+				uid = *d.UID
-+			}
-+			if d.GID != nil {
-+				gid = *d.GID
-+			}
-+			dt, err := stringToDeviceRune(d.Type)
-+			if err != nil {
-+				return err
-+			}
-+			if d.FileMode != nil {
-+				filemode = *d.FileMode
-+			}
-+			device := &configs.Device{
-+				Type:     dt,
-+				Path:     d.Path,
-+				Major:    d.Major,
-+				Minor:    d.Minor,
-+				FileMode: filemode,
-+				Uid:      uid,
-+				Gid:      gid,
-+			}
-+			config.Devices = append(config.Devices, device)
-+		}
-+	}
-+	return nil
-+}
-+
-+func setupUserNamespace(spec *specs.Spec, config *configs.Config) error {
-+	create := func(m specs.LinuxIDMapping) configs.IDMap {
-+		return configs.IDMap{
-+			HostID:      int(m.HostID),
-+			ContainerID: int(m.ContainerID),
-+			Size:        int(m.Size),
-+		}
-+	}
-+	if spec.Linux != nil {
-+		for _, m := range spec.Linux.UIDMappings {
-+			config.UidMappings = append(config.UidMappings, create(m))
-+		}
-+		for _, m := range spec.Linux.GIDMappings {
-+			config.GidMappings = append(config.GidMappings, create(m))
-+		}
-+	}
-+	rootUID, err := config.HostRootUID()
-+	if err != nil {
-+		return err
-+	}
-+	rootGID, err := config.HostRootGID()
-+	if err != nil {
-+		return err
-+	}
-+	for _, node := range config.Devices {
-+		node.Uid = uint32(rootUID)
-+		node.Gid = uint32(rootGID)
-+	}
-+	return nil
-+}
-+
-+// parseMountOptions parses the string and returns the flags, propagation
-+// flags and any mount data that it contains.
-+func parseMountOptions(options []string) (int, []int, string, int) {
-+	var (
-+		flag     int
-+		pgflag   []int
-+		data     []string
-+		extFlags int
-+	)
-+	flags := map[string]struct {
-+		clear bool
-+		flag  int
-+	}{
-+		"acl":           {false, unix.MS_POSIXACL},
-+		"async":         {true, unix.MS_SYNCHRONOUS},
-+		"atime":         {true, unix.MS_NOATIME},
-+		"bind":          {false, unix.MS_BIND},
-+		"defaults":      {false, 0},
-+		"dev":           {true, unix.MS_NODEV},
-+		"diratime":      {true, unix.MS_NODIRATIME},
-+		"dirsync":       {false, unix.MS_DIRSYNC},
-+		"exec":          {true, unix.MS_NOEXEC},
-+		"iversion":      {false, unix.MS_I_VERSION},
-+		"lazytime":      {false, unix.MS_LAZYTIME},
-+		"loud":          {true, unix.MS_SILENT},
-+		"mand":          {false, unix.MS_MANDLOCK},
-+		"noacl":         {true, unix.MS_POSIXACL},
-+		"noatime":       {false, unix.MS_NOATIME},
-+		"nodev":         {false, unix.MS_NODEV},
-+		"nodiratime":    {false, unix.MS_NODIRATIME},
-+		"noexec":        {false, unix.MS_NOEXEC},
-+		"noiversion":    {true, unix.MS_I_VERSION},
-+		"nolazytime":    {true, unix.MS_LAZYTIME},
-+		"nomand":        {true, unix.MS_MANDLOCK},
-+		"norelatime":    {true, unix.MS_RELATIME},
-+		"nostrictatime": {true, unix.MS_STRICTATIME},
-+		"nosuid":        {false, unix.MS_NOSUID},
-+		"rbind":         {false, unix.MS_BIND | unix.MS_REC},
-+		"relatime":      {false, unix.MS_RELATIME},
-+		"remount":       {false, unix.MS_REMOUNT},
-+		"ro":            {false, unix.MS_RDONLY},
-+		"rw":            {true, unix.MS_RDONLY},
-+		"silent":        {false, unix.MS_SILENT},
-+		"strictatime":   {false, unix.MS_STRICTATIME},
-+		"suid":          {true, unix.MS_NOSUID},
-+		"sync":          {false, unix.MS_SYNCHRONOUS},
-+	}
-+	propagationFlags := map[string]int{
-+		"private":     unix.MS_PRIVATE,
-+		"shared":      unix.MS_SHARED,
-+		"slave":       unix.MS_SLAVE,
-+		"unbindable":  unix.MS_UNBINDABLE,
-+		"rprivate":    unix.MS_PRIVATE | unix.MS_REC,
-+		"rshared":     unix.MS_SHARED | unix.MS_REC,
-+		"rslave":      unix.MS_SLAVE | unix.MS_REC,
-+		"runbindable": unix.MS_UNBINDABLE | unix.MS_REC,
-+	}
-+	extensionFlags := map[string]struct {
-+		clear bool
-+		flag  int
-+	}{
-+		"tmpcopyup": {false, configs.EXT_COPYUP},
-+	}
-+	for _, o := range options {
-+		// If the option does not exist in the flags table or the flag
-+		// is not supported on the platform,
-+		// then it is a data value for a specific fs type
-+		if f, exists := flags[o]; exists && f.flag != 0 {
-+			if f.clear {
-+				flag &= ^f.flag
-+			} else {
-+				flag |= f.flag
-+			}
-+		} else if f, exists := propagationFlags[o]; exists && f != 0 {
-+			pgflag = append(pgflag, f)
-+		} else if f, exists := extensionFlags[o]; exists && f.flag != 0 {
-+			if f.clear {
-+				extFlags &= ^f.flag
-+			} else {
-+				extFlags |= f.flag
-+			}
-+		} else {
-+			data = append(data, o)
-+		}
-+	}
-+	return flag, pgflag, strings.Join(data, ","), extFlags
-+}
-+
-+func SetupSeccomp(config *specs.LinuxSeccomp) (*configs.Seccomp, error) {
-+	if config == nil {
-+		return nil, nil
-+	}
-+
-+	// No default action specified, no syscalls listed, assume seccomp disabled
-+	if config.DefaultAction == "" && len(config.Syscalls) == 0 {
-+		return nil, nil
-+	}
-+
-+	newConfig := new(configs.Seccomp)
-+	newConfig.Syscalls = []*configs.Syscall{}
-+
-+	if len(config.Architectures) > 0 {
-+		newConfig.Architectures = []string{}
-+		for _, arch := range config.Architectures {
-+			newArch, err := seccomp.ConvertStringToArch(string(arch))
-+			if err != nil {
-+				return nil, err
-+			}
-+			newConfig.Architectures = append(newConfig.Architectures, newArch)
-+		}
-+	}
-+
-+	// Convert default action from string representation
-+	newDefaultAction, err := seccomp.ConvertStringToAction(string(config.DefaultAction))
-+	if err != nil {
-+		return nil, err
-+	}
-+	newConfig.DefaultAction = newDefaultAction
-+
-+	// Loop through all syscall blocks and convert them to libcontainer format
-+	for _, call := range config.Syscalls {
-+		newAction, err := seccomp.ConvertStringToAction(string(call.Action))
-+		if err != nil {
-+			return nil, err
-+		}
-+
-+		for _, name := range call.Names {
-+			newCall := configs.Syscall{
-+				Name:   name,
-+				Action: newAction,
-+				Args:   []*configs.Arg{},
-+			}
-+			// Loop through all the arguments of the syscall and convert them
-+			for _, arg := range call.Args {
-+				newOp, err := seccomp.ConvertStringToOperator(string(arg.Op))
-+				if err != nil {
-+					return nil, err
-+				}
-+
-+				newArg := configs.Arg{
-+					Index:    arg.Index,
-+					Value:    arg.Value,
-+					ValueTwo: arg.ValueTwo,
-+					Op:       newOp,
-+				}
-+
-+				newCall.Args = append(newCall.Args, &newArg)
-+			}
-+			newConfig.Syscalls = append(newConfig.Syscalls, &newCall)
-+		}
-+	}
-+
-+	return newConfig, nil
-+}
-+
-+func createHooks(rspec *specs.Spec, config *configs.Config) {
-+	config.Hooks = &configs.Hooks{}
-+	if rspec.Hooks != nil {
-+
-+		for _, h := range rspec.Hooks.Prestart {
-+			cmd := createCommandHook(h)
-+			config.Hooks.Prestart = append(config.Hooks.Prestart, configs.NewCommandHook(cmd))
-+		}
-+		for _, h := range rspec.Hooks.Poststart {
-+			cmd := createCommandHook(h)
-+			config.Hooks.Poststart = append(config.Hooks.Poststart, configs.NewCommandHook(cmd))
-+		}
-+		for _, h := range rspec.Hooks.Poststop {
-+			cmd := createCommandHook(h)
-+			config.Hooks.Poststop = append(config.Hooks.Poststop, configs.NewCommandHook(cmd))
-+		}
-+	}
-+}
-+
-+func createCommandHook(h specs.Hook) configs.Command {
-+	cmd := configs.Command{
-+		Path: h.Path,
-+		Args: h.Args,
-+		Env:  h.Env,
-+	}
-+	if h.Timeout != nil {
-+		d := time.Duration(*h.Timeout) * time.Second
-+		cmd.Timeout = &d
-+	}
-+	return cmd
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/utils/cmsg.go b/vendor/github.com/opencontainers/runc/libcontainer/utils/cmsg.go
-new file mode 100644
-index 0000000000..c8a9364d54
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/utils/cmsg.go
-@@ -0,0 +1,93 @@
-+// +build linux
-+
-+package utils
-+
-+/*
-+ * Copyright 2016, 2017 SUSE LLC
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ *     http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
-+import (
-+	"fmt"
-+	"os"
-+
-+	"golang.org/x/sys/unix"
-+)
-+
-+// MaxSendfdLen is the maximum length of the name of a file descriptor being
-+// sent using SendFd. The name of the file handle returned by RecvFd will never
-+// be larger than this value.
-+const MaxNameLen = 4096
-+
-+// oobSpace is the size of the oob slice required to store a single FD. Note
-+// that unix.UnixRights appears to make the assumption that fd is always int32,
-+// so sizeof(fd) = 4.
-+var oobSpace = unix.CmsgSpace(4)
-+
-+// RecvFd waits for a file descriptor to be sent over the given AF_UNIX
-+// socket. The file name of the remote file descriptor will be recreated
-+// locally (it is sent as non-auxiliary data in the same payload).
-+func RecvFd(socket *os.File) (*os.File, error) {
-+	// For some reason, unix.Recvmsg uses the length rather than the capacity
-+	// when passing the msg_controllen and other attributes to recvmsg.  So we
-+	// have to actually set the length.
-+	name := make([]byte, MaxNameLen)
-+	oob := make([]byte, oobSpace)
-+
-+	sockfd := socket.Fd()
-+	n, oobn, _, _, err := unix.Recvmsg(int(sockfd), name, oob, 0)
-+	if err != nil {
-+		return nil, err
-+	}
-+
-+	if n >= MaxNameLen || oobn != oobSpace {
-+		return nil, fmt.Errorf("recvfd: incorrect number of bytes read (n=%d oobn=%d)", n, oobn)
-+	}
-+
-+	// Truncate.
-+	name = name[:n]
-+	oob = oob[:oobn]
-+
-+	scms, err := unix.ParseSocketControlMessage(oob)
-+	if err != nil {
-+		return nil, err
-+	}
-+	if len(scms) != 1 {
-+		return nil, fmt.Errorf("recvfd: number of SCMs is not 1: %d", len(scms))
-+	}
-+	scm := scms[0]
-+
-+	fds, err := unix.ParseUnixRights(&scm)
-+	if err != nil {
-+		return nil, err
-+	}
-+	if len(fds) != 1 {
-+		return nil, fmt.Errorf("recvfd: number of fds is not 1: %d", len(fds))
-+	}
-+	fd := uintptr(fds[0])
-+
-+	return os.NewFile(fd, string(name)), nil
-+}
-+
-+// SendFd sends a file descriptor over the given AF_UNIX socket. In
-+// addition, the file.Name() of the given file will also be sent as
-+// non-auxiliary data in the same payload (allowing to send contextual
-+// information for a file descriptor).
-+func SendFd(socket *os.File, name string, fd uintptr) error {
-+	if len(name) >= MaxNameLen {
-+		return fmt.Errorf("sendfd: filename too long: %s", name)
-+	}
-+	oob := unix.UnixRights(int(fd))
-+	return unix.Sendmsg(int(socket.Fd()), []byte(name), oob, nil, 0)
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/utils/utils.go b/vendor/github.com/opencontainers/runc/libcontainer/utils/utils.go
-new file mode 100644
-index 0000000000..baa54c9ba2
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/utils/utils.go
-@@ -0,0 +1,127 @@
-+package utils
-+
-+import (
-+	"crypto/rand"
-+	"encoding/hex"
-+	"encoding/json"
-+	"io"
-+	"os"
-+	"path/filepath"
-+	"strings"
-+	"unsafe"
-+
-+	"golang.org/x/sys/unix"
-+)
-+
-+const (
-+	exitSignalOffset = 128
-+)
-+
-+// GenerateRandomName returns a new name joined with a prefix.  This size
-+// specified is used to truncate the randomly generated value
-+func GenerateRandomName(prefix string, size int) (string, error) {
-+	id := make([]byte, 32)
-+	if _, err := io.ReadFull(rand.Reader, id); err != nil {
-+		return "", err
-+	}
-+	if size > 64 {
-+		size = 64
-+	}
-+	return prefix + hex.EncodeToString(id)[:size], nil
-+}
-+
-+// ResolveRootfs ensures that the current working directory is
-+// not a symlink and returns the absolute path to the rootfs
-+func ResolveRootfs(uncleanRootfs string) (string, error) {
-+	rootfs, err := filepath.Abs(uncleanRootfs)
-+	if err != nil {
-+		return "", err
-+	}
-+	return filepath.EvalSymlinks(rootfs)
-+}
-+
-+// ExitStatus returns the correct exit status for a process based on if it
-+// was signaled or exited cleanly
-+func ExitStatus(status unix.WaitStatus) int {
-+	if status.Signaled() {
-+		return exitSignalOffset + int(status.Signal())
-+	}
-+	return status.ExitStatus()
-+}
-+
-+// WriteJSON writes the provided struct v to w using standard json marshaling
-+func WriteJSON(w io.Writer, v interface{}) error {
-+	data, err := json.Marshal(v)
-+	if err != nil {
-+		return err
-+	}
-+	_, err = w.Write(data)
-+	return err
-+}
-+
-+// CleanPath makes a path safe for use with filepath.Join. This is done by not
-+// only cleaning the path, but also (if the path is relative) adding a leading
-+// '/' and cleaning it (then removing the leading '/'). This ensures that a
-+// path resulting from prepending another path will always resolve to lexically
-+// be a subdirectory of the prefixed path. This is all done lexically, so paths
-+// that include symlinks won't be safe as a result of using CleanPath.
-+func CleanPath(path string) string {
-+	// Deal with empty strings nicely.
-+	if path == "" {
-+		return ""
-+	}
-+
-+	// Ensure that all paths are cleaned (especially problematic ones like
-+	// "/../../../../../" which can cause lots of issues).
-+	path = filepath.Clean(path)
-+
-+	// If the path isn't absolute, we need to do more processing to fix paths
-+	// such as "../../../../<etc>/some/path". We also shouldn't convert absolute
-+	// paths to relative ones.
-+	if !filepath.IsAbs(path) {
-+		path = filepath.Clean(string(os.PathSeparator) + path)
-+		// This can't fail, as (by definition) all paths are relative to root.
-+		path, _ = filepath.Rel(string(os.PathSeparator), path)
-+	}
-+
-+	// Clean the path again for good measure.
-+	return filepath.Clean(path)
-+}
-+
-+// SearchLabels searches a list of key-value pairs for the provided key and
-+// returns the corresponding value. The pairs must be separated with '='.
-+func SearchLabels(labels []string, query string) string {
-+	for _, l := range labels {
-+		parts := strings.SplitN(l, "=", 2)
-+		if len(parts) < 2 {
-+			continue
-+		}
-+		if parts[0] == query {
-+			return parts[1]
-+		}
-+	}
-+	return ""
-+}
-+
-+// Annotations returns the bundle path and user defined annotations from the
-+// libcontainer state.  We need to remove the bundle because that is a label
-+// added by libcontainer.
-+func Annotations(labels []string) (bundle string, userAnnotations map[string]string) {
-+	userAnnotations = make(map[string]string)
-+	for _, l := range labels {
-+		parts := strings.SplitN(l, "=", 2)
-+		if len(parts) < 2 {
-+			continue
-+		}
-+		if parts[0] == "bundle" {
-+			bundle = parts[1]
-+		} else {
-+			userAnnotations[parts[0]] = parts[1]
-+		}
-+	}
-+	return
-+}
-+
-+func GetIntSize() int {
-+	return int(unsafe.Sizeof(1))
-+}
-diff --git a/vendor/github.com/opencontainers/runc/libcontainer/utils/utils_unix.go b/vendor/github.com/opencontainers/runc/libcontainer/utils/utils_unix.go
-new file mode 100644
-index 0000000000..c96088988a
---- /dev/null
-+++ b/vendor/github.com/opencontainers/runc/libcontainer/utils/utils_unix.go
-@@ -0,0 +1,44 @@
-+// +build !windows
-+
-+package utils
-+
-+import (
-+	"io/ioutil"
-+	"os"
-+	"strconv"
-+
-+	"golang.org/x/sys/unix"
-+)
-+
-+func CloseExecFrom(minFd int) error {
-+	fdList, err := ioutil.ReadDir("/proc/self/fd")
-+	if err != nil {
-+		return err
-+	}
-+	for _, fi := range fdList {
-+		fd, err := strconv.Atoi(fi.Name())
-+		if err != nil {
-+			// ignore non-numeric file names
-+			continue
-+		}
-+
-+		if fd < minFd {
-+			// ignore descriptors lower than our specified minimum
-+			continue
-+		}
-+
-+		// intentionally ignore errors from unix.CloseOnExec
-+		unix.CloseOnExec(fd)
-+		// the cases where this might fail are basically file descriptors that have already been closed (including and especially the one that was created when ioutil.ReadDir did the "opendir" syscall)
-+	}
-+	return nil
-+}
-+
-+// NewSockPair returns a new unix socket pair
-+func NewSockPair(name string) (parent *os.File, child *os.File, err error) {
-+	fds, err := unix.Socketpair(unix.AF_LOCAL, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
-+	if err != nil {
-+		return nil, nil, err
-+	}
-+	return os.NewFile(uintptr(fds[1]), name+"-p"), os.NewFile(uintptr(fds[0]), name+"-c"), nil
 +}
 -- 
 2.17.1

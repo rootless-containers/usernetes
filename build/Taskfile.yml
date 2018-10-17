@@ -3,22 +3,24 @@ version: '2'
 output: prefixed
 
 vars:
-# 08/28/2018
-  ROOTLESSKIT_COMMIT: d843aadf00d72082fd7a31572ef018d1e792535f
+# 10/16/2018
+  ROOTLESSKIT_COMMIT: 575e91bc329a5486acef25b6c8a9b22dde1ca26c
 # 09/07/2018
   SLIRP4NETNS_COMMIT: 39e87c0e66345edf7fd6e0bd1f61aa842617e757
-# 10/13/2018
-  MOBY_COMMIT: ee6fc90b2c80b742915131e1ba32169083fab038
-# 08/24/2018
-  KUBERNETES_COMMIT: 5b2a7c7347cf9ca86ef5dfaaea3e3aa4df3ae270
+# 10/16/2018
+  MOBY_COMMIT: 5271c7cb484d44a22b96709894080ea85c8eef14
+# 10/16/2018
+  KUBERNETES_COMMIT: 96670e4fc790120671cc37b315bca6cca8ac40b9
   CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
+# RUNC_COMMIT is only for CRIO at the moment
   RUNC_COMMIT: 20aff4f0488c6d4b8df4d85b4f63f1f704c11abd
+# CNI_PLUGINS_COMMIT is only for CRIO at the moment
   CNI_PLUGINS_COMMIT: aade7b93eea9eaef8eb5f6b590a18b801b60827f
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-  KUBE_GIT_VERSION: v1.12-usernetes
+  KUBE_GIT_VERSION: v1.13-usernetes
   DOCKER_CLI_RELEASE: 18.09.0-beta3
-  ETCD_RELEASE: v3.3.9
-  GOTASK_RELEASE: v2.1.0
+  ETCD_RELEASE: v3.3.10
+  GOTASK_RELEASE: v2.1.1
 
 tasks:
   clean:
@@ -88,7 +90,7 @@ tasks:
   build-etcd:
     cmds:
       - mkdir -p ../bin
-      - curl -L https://github.com/coreos/etcd/releases/download/{{.ETCD_RELEASE}}/etcd-{{.ETCD_RELEASE}}-linux-amd64.tar.gz | tar Cxzvf ../bin - etcd-{{.ETCD_RELEASE}}-linux-amd64/etcd etcd-{{.ETCD_RELEASE}}-linux-amd64/etcdctl --strip-components=1
+      - curl -L https://github.com/etcd-io/etcd/releases/download/{{.ETCD_RELEASE}}/etcd-{{.ETCD_RELEASE}}-linux-amd64.tar.gz | tar Cxzvf ../bin - etcd-{{.ETCD_RELEASE}}-linux-amd64/etcd etcd-{{.ETCD_RELEASE}}-linux-amd64/etcdctl --strip-components=1
   build-go-task:
     cmds:
       - mkdir -p ../bin
