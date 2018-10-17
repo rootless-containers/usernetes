@@ -11,11 +11,12 @@ vars:
   MOBY_COMMIT: 5271c7cb484d44a22b96709894080ea85c8eef14
 # 10/16/2018
   KUBERNETES_COMMIT: 96670e4fc790120671cc37b315bca6cca8ac40b9
-  CRIO_COMMIT: 2accad9fab352c445bb4c414d9d3c8cdf351c524
-# RUNC_COMMIT is only for CRIO at the moment
-  RUNC_COMMIT: 20aff4f0488c6d4b8df4d85b4f63f1f704c11abd
-# CNI_PLUGINS_COMMIT is only for CRIO at the moment
-  CNI_PLUGINS_COMMIT: aade7b93eea9eaef8eb5f6b590a18b801b60827f
+# 10/16/2018
+  CRIO_COMMIT: 8296c99ae5e22a6d6da12162f9fdca684cce5e47
+# 10/17/2018; RUNC_COMMIT is only for CRIO at the moment
+  RUNC_COMMIT: 58592df56734acf62e574865fe40b9e53e967910
+# 10/11/2018; CNI_PLUGINS_COMMIT is only for CRIO at the moment
+  CNI_PLUGINS_COMMIT: a326f9d3f81b47bac27573d9129e488b29bdddf0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.13-usernetes
   DOCKER_CLI_RELEASE: 18.09.0-beta3
