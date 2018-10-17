@@ -4,6 +4,6 @@ language: generic
 before_install:
   - (cd ~; curl -s https://raw.githubusercontent.com/go-task/task/master/install-task.sh | sh)
 script:
-  - (while sleep 60; do echo -n .; done) & ~/bin/task -d build > /tmp/build.log 2>&1 || { bzip2 -9 /tmp/build.log; curl --upload-file /tmp/build.log.bz2 https://transfer.sh/build.log.bz2; travis_terminate 1; }; kill %1
+  - (while sleep 60; do echo -n .; done) & ~/bin/task -d build > /tmp/build.log 2>&1 || { echo "----------"; tail -n 100 /tmp/build.log; echo "----------"; bzip2 -9 /tmp/build.log; curl --upload-file /tmp/build.log.bz2 https://transfer.sh/build.log.bz2; travis_terminate 1; }; kill %1
   - ls -la _artifact ; sha256sum _artifact/* ; tar tjvf _artifact/usernetes-x86_64.tbz
   - curl --progress-bar --upload-file _artifact/usernetes-x86_64.tbz https://transfer.sh/usernetes-x86_64.tbz && echo -e "\nThe transfer.sh URL will expire in 14 days."
