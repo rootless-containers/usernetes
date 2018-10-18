@@ -53,13 +53,14 @@ tasks:
   build-moby:
     cmds:
       - docker rm -f usernetes-build-moby 2> /dev/null || true
+      - docker volume create usernetes-build-moby-cache
       - |
         docker build -t usernetes-build-moby -f moby.Dockerfile \
         --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
       - |
         docker run --name usernetes-build-moby \
         -d  --privileged \
-        -v ~/.cache/usernetes-build/build-moby:/var/lib/docker \
+        -v usernetes-build-moby-cache:/var/lib/docker \
         usernetes-build-moby dockerd --experimental
       - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
       - mkdir -p ../bin/moby
@@ -76,13 +77,14 @@ tasks:
   build-kubernetes:
     cmds:
       - docker rm -f usernetes-build-kubernetes 2> /dev/null || true
+      - docker volume create usernetes-build-kubernetes-cache
       - |
         docker build -t usernetes-build-kubernetes -f kubernetes.Dockerfile \
         --build-arg KUBERNETES_COMMIT={{.KUBERNETES_COMMIT}} .
 # FIXME: how to build it as a static binary??
       - |
         docker run --name usernetes-build-kubernetes \
-        -v ~/.cache/usernetes-build/build-kubernetes:/root/.cache  \
+        -v usernetes-build-kubernetes-cache:/root/.cache  \
         -e KUBE_GIT_VERSION={{.KUBE_GIT_VERSION}} \
         usernetes-build-kubernetes bazel build cmd/hyperkube
       - mkdir -p ../bin
