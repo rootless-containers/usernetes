@@ -1,4 +1,4 @@
-From 0c50315f77e5019c5b98a29dce23183e13a82936 Mon Sep 17 00:00:00 2001
+From 54f2a61048e363842c8eb33f0f5448ee8eeac3eb Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -232,7 +232,7 @@ index c3623fd98d..495c6bfdaa 100644
  )
  
 diff --git a/pkg/kubelet/server/stats/summary.go b/pkg/kubelet/server/stats/summary.go
-index 2897aff50f..a6bf90c2f1 100644
+index fb646c5d2f..bace0c06de 100644
 --- a/pkg/kubelet/server/stats/summary.go
 +++ b/pkg/kubelet/server/stats/summary.go
 @@ -19,6 +19,9 @@ package stats
