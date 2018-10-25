@@ -34,6 +34,6 @@ RUN make BUILDTAGS="" SHELL=/bin/sh static && \
 
 FROM base
 RUN mkdir -p /crio
-COPY --from=cri-o /crio/* /crio/
-COPY --from=cni /crio/* /crio/
-COPY --from=runc /crio/* /crio/
+COPY --from=cri-o /crio/ /crio/
+COPY --from=cni /crio/ /crio/
+COPY --from=runc /crio/ /crio/
