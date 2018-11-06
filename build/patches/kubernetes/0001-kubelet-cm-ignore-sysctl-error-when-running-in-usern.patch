@@ -1,4 +1,4 @@
-From 274af33d153629a18a65e167a47d6a43c26f09e7 Mon Sep 17 00:00:00 2001
+From 0de27aad095931276c58e85410a0067a1e3a87fd Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -28,10 +28,10 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  20 files changed, 413 insertions(+), 138 deletions(-)
 
 diff --git a/Godeps/Godeps.json b/Godeps/Godeps.json
-index b83fcfb8db..2966c876df 100644
+index 5507aa0765..091c0ddb61 100644
 --- a/Godeps/Godeps.json
 +++ b/Godeps/Godeps.json
-@@ -2748,83 +2748,83 @@
+@@ -2779,83 +2779,83 @@
  		},
  		{
  			"ImportPath": "github.com/opencontainers/runc/libcontainer",
@@ -148,10 +148,10 @@ index b83fcfb8db..2966c876df 100644
  		{
  			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
 diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 12c9d2f289..a0c6ff4a3a 100644
+index dca92c084e..387a94295b 100644
 --- a/pkg/kubelet/cm/BUILD
 +++ b/pkg/kubelet/cm/BUILD
-@@ -86,6 +86,7 @@ go_library(
+@@ -87,6 +87,7 @@ go_library(
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
