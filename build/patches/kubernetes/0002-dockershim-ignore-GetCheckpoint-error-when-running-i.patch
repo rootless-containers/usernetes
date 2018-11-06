@@ -1,4 +1,4 @@
-From 2a94751d75f3b4042a1d72555ef87af0dfa9dbbe Mon Sep 17 00:00:00 2001
+From 123ae6762720c8422a90a1b8c11ced29c59a5258 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
 Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in

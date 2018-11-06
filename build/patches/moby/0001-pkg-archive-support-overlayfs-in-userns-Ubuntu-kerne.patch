@@ -1,4 +1,4 @@
-From 2176a8f84e3181c126786c35d3b879010f298904 Mon Sep 17 00:00:00 2001
+From dff8a725a06fe6e5606f86cb48e016920d6ff9e3 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Mon, 15 Oct 2018 16:47:02 +0900
 Subject: [PATCH 1/2] pkg/archive: support overlayfs in userns (Ubuntu kernel

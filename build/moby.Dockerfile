@@ -1,4 +1,4 @@
-FROM docker:18.09.0-beta3-dind
+FROM docker:18.09.0-rc1-dind
 RUN apk --no-cache add bash make git
 RUN git clone https://github.com/moby/moby.git /moby
 WORKDIR /moby
