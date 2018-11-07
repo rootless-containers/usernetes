@@ -31,20 +31,20 @@ tasks:
           EOF
         ignore_error: true
       - |
-        $(pwd)/bin/crio/crio \
+        $(pwd)/bin/crio \
         --signature-policy $HOME/.config/containers/policy.json \
         --config $HOME/.config/crio/crio.conf \
         --registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
-        --conmon $(pwd)/bin/crio/conmon \
+        --conmon $(pwd)/bin/conmon \
         --runroot $XDG_RUNTIME_DIR/crio \
-        --cni-config-dir $(pwd)/bin/crio/cni/conf \
-        --cni-plugin-dir $(pwd)/bin/crio/cni/plugins \
+        --cni-config-dir $(pwd)/config/crio/cni \
+        --cni-plugin-dir $(pwd)/bin/cni \
         --root $HOME/.local/share/containers/storage --cgroup-manager=cgroupfs \
-        --storage-driver vfs --runtime $(pwd)/bin/crio/runc
+        --storage-driver vfs --runtime $(pwd)/bin/runc
   dockerd:
     cmds:
       - test $_USERNETES_CHILD
-      - PATH=$(pwd)/bin/moby:$PATH $(pwd)/bin/moby/dockerd --experimental
+      - dockerd --experimental
   etcd:
     cmds:
       - test $_USERNETES_CHILD

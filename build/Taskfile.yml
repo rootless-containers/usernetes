@@ -13,9 +13,11 @@ vars:
   KUBERNETES_COMMIT: 839c4ec7c3fb117ae7753343b0523814a36ab7f9
 # 10/30/2018
   CRIO_COMMIT: f58419d6cf462070a0c3727ad2dc554ef151e832
-# 11/06/2018; RUNC_COMMIT is only for CRIO at the moment
+# 11/06/2018
+  CONTAINERD_COMMIT: 8dcabd6125f8586fb2e13586b72874bc084e1b32
+# 11/06/2018
   RUNC_COMMIT: b1068fb9258d2cc5aa59505fbb703d914120013d
-# 10/18/2018; CNI_PLUGINS_COMMIT is only for CRIO at the moment
+# 10/18/2018
   CNI_PLUGINS_COMMIT: b93d284d18dfc8ba93265fa0aa859c7e92df411b
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
   KUBE_GIT_VERSION: v1.13-usernetes
@@ -31,42 +33,30 @@ tasks:
     cmds:
       - |
         docker build -t usernetes-build-crio -f crio.Dockerfile \
-        --build-arg CRIO_COMMIT={{.CRIO_COMMIT}} \
-        --build-arg CNI_PLUGINS_COMMIT={{.CNI_PLUGINS_COMMIT}} \
-        --build-arg RUNC_COMMIT={{.RUNC_COMMIT}} .
+        --build-arg CRIO_COMMIT={{.CRIO_COMMIT}} .
       - mkdir -p ../bin
-      - docker run --rm usernetes-build-crio sh -c 'cd /; tar chf - crio' | tar Cxvf ../bin -
+      - docker run --rm usernetes-build-crio sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-rootlesskit:
     cmds:
       - |
         docker build -t usernetes-build-rootlesskit -f rootlesskit.Dockerfile \
         --build-arg ROOTLESSKIT_COMMIT={{.ROOTLESSKIT_COMMIT}} .
       - mkdir -p ../bin
-      - docker run --rm usernetes-build-rootlesskit sh -c 'cd /; tar chf - rootlesskit' | tar Cxvf ../bin -
+      - docker run --rm usernetes-build-rootlesskit sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-slirp4netns:
     cmds:
       - |
         docker build -t usernetes-build-slirp4netns -f slirp4netns.Dockerfile \
         --build-arg SLIRP4NETNS_COMMIT={{.SLIRP4NETNS_COMMIT}} .
       - mkdir -p ../bin
-      - docker run --rm usernetes-build-slirp4netns sh -c 'cd /slirp4netns; tar chf - slirp4netns' | tar Cxvf ../bin -
+      - docker run --rm usernetes-build-slirp4netns sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-moby:
     cmds:
-      - docker rm -f usernetes-build-moby 2> /dev/null || true
-      - docker volume create usernetes-build-moby-cache
       - |
         docker build -t usernetes-build-moby -f moby.Dockerfile \
         --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
-      - |
-        docker run --name usernetes-build-moby \
-        -d  --privileged \
-        -v usernetes-build-moby-cache:/var/lib/docker \
-        usernetes-build-moby dockerd --experimental
-      - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
-      - mkdir -p ../bin/moby
-# `docker exec -w` is not available in Docker 17.09
-      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd containerd ctr containerd-shim runc docker-init docker-proxy' | tar Cxvf ../bin/moby -
-      - docker rm -f usernetes-build-moby
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-moby sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-docker-cli:
     cmds:
       - docker rm -f usernetes-build-docker-cli 2> /dev/null || true
@@ -74,6 +64,27 @@ tasks:
       - mkdir -p ../bin
       - docker cp usernetes-build-docker-cli:/usr/local/bin/docker ../bin
       - docker rm -f usernetes-build-docker-cli
+  build-containerd:
+    cmds:
+      - |
+        docker build -t usernetes-build-containerd -f containerd.Dockerfile \
+        --build-arg RUNC_COMMIT={{.RUNC_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-containerd sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
+  build-runc:
+    cmds:
+      - |
+        docker build -t usernetes-build-runc -f runc.Dockerfile \
+        --build-arg CONTAINERD_COMMIT={{.CONTAINERD_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-runc sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
+  build-cni:
+    cmds:
+      - |
+        docker build -t usernetes-build-cni -f cni.Dockerfile \
+        --build-arg CNI_PLUGINS_COMMIT={{.CNI_PLUGINS_COMMIT}} .
+      - mkdir -p ../bin
+      - docker run --rm usernetes-build-cni sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-kubernetes:
     cmds:
       - docker rm -f usernetes-build-kubernetes 2> /dev/null || true
@@ -103,6 +114,6 @@ tasks:
       - mkdir -p ../_artifact
       - ( cd .. ; tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz . )
   default:
-    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-docker-cli,build-crio,build-kubernetes,build-etcd,build-go-task]
+    deps: [build-rootlesskit,build-slirp4netns,build-moby,build-docker-cli,build-containerd,build-runc,build-cni,build-crio,build-kubernetes,build-etcd,build-go-task]
     cmds:
       - task: build-artifact
