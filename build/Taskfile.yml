@@ -52,21 +52,11 @@ tasks:
       - docker run --rm usernetes-build-slirp4netns sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-moby:
     cmds:
-      - docker rm -f usernetes-build-moby 2> /dev/null || true
-      - docker volume create usernetes-build-moby-cache
       - |
         docker build -t usernetes-build-moby -f moby.Dockerfile \
         --build-arg MOBY_COMMIT={{.MOBY_COMMIT}} .
-      - |
-        docker run --name usernetes-build-moby \
-        -d  --privileged \
-        -v usernetes-build-moby-cache:/var/lib/docker \
-        usernetes-build-moby dockerd --experimental
-      - docker exec -e DOCKER_BUILDKIT=1 usernetes-build-moby make binary
       - mkdir -p ../bin
-# `docker exec -w` is not available in Docker 17.09
-      - docker exec usernetes-build-moby sh -c 'cd /moby/bundles/binary-daemon; tar chf - dockerd docker-init docker-proxy' | tar Cxvf ../bin -
-      - docker rm -f usernetes-build-moby
+      - docker run --rm usernetes-build-moby sh -c 'cd /out; tar chf - *' | tar Cxvf ../bin -
   build-docker-cli:
     cmds:
       - docker rm -f usernetes-build-docker-cli 2> /dev/null || true
