@@ -41,9 +41,32 @@ tasks:
         --cni-plugin-dir $(pwd)/bin/cni \
         --root $HOME/.local/share/containers/storage --cgroup-manager=cgroupfs \
         --storage-driver vfs --runtime $(pwd)/bin/runc
+  containerd:
+    cmds:
+      - test $_USERNETES_CHILD
+      - cmd: |
+          cat > $XDG_RUNTIME_DIR/usernetes/containerd.toml << EOF
+          root = "$HOME/.local/share/containerd"
+          state = "$XDG_RUNTIME_DIR/containerd"
+          [grpc]
+            address = "$XDG_RUNTIME_DIR/containerd/containerd.sock"
+          [plugins]
+            [plugins.linux]
+              runtime_root = "$XDG_RUNTIME_DIR/containerd/runc"
+            [plugins.cri]
+              no_cgroup = true
+              [plugins.cri.containerd]
+              # If you are on Ubuntu you can also use "overlayfs"
+                snapshotter = "native"
+              [plugins.cri.cni]
+                bin_dir = "$(pwd)/bin/cni"
+                conf_dir = "$(pwd)/config/containerd/cni"
+          EOF
+      - containerd -c $XDG_RUNTIME_DIR/usernetes/containerd.toml
   dockerd:
     cmds:
       - test $_USERNETES_CHILD
+# dockerd launches containerd by itself
       - dockerd --experimental
   etcd:
     cmds:
@@ -102,9 +125,27 @@ tasks:
         --authorization-mode=AlwaysAllow \
         --fail-swap-on=false \
         --feature-gates DevicePlugins=false
+  kubelet-containerd:
+    cmds:
+      - test $_USERNETES_CHILD
+      - |
+        hyperkube kubelet \
+        --container-runtime remote \
+        --container-runtime-endpoint unix://$XDG_RUNTIME_DIR/containerd/containerd.sock \
+        --cert-dir $HOME/.config/usernetes/pki \
+        --root-dir $HOME/.local/share/usernetes/kubelet \
+        --log-dir $HOME/.local/share/usernetes/kubelet-log \
+        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
+        --kubeconfig localhost.kubeconfig \
+        --anonymous-auth=true \
+        --authorization-mode=AlwaysAllow \
+        --fail-swap-on=false \
+        --feature-gates DevicePlugins=false
   kube-common:
     deps: [etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kube-proxy]
   default:
     deps: [dockerd,kube-common,kubelet]
   default-crio:
     deps: [crio,kube-common,kubelet-crio]
+  default-containerd:
+    deps: [containerd,kube-common,kubelet-containerd]

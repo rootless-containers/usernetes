@@ -11,6 +11,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
  - [Quick start](#quick-start)
    - [Start Kubernetes using Docker](#start-kubernetes-using-docker)
    - [Start Kubernetes using CRI-O](#start-kubernetes-using-cri-o)
+   - [Start Kubernetes using containerd](#start-kubernetes-using-containerd)
    - [Start dockerd only (No Kubernetes)](#start-dockerd-only-no-kubernetes)
    - [Use `docker`](#use-docker)
    - [Use `kubectl`](#use-kubectl)
@@ -26,7 +27,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 * [X] Kubernetes: Early POC with a single node
   * [X] dockershim
   * [X] CRI-O
-  * [ ] containerd (planned)
+  * [X] containerd
 
 ## How it works
 
@@ -75,7 +76,7 @@ Moby (`dockerd`):
 * Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
 * You can form Swarm-mode clusters but overlay networking is not functional.
 
-CRI-O:
+CRI-O & containerd:
 * To be documented (almost same as Moby)
 
 Kubernetes:
@@ -112,6 +113,13 @@ $ ./run.sh
 ```console
 $ ./run.sh default-crio
 ```
+
+### Start Kubernetes using containerd
+
+```console
+$ ./run.sh default-containerd
+```
+
 
 ### Start dockerd only (No Kubernetes)
 
