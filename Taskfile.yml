@@ -55,6 +55,8 @@ tasks:
               runtime_root = "$XDG_RUNTIME_DIR/containerd/runc"
             [plugins.cri]
               no_cgroup = true
+              no_apparmor = true
+              restrict_oom_score_adj = true
               [plugins.cri.containerd]
               # If you are on Ubuntu you can also use "overlayfs"
                 snapshotter = "native"
