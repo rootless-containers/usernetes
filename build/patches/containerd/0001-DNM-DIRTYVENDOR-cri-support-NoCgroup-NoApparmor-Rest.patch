@@ -1,0 +1,166 @@
+From e6f7cd63b2cfe7b9a77ece9556adc902b6b9f164 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+Date: Thu, 8 Nov 2018 16:44:43 +0900
+Subject: [PATCH] [DNM/DIRTYVENDOR] cri: support NoCgroup,NoApparmor,
+ RestrictOOMScoreAdj
+
+Add following config for supporting "rootless" mode
+
+* NoCgroup: disable cgroup
+* NoApparmor: disable Apparmor
+* RestrictOOMScoreAdj: restrict the lower bound of OOMScoreAdj
+
+Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+---
+ .../containerd/cri/pkg/config/config.go       | 10 ++++++
+ .../cri/pkg/server/container_create.go        | 11 +++++-
+ .../containerd/cri/pkg/server/helpers.go      | 34 +++++++++++++++----
+ .../containerd/cri/pkg/server/sandbox_run.go  | 12 ++++++-
+ 4 files changed, 58 insertions(+), 9 deletions(-)
+
+diff --git a/vendor/github.com/containerd/cri/pkg/config/config.go b/vendor/github.com/containerd/cri/pkg/config/config.go
+index 7d53a7b5..0733bb09 100644
+--- a/vendor/github.com/containerd/cri/pkg/config/config.go
++++ b/vendor/github.com/containerd/cri/pkg/config/config.go
+@@ -142,6 +142,16 @@ type PluginConfig struct {
+ 	// Log line longer than the limit will be split into multiple lines. Non-positive
+ 	// value means no limit.
+ 	MaxContainerLogLineSize int `toml:"max_container_log_line_size" json:"maxContainerLogSize"`
++	// NoCgroup indicates to disable the cgroup support.
++	// This is useful when the daemon does not have permission to access cgroups.
++	NoCgroup bool `toml:"no_cgroup" json:"noCgroup"`
++	// NoApparmor indicates to disable the apparmor support.
++	// This is useful when the daemon does not have permission to access Apparmor.
++	NoApparmor bool `toml:"no_apparmor" json:"noApparmor"`
++	// RestrictOOMScoreAdj indicates to limit the lower bound of OOMScoreAdj to the daemon's
++	// current OOMScoreADj.
++	// This is useful when the daemon does not have permission to decrease OOMScoreAdj.
++	RestrictOOMScoreAdj bool `toml:"restrict_oom_score_adj" json:"restrictOOMScoreAdj"`
+ }
+ 
+ // X509KeyPairStreaming contains the x509 configuration for streaming
+diff --git a/vendor/github.com/containerd/cri/pkg/server/container_create.go b/vendor/github.com/containerd/cri/pkg/server/container_create.go
+index e29cb40f..9ed72d53 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/container_create.go
++++ b/vendor/github.com/containerd/cri/pkg/server/container_create.go
+@@ -418,11 +418,20 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
+ 
+ 	setOCILinuxResource(&g, config.GetLinux().GetResources())
+ 
+-	if sandboxConfig.GetLinux().GetCgroupParent() != "" {
++	if c.config.NoCgroup {
++		g.SetLinuxCgroupsPath("")
++		g.Config.Linux.Resources = nil
++	} else if sandboxConfig.GetLinux().GetCgroupParent() != "" {
+ 		cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id,
+ 			c.config.SystemdCgroup)
+ 		g.SetLinuxCgroupsPath(cgroupsPath)
+ 	}
++	if c.config.NoApparmor {
++		g.Config.Process.ApparmorProfile = ""
++	}
++	if c.config.RestrictOOMScoreAdj {
++		restrictOOMScoreAdj(g.Config)
++	}
+ 
+ 	// Set namespaces, share namespace with sandbox container.
+ 	setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
+diff --git a/vendor/github.com/containerd/cri/pkg/server/helpers.go b/vendor/github.com/containerd/cri/pkg/server/helpers.go
+index 9b2744c9..9470e15b 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/helpers.go
++++ b/vendor/github.com/containerd/cri/pkg/server/helpers.go
+@@ -18,6 +18,7 @@ package server
+ 
+ import (
+ 	"fmt"
++	"io/ioutil"
+ 	"os"
+ 	"path"
+ 	"path/filepath"
+@@ -137,9 +138,9 @@ const (
+ // generated is unique as long as sandbox metadata is unique.
+ func makeSandboxName(s *runtime.PodSandboxMetadata) string {
+ 	return strings.Join([]string{
+-		s.Name,      // 0
+-		s.Namespace, // 1
+-		s.Uid,       // 2
++		s.Name,                       // 0
++		s.Namespace,                  // 1
++		s.Uid,                        // 2
+ 		fmt.Sprintf("%d", s.Attempt), // 3
+ 	}, nameDelimiter)
+ }
+@@ -149,10 +150,10 @@ func makeSandboxName(s *runtime.PodSandboxMetadata) string {
+ // unique.
+ func makeContainerName(c *runtime.ContainerMetadata, s *runtime.PodSandboxMetadata) string {
+ 	return strings.Join([]string{
+-		c.Name,      // 0
+-		s.Name,      // 1: pod name
+-		s.Namespace, // 2: pod namespace
+-		s.Uid,       // 3: pod uid
++		c.Name,                       // 0
++		s.Name,                       // 1: pod name
++		s.Namespace,                  // 2: pod namespace
++		s.Uid,                        // 3: pod uid
+ 		fmt.Sprintf("%d", c.Attempt), // 4
+ 	}, nameDelimiter)
+ }
+@@ -496,3 +497,22 @@ func getRuntimeOptions(c containers.Container) (interface{}, error) {
+ 	}
+ 	return opts, nil
+ }
++
++func getCurrentOOMScoreAdj() int {
++	b, err := ioutil.ReadFile("/proc/self/oom_score_adj")
++	if err != nil {
++		return 0
++	}
++	i, err := strconv.Atoi(string(b))
++	if err != nil {
++		return 0
++	}
++	return i
++}
++
++func restrictOOMScoreAdj(spec *runtimespec.Spec) {
++	currentOOMScoreAdj := getCurrentOOMScoreAdj()
++	if spec.Process.OOMScoreAdj != nil && *spec.Process.OOMScoreAdj < currentOOMScoreAdj {
++		*spec.Process.OOMScoreAdj = currentOOMScoreAdj
++	}
++}
+diff --git a/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go b/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
+index 959a5189..aecf6ad8 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
++++ b/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
+@@ -367,7 +367,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
+ 
+ 	// TODO(random-liu): [P2] Consider whether to add labels and annotations to the container.
+ 
+-	// Set cgroups parent.
++	// Set cgroups parent. (removed later if config.NoCgroup is true)
+ 	if config.GetLinux().GetCgroupParent() != "" {
+ 		cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
+ 			c.config.SystemdCgroup)
+@@ -426,9 +426,19 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
+ 	}
+ 
+ 	// Note: LinuxSandboxSecurityContext does not currently provide an apparmor profile
++	if c.config.NoApparmor {
++		g.Config.Process.ApparmorProfile = ""
++	}
+ 
+ 	g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
++	if c.config.NoCgroup {
++		g.SetLinuxCgroupsPath("")
++		g.Config.Linux.Resources = nil
++	}
+ 	g.SetProcessOOMScoreAdj(int(defaultSandboxOOMAdj))
++	if c.config.RestrictOOMScoreAdj {
++		restrictOOMScoreAdj(g.Config)
++	}
+ 
+ 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
+ 	g.AddAnnotation(annotations.SandboxID, id)
+-- 
+2.17.1
+
