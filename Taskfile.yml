@@ -54,9 +54,9 @@ tasks:
             [plugins.linux]
               runtime_root = "$XDG_RUNTIME_DIR/containerd/runc"
             [plugins.cri]
-              no_cgroup = true
-              no_apparmor = true
-              restrict_oom_score_adj = true
+              no_cgroup = "true"
+              no_apparmor = "true"
+              restrict_oom_score_adj = "true"
               [plugins.cri.containerd]
               # If you are on Ubuntu you can use "overlayfs". Otherwise you need to use "native".
                 snapshotter = "$( (uname -v | grep Ubuntu > /dev/null) && echo overlayfs || echo native )"
