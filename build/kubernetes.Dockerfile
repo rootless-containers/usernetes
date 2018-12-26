@@ -1,5 +1,6 @@
 FROM golang:1.11
-ADD https://github.com/bazelbuild/bazel/releases/download/0.18.0/bazel-0.18.0-linux-x86_64 /usr/local/bin/bazel
+RUN apt-get update && apt-get install -y -q patch
+ADD https://github.com/bazelbuild/bazel/releases/download/0.21.0/bazel-0.21.0-linux-x86_64 /usr/local/bin/bazel
 RUN chmod +x /usr/local/bin/bazel
 RUN git clone https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes

@@ -1,4 +1,4 @@
-From 3804a674c24f919abc8aa9ea75cb3e5dd085103e Mon Sep 17 00:00:00 2001
+From 13fe1412615e3970c161ca314412534842d1bd34 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -16,36 +16,36 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  pkg/kubelet/cm/qos_container_manager_linux.go | 19 +++++++++++++++----
  pkg/kubelet/dockershim/cm/BUILD               |  1 +
  .../dockershim/cm/container_manager_linux.go  |  6 +++++-
- pkg/kubelet/kubelet.go                        | 11 +++++++++--
+ pkg/kubelet/kubelet.go                        | 10 ++++++++--
  pkg/kubelet/server/stats/BUILD                |  1 +
- pkg/kubelet/server/stats/summary.go           | 11 ++++++++++-
- 9 files changed, 58 insertions(+), 13 deletions(-)
+ pkg/kubelet/server/stats/summary.go           | 10 +++++++++-
+ 9 files changed, 56 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index f75821e08e..29757c39bd 100644
+index 70f3382d5f..106a2d2f59 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
-@@ -147,6 +147,7 @@ go_library(
-         "//vendor/github.com/google/cadvisor/events:go_default_library",
+@@ -149,6 +149,7 @@ go_library(
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v2:go_default_library",
+         "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
      ],
  )
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index d0eb6b6d27..261391ad14 100644
+index f1c8136936..80a406c2a9 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
-@@ -30,6 +30,7 @@ import (
+@@ -29,6 +29,7 @@ import (
  	cgroupfs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
  	cgroupsystemd "github.com/opencontainers/runc/libcontainer/cgroups/systemd"
  	libcontainerconfigs "github.com/opencontainers/runc/libcontainer/configs"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
+ 	"k8s.io/klog"
  
  	"k8s.io/apimachinery/pkg/util/sets"
- 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-@@ -145,8 +146,9 @@ func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, pa
+@@ -148,8 +149,9 @@ func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, pa
  	switch l.cgroupManagerType {
  	case libcontainerCgroupfs:
  		return &cgroupfs.Manager{
@@ -57,7 +57,7 @@ index d0eb6b6d27..261391ad14 100644
  		}, nil
  	case libcontainerSystemd:
  		// this means you asked systemd to manage cgroups, but systemd was not on the host, so all you can do is panic...
-@@ -473,7 +475,9 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
+@@ -476,7 +478,9 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
  	// in the tasks file. We use the function to create all the required
  	// cgroup files but not attach any "real" pid to the cgroup.
  	if err := manager.Apply(-1); err != nil {
@@ -69,10 +69,10 @@ index d0eb6b6d27..261391ad14 100644
  
  	// it may confuse why we call set after we do apply, but the issue is that runc
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index cf323c83a7..d594cf52b1 100644
+index 9b48945cc7..4473ed6050 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -466,13 +466,20 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+@@ -467,13 +467,20 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
  			},
  		}
  		cont.ensureStateFunc = func(_ *fs.Manager) error {
@@ -88,15 +88,15 @@ index cf323c83a7..d594cf52b1 100644
  	} else {
  		cm.periodicTasks = append(cm.periodicTasks, func() {
  			if err := ensureProcessInContainerWithOOMScore(os.Getpid(), qos.KubeletOOMScoreAdj, nil); err != nil {
--				glog.Error(err)
+-				klog.Error(err)
 +				if !rsystem.RunningInUserNS() {
-+					glog.Error(err)
++					klog.Error(err)
 +				}
  				return
  			}
  			cont, err := getContainer(os.Getpid())
 diff --git a/pkg/kubelet/cm/qos_container_manager_linux.go b/pkg/kubelet/cm/qos_container_manager_linux.go
-index 2cfc198c3a..9e1c756f61 100644
+index cebc9756e4..533db5a56b 100644
 --- a/pkg/kubelet/cm/qos_container_manager_linux.go
 +++ b/pkg/kubelet/cm/qos_container_manager_linux.go
 @@ -28,6 +28,7 @@ import (
@@ -126,77 +126,74 @@ index 2cfc198c3a..9e1c756f61 100644
  	for _, config := range qosConfigs {
  		err := m.cgroupManager.Update(config)
  		if err != nil {
--			glog.Errorf("[ContainerManager]: Failed to update QoS cgroup configuration")
+-			klog.Errorf("[ContainerManager]: Failed to update QoS cgroup configuration")
 -			return err
 +			if rsystem.RunningInUserNS() {
 +				// if we are in userns, cgroups might not available
 +				updateSuccess = false
 +			} else {
-+				glog.Errorf("[ContainerManager]: Failed to update QoS cgroup configuration")
++				klog.Errorf("[ContainerManager]: Failed to update QoS cgroup configuration")
 +				return err
 +			}
  		}
  	}
  
--	glog.V(4).Infof("[ContainerManager]: Updated QoS cgroup configuration")
+-	klog.V(4).Infof("[ContainerManager]: Updated QoS cgroup configuration")
 +	if updateSuccess {
-+		glog.V(4).Infof("[ContainerManager]: Updated QoS cgroup configuration")
++		klog.V(4).Infof("[ContainerManager]: Updated QoS cgroup configuration")
 +	}
  	return nil
  }
  
 diff --git a/pkg/kubelet/dockershim/cm/BUILD b/pkg/kubelet/dockershim/cm/BUILD
-index 754952527a..6e9feb627e 100644
+index 80736ce241..3bf72c18c9 100644
 --- a/pkg/kubelet/dockershim/cm/BUILD
 +++ b/pkg/kubelet/dockershim/cm/BUILD
 @@ -36,6 +36,7 @@ go_library(
-             "//vendor/github.com/golang/glog:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
+             "//vendor/k8s.io/klog:go_default_library",
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
              "//pkg/kubelet/dockershim/libdocker:go_default_library",
 diff --git a/pkg/kubelet/dockershim/cm/container_manager_linux.go b/pkg/kubelet/dockershim/cm/container_manager_linux.go
-index 8484fd2d87..5c724fde8a 100644
+index b59c6a0836..77fb9b87bb 100644
 --- a/pkg/kubelet/dockershim/cm/container_manager_linux.go
 +++ b/pkg/kubelet/dockershim/cm/container_manager_linux.go
-@@ -29,6 +29,7 @@ import (
+@@ -27,6 +27,7 @@ import (
+ 
  	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
  	"github.com/opencontainers/runc/libcontainer/configs"
- 	utilversion "k8s.io/apimachinery/pkg/util/version"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
+ 	utilversion "k8s.io/apimachinery/pkg/util/version"
  	"k8s.io/apimachinery/pkg/util/wait"
- 	kubecm "k8s.io/kubernetes/pkg/kubelet/cm"
- 	"k8s.io/kubernetes/pkg/kubelet/qos"
+ 	"k8s.io/klog"
 @@ -95,7 +96,10 @@ func (m *containerManager) doWork() {
  	//   1. Ensure processes run in the cgroups if m.cgroupsManager is not nil.
  	//   2. Ensure processes have the OOM score applied.
  	if err := kubecm.EnsureDockerInContainer(version, dockerOOMScoreAdj, m.cgroupsManager); err != nil {
--		glog.Errorf("Unable to ensure the docker processes run in the desired containers: %v", err)
+-		klog.Errorf("Unable to ensure the docker processes run in the desired containers: %v", err)
 +		// if we are in userns, the operation is likely to fail, unless cgroupfs is properly chown-ed.
 +		if !rsystem.RunningInUserNS() {
-+			glog.Errorf("Unable to ensure the docker processes run in the desired containers: %v", err)
++			klog.Errorf("Unable to ensure the docker processes run in the desired containers: %v", err)
 +		}
  	}
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index fe7352f07c..435ee53f1f 100644
+index 27490aa2cf..987495f95e 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
-@@ -32,8 +32,10 @@ import (
- 	"time"
+@@ -33,6 +33,7 @@ import (
  
- 	"github.com/golang/glog"
-+
  	cadvisorapi "github.com/google/cadvisor/info/v1"
  	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -1582,10 +1584,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1609,10 +1610,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -211,7 +208,7 @@ index fe7352f07c..435ee53f1f 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1604,7 +1609,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1631,7 +1635,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)
@@ -223,32 +220,32 @@ index fe7352f07c..435ee53f1f 100644
  			}
  		}
 diff --git a/pkg/kubelet/server/stats/BUILD b/pkg/kubelet/server/stats/BUILD
-index c3623fd98d..495c6bfdaa 100644
+index dde9b3cbc7..ab27634a60 100644
 --- a/pkg/kubelet/server/stats/BUILD
 +++ b/pkg/kubelet/server/stats/BUILD
-@@ -27,6 +27,7 @@ go_library(
+@@ -28,6 +28,7 @@ go_library(
          "//vendor/github.com/emicklei/go-restful:go_default_library",
-         "//vendor/github.com/golang/glog:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
+         "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
      ],
  )
  
 diff --git a/pkg/kubelet/server/stats/summary.go b/pkg/kubelet/server/stats/summary.go
-index fb646c5d2f..bace0c06de 100644
+index 93aef69ed8..f8900249b6 100644
 --- a/pkg/kubelet/server/stats/summary.go
 +++ b/pkg/kubelet/server/stats/summary.go
-@@ -19,6 +19,9 @@ package stats
- import (
- 	"fmt"
+@@ -21,7 +21,9 @@ import (
  
-+	"github.com/golang/glog"
+ 	"k8s.io/klog"
+ 
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 +
  	statsapi "k8s.io/kubernetes/pkg/kubelet/apis/stats/v1alpha1"
+ 	"k8s.io/kubernetes/pkg/kubelet/util"
  )
- 
-@@ -53,7 +56,13 @@ func (sp *summaryProviderImpl) Get(updateStats bool) (*statsapi.Summary, error)
+@@ -73,7 +75,13 @@ func (sp *summaryProviderImpl) Get(updateStats bool) (*statsapi.Summary, error)
  	nodeConfig := sp.provider.GetNodeConfig()
  	rootStats, networkStats, err := sp.provider.GetCgroupStats("/", updateStats)
  	if err != nil {
@@ -257,7 +254,7 @@ index fb646c5d2f..bace0c06de 100644
 +			return nil, fmt.Errorf("failed to get root cgroup stats: %v", err)
 +		}
 +		// if we are in userns, cgroups might not be available
-+		glog.Errorf("failed to get root cgroup stats: %v", err)
++		klog.Errorf("failed to get root cgroup stats: %v", err)
 +		rootStats = &statsapi.ContainerStats{}
 +		networkStats = &statsapi.NetworkStats{}
  	}

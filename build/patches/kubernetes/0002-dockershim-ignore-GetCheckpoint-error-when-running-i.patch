@@ -1,4 +1,4 @@
-From 123ae6762720c8422a90a1b8c11ced29c59a5258 Mon Sep 17 00:00:00 2001
+From 3ce12f254e5bcc3fb28fc5c643b8f5a8e9ed88c4 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
 Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
@@ -7,48 +7,49 @@ Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
 Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 ---
  pkg/kubelet/dockershim/BUILD             |  1 +
- pkg/kubelet/dockershim/docker_sandbox.go | 13 ++++++++-----
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ pkg/kubelet/dockershim/docker_sandbox.go | 14 +++++++++-----
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/pkg/kubelet/dockershim/BUILD b/pkg/kubelet/dockershim/BUILD
-index d835f25706..f3415bbf65 100644
+index 5915ed0212..a8e4e88a0c 100644
 --- a/pkg/kubelet/dockershim/BUILD
 +++ b/pkg/kubelet/dockershim/BUILD
 @@ -68,6 +68,7 @@ go_library(
          "//vendor/github.com/docker/docker/pkg/jsonmessage:go_default_library",
          "//vendor/github.com/docker/go-connections/nat:go_default_library",
-         "//vendor/github.com/golang/glog:go_default_library",
+         "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
      ] + select({
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/pkg/kubelet/dockershim/docker_sandbox.go b/pkg/kubelet/dockershim/docker_sandbox.go
-index b114bf052b..f5ab2ea53c 100644
+index 0443793d8d..ec18905cdf 100644
 --- a/pkg/kubelet/dockershim/docker_sandbox.go
 +++ b/pkg/kubelet/dockershim/docker_sandbox.go
-@@ -27,6 +27,7 @@ import (
+@@ -27,6 +27,8 @@ import (
+ 	dockertypes "github.com/docker/docker/api/types"
  	dockercontainer "github.com/docker/docker/api/types/container"
  	dockerfilters "github.com/docker/docker/api/types/filters"
- 	"github.com/golang/glog"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
- 
++
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+ 	"k8s.io/klog"
  	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-@@ -526,11 +527,13 @@ func (ds *dockerService) ListPodSandbox(_ context.Context, r *runtimeapi.ListPod
+@@ -535,11 +537,13 @@ func (ds *dockerService) ListPodSandbox(_ context.Context, r *runtimeapi.ListPod
  		checkpoint := NewPodSandboxCheckpoint("", "", &CheckpointData{})
  		err := ds.checkpointManager.GetCheckpoint(id, checkpoint)
  		if err != nil {
--			glog.Errorf("Failed to retrieve checkpoint for sandbox %q: %v", id, err)
+-			klog.Errorf("Failed to retrieve checkpoint for sandbox %q: %v", id, err)
 -			if err == errors.ErrCorruptCheckpoint {
 -				err = ds.checkpointManager.RemoveCheckpoint(id)
 -				if err != nil {
--					glog.Errorf("Failed to delete corrupt checkpoint for sandbox %q: %v", id, err)
+-					klog.Errorf("Failed to delete corrupt checkpoint for sandbox %q: %v", id, err)
 +			if !rsystem.RunningInUserNS() {
-+				glog.Errorf("Failed to retrieve checkpoint for sandbox %q: %v", id, err)
++				klog.Errorf("Failed to retrieve checkpoint for sandbox %q: %v", id, err)
 +				if err == errors.ErrCorruptCheckpoint {
 +					err = ds.checkpointManager.RemoveCheckpoint(id)
 +					if err != nil {
-+						glog.Errorf("Failed to delete corrupt checkpoint for sandbox %q: %v", id, err)
++						klog.Errorf("Failed to delete corrupt checkpoint for sandbox %q: %v", id, err)
 +					}
  				}
  			}

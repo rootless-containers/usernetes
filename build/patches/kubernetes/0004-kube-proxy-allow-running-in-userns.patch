@@ -1,4 +1,4 @@
-From 11f40619be6cc77ba7d9142bb2fe78bf0782b1fc Mon Sep 17 00:00:00 2001
+From 0165e1f6caa4c576611a2ff58771b0820442673f Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 4/4] kube-proxy: allow running in userns
@@ -12,19 +12,19 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  4 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 70a79a3597..45bef54a85 100644
+index f76d454296..4e05482267 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
 @@ -62,6 +62,7 @@ go_library(
+         "//staging/src/k8s.io/client-go/tools/clientcmd/api:go_default_library",
          "//staging/src/k8s.io/client-go/tools/record:go_default_library",
          "//staging/src/k8s.io/kube-proxy/config/v1alpha1:go_default_library",
-         "//vendor/github.com/golang/glog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
          "//vendor/github.com/spf13/cobra:go_default_library",
          "//vendor/github.com/spf13/pflag:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 83e359cf45..0e2c469e63 100644
+index a92c1492f5..468b2c725a 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -47,6 +47,7 @@ import (
@@ -33,7 +33,7 @@ index 83e359cf45..0e2c469e63 100644
  	"k8s.io/utils/exec"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
  
- 	"github.com/golang/glog"
+ 	"k8s.io/klog"
  )
 @@ -258,6 +259,12 @@ func newProxyServer(
  
@@ -58,25 +58,25 @@ index 83e359cf45..0e2c469e63 100644
  		NodeRef:                nodeRef,
  		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/BUILD b/pkg/proxy/userspace/BUILD
-index 0d800fc66d..2abdbd4bc3 100644
+index b7887c85b5..17a7be8ebb 100644
 --- a/pkg/proxy/userspace/BUILD
 +++ b/pkg/proxy/userspace/BUILD
 @@ -33,6 +33,7 @@ go_library(
          "//staging/src/k8s.io/apimachinery/pkg/util/sets:go_default_library",
          "//staging/src/k8s.io/apimachinery/pkg/util/wait:go_default_library",
-         "//vendor/github.com/golang/glog:go_default_library",
+         "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
      ] + select({
          "@io_bazel_rules_go//go/platform:android": [
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index 38ee0c2ce6..ed7056e9e0 100644
+index 661092b1b2..c0983f6e44 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
-@@ -26,6 +26,7 @@ import (
+@@ -25,6 +25,7 @@ import (
+ 	"sync/atomic"
  	"time"
  
- 	"github.com/golang/glog"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
@@ -89,7 +89,7 @@ index 38ee0c2ce6..ed7056e9e0 100644
 +		if !rsystem.RunningInUserNS() {
 +			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v", err)
 +		}
-+		glog.Errorf("failed to set open file handler limit to 64000: %v", err)
++		klog.Errorf("failed to set open file handler limit to 64000: %v", err)
  	}
  
  	proxyPorts := newPortAllocator(pr)
