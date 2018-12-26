@@ -1,4 +1,4 @@
-From 8f0ec8145aace05de60dd435cf41b18b95f989a2 Mon Sep 17 00:00:00 2001
+From d37beaaed44119dde4de99bb037634391b2b6c4f Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Mon, 15 Oct 2018 16:52:53 +0900
 Subject: [PATCH 2/2] allow running `dockerd` in an unprivileged user namespace
@@ -16,7 +16,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  Dockerfile                                    | 14 ++++
  cmd/dockerd/config_common_unix.go             | 23 ++++++
  cmd/dockerd/config_unix.go                    |  4 +-
- cmd/dockerd/daemon.go                         | 14 +++-
+ cmd/dockerd/daemon.go                         | 34 +++++++--
  cmd/dockerd/daemon_unix.go                    | 25 +++++-
  contrib/dockerd-rootless.sh                   | 36 +++++++++
  daemon/config/config_unix.go                  |  6 ++
@@ -38,7 +38,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  rootless/doc.go                               |  2 +
  rootless/rootless.go                          | 22 ++++++
  rootless/specconv/specconv_linux.go           | 38 ++++++++++
- 25 files changed, 372 insertions(+), 11 deletions(-)
+ 25 files changed, 387 insertions(+), 16 deletions(-)
  create mode 100755 contrib/dockerd-rootless.sh
  create mode 100644 docs/rootless.md
  create mode 100755 hack/dockerfile/install/rootlesskit.installer
@@ -48,12 +48,12 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  create mode 100644 rootless/specconv/specconv_linux.go
 
 diff --git a/Dockerfile b/Dockerfile
-index aac99c5090..d71112789a 100644
+index 004c868b0f..1c7f2db96a 100644
 --- a/Dockerfile
 +++ b/Dockerfile
 @@ -161,7 +161,19 @@ ENV INSTALL_BINARY_NAME=tini
  COPY hack/dockerfile/install/$INSTALL_BINARY_NAME.installer ./
- RUN PREFIX=/build/ ./install.sh $INSTALL_BINARY_NAME
+ RUN PREFIX=/build ./install.sh $INSTALL_BINARY_NAME
  
 +FROM base AS rootlesskit
 +ENV INSTALL_BINARY_NAME=rootlesskit
@@ -71,7 +71,7 @@ index aac99c5090..d71112789a 100644
  
  # TODO: Some of this is only really needed for testing, it would be nice to split this up
  FROM runtime-dev AS dev
-@@ -226,6 +238,8 @@ RUN cd /docker-py \
+@@ -227,6 +239,8 @@ RUN cd /docker-py \
  	&& pip install docker-pycreds==0.2.1 \
  	&& pip install yamllint==1.5.0 \
  	&& pip install -r test-requirements.txt
@@ -145,7 +145,7 @@ index 2dbd84b1db..a730b81228 100644
 +	flags.BoolVar(&conf.Rootless, "rootless", rootless.RunningWithNonRootUsername, "Enable rootless mode (experimental)")
  }
 diff --git a/cmd/dockerd/daemon.go b/cmd/dockerd/daemon.go
-index 2efa60b5c5..2db746ac48 100644
+index 0daf197270..b0fac35386 100644
 --- a/cmd/dockerd/daemon.go
 +++ b/cmd/dockerd/daemon.go
 @@ -46,6 +46,7 @@ import (
@@ -156,25 +156,44 @@ index 2efa60b5c5..2db746ac48 100644
  	"github.com/docker/docker/runconfig"
  	"github.com/docker/go-connections/tlsconfig"
  	swarmapi "github.com/docker/swarmkit/api"
-@@ -93,6 +94,17 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+@@ -98,6 +99,17 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
  	if cli.Config.Experimental {
  		logrus.Warn("Running experimental build")
  	}
 +	// return human-friendly error before creating files
 +	if runtime.GOOS == "linux" && os.Geteuid() != 0 {
-+		return fmt.Errorf("rootless mode needs dockerd to be executed in userns")
++		return fmt.Errorf("dockerd needs to be started with root. To see how to run dockerd in rootless mode with unprivileged user see the documentation (experimental)")
 +	}
 +	if cli.Config.IsRootless() {
-+		logrus.Warn("Running in rootless mode (experimental). Cgroups, AppArmor, and CRIU are not likely to work.")
++		logrus.Warn("Running in rootless mode (experimental). Cgroups, AppArmor, and CRIU are disabled.")
 +		if !cli.Config.Experimental {
 +			return fmt.Errorf("rootless mode is only supported when experimental is enabled")
 +		}
 +		// TODO: make sure mountns and netns are unshared.
 +	}
  
- 	logrus.SetFormatter(&logrus.TextFormatter{
- 		TimestampFormat: jsonmessage.RFC3339NanoFixed,
-@@ -589,7 +601,7 @@ func loadListeners(cli *DaemonCli, serverConfig *apiserver.Config) ([]string, er
+ 	system.InitLCOW(cli.Config.Experimental)
+ 
+@@ -140,7 +152,8 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+ 
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	if cli.Config.ContainerdAddr == "" && runtime.GOOS != "windows" {
+-		if !systemContainerdRunning() {
++		systemContainerdAddr, ok := systemContainerdRunning(cli.Config.IsRootless())
++		if !ok {
+ 			opts, err := cli.getContainerdDaemonOpts()
+ 			if err != nil {
+ 				cancel()
+@@ -157,7 +170,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+ 			// Try to wait for containerd to shutdown
+ 			defer r.WaitTimeout(10 * time.Second)
+ 		} else {
+-			cli.Config.ContainerdAddr = containerddefaults.DefaultAddress
++			cli.Config.ContainerdAddr = systemContainerdAddr
+ 		}
+ 	}
+ 	defer cancel()
+@@ -585,7 +598,7 @@ func loadListeners(cli *DaemonCli, serverConfig *apiserver.Config) ([]string, er
  	var hosts []string
  	for i := 0; i < len(cli.Config.Hosts); i++ {
  		var err error
@@ -183,6 +202,28 @@ index 2efa60b5c5..2db746ac48 100644
  			return nil, errors.Wrapf(err, "error parsing -H %s", cli.Config.Hosts[i])
  		}
  
+@@ -662,9 +675,18 @@ func validateAuthzPlugins(requestedPlugins []string, pg plugingetter.PluginGette
+ 	return nil
+ }
+ 
+-func systemContainerdRunning() bool {
+-	_, err := os.Lstat(containerddefaults.DefaultAddress)
+-	return err == nil
++func systemContainerdRunning(isRootless bool) (string, bool) {
++	addr := containerddefaults.DefaultAddress
++	if isRootless {
++		if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
++			dirs := strings.Split(xdgRuntimeDir, ":")
++			addr = filepath.Join(dirs[0], "containerd/containerd.sock")
++		} else {
++			return "", false
++		}
++	}
++	_, err := os.Lstat(addr)
++	return addr, err == nil
+ }
+ 
+ // configureDaemonLogs sets the logrus logging level and formatting
 diff --git a/cmd/dockerd/daemon_unix.go b/cmd/dockerd/daemon_unix.go
 index 7b03e28594..e298ab8623 100644
 --- a/cmd/dockerd/daemon_unix.go
@@ -238,18 +279,18 @@ index 7b03e28594..e298ab8623 100644
  func (cli *DaemonCli) getPlatformContainerdDaemonOpts() ([]supervisor.DaemonOpt, error) {
 diff --git a/contrib/dockerd-rootless.sh b/contrib/dockerd-rootless.sh
 new file mode 100755
-index 0000000000..3bff414060
+index 0000000000..011cf41a3d
 --- /dev/null
 +++ b/contrib/dockerd-rootless.sh
 @@ -0,0 +1,36 @@
 +#!/bin/sh
 +set -e -x
-+if [ -z $XDG_RUNTIME_DIR ]; then
-+	echo "XDG_RUNTIME_DIR needs to be set"
++if ! [ -w $XDG_RUNTIME_DIR ]; then
++	echo "XDG_RUNTIME_DIR needs to be set and writable"
 +	exit 1
 +fi
-+if [ -z $HOME ]; then
-+	echo "HOME needs to be set"
++if ! [ -w $HOME ]; then
++	echo "HOME needs to be set and writable"
 +	exit 1
 +fi
 +
@@ -313,10 +354,10 @@ index 0aa7d54bf2..47624fab46 100644
 +	return false
 +}
 diff --git a/daemon/daemon.go b/daemon/daemon.go
-index 14b31e7667..b257050893 100644
+index c37d7c9f77..e22f2acd3b 100644
 --- a/daemon/daemon.go
 +++ b/daemon/daemon.go
-@@ -735,6 +735,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
+@@ -800,6 +800,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
  		logrus.Warnf("Failed to configure golang's threads limit: %v", err)
  	}
  
@@ -339,10 +380,10 @@ index 5332ce1038..31f89efe96 100644
  }
  
 diff --git a/daemon/info_unix.go b/daemon/info_unix.go
-index 60b2f99870..30ef92f898 100644
+index 6efdc16951..8fbeb2d07c 100644
 --- a/daemon/info_unix.go
 +++ b/daemon/info_unix.go
-@@ -166,3 +166,7 @@ func parseInitVersion(v string) (types.Commit, error) {
+@@ -170,3 +170,7 @@ func parseInitVersion(v string) (types.Commit, error) {
  	}
  	return version, nil
  }
@@ -363,7 +404,7 @@ index 2c1ff460c3..62f5d46a6e 100644
 +	return false
 +}
 diff --git a/daemon/oci_linux.go b/daemon/oci_linux.go
-index dfe02796a5..21f6bd2d27 100644
+index e330f4fc66..d4dbf2690b 100644
 --- a/daemon/oci_linux.go
 +++ b/daemon/oci_linux.go
 @@ -16,10 +16,12 @@ import (
@@ -388,7 +429,7 @@ index dfe02796a5..21f6bd2d27 100644
  		hostDevices, err := devices.HostDevices()
  		if err != nil {
  			return err
-@@ -846,6 +848,11 @@ func (daemon *Daemon) createSpec(c *container.Container) (retSpec *specs.Spec, e
+@@ -862,6 +864,11 @@ func (daemon *Daemon) createSpec(c *container.Container) (retSpec *specs.Spec, e
  		s.Linux.ReadonlyPaths = c.HostConfig.ReadonlyPaths
  	}
  
@@ -484,13 +525,13 @@ index 0000000000..6aae49d6e4
 +```
 diff --git a/hack/dockerfile/install/rootlesskit.installer b/hack/dockerfile/install/rootlesskit.installer
 new file mode 100755
-index 0000000000..be30a72ed2
+index 0000000000..cf0c0bff39
 --- /dev/null
 +++ b/hack/dockerfile/install/rootlesskit.installer
 @@ -0,0 +1,33 @@
 +#!/bin/sh
 +
-+ROOTLESSKIT_COMMIT=575e91bc329a5486acef25b6c8a9b22dde1ca26c
++ROOTLESSKIT_COMMIT=99d60416c7076922cf78bae9f976b6295af4eb86
 +
 +install_rootlesskit() {
 +	case "$1" in
@@ -523,13 +564,13 @@ index 0000000000..be30a72ed2
 +}
 diff --git a/hack/dockerfile/install/slirp4netns.installer b/hack/dockerfile/install/slirp4netns.installer
 new file mode 100755
-index 0000000000..d3dd2c0e8e
+index 0000000000..111495d059
 --- /dev/null
 +++ b/hack/dockerfile/install/slirp4netns.installer
 @@ -0,0 +1,27 @@
 +#!/bin/sh
 +
-+SLIRP4NETNS_COMMIT=39e87c0e66345edf7fd6e0bd1f61aa842617e757
++SLIRP4NETNS_COMMIT=5e4789b9a21cab3315801e1750670e10a1c86a2a
 +install_slirp4netns() {
 +	case "$1" in
 +	"dynamic")
@@ -566,7 +607,7 @@ index 69bb39b364..7553ef4244 100644
 +DOCKER_SLIRP4NETNS_BINARY_NAME='slirp4netns'
 +DOCKER_DAEMON_ROOTLESS_SH_BINARY_NAME='dockerd-rootless.sh'
 diff --git a/hack/make/binary-daemon b/hack/make/binary-daemon
-index c1a6e6f9ed..702ba3f2be 100644
+index 13c1d66c76..e89540ca60 100644
 --- a/hack/make/binary-daemon
 +++ b/hack/make/binary-daemon
 @@ -14,12 +14,13 @@ copy_binaries() {
@@ -576,16 +617,16 @@ index c1a6e6f9ed..702ba3f2be 100644
 -	for file in containerd containerd-shim ctr runc docker-init docker-proxy; do
 +	for file in containerd containerd-shim ctr runc docker-init docker-proxy rootlesskit slirp4netns dockerd-rootless.sh; do
  		cp -f `which "$file"` "$dir/"
- 		if [ "$hash" == "hash" ]; then
+ 		if [[ "$hash" == "hash" ]]; then
  			hash_files "$dir/$file"
  		fi
  	done
 +	cp -f /usr/local/bin/slirp4netns.LICENSE "$dir/"
  }
  
- [ -z "$KEEPDEST" ] && rm -rf "$DEST"
+ [[ -z "$KEEPDEST" ]] && rm -rf "$DEST"
 diff --git a/hack/make/install-binary b/hack/make/install-binary
-index f6a4361fdb..5aa2dc2c26 100644
+index 7a1af19b9c..9a7408a710 100644
 --- a/hack/make/install-binary
 +++ b/hack/make/install-binary
 @@ -26,4 +26,7 @@ install_binary() {
@@ -674,7 +715,7 @@ index e46326a5be..ec42a6c303 100644
  		}
  	}
 diff --git a/pkg/sysinfo/sysinfo_linux.go b/pkg/sysinfo/sysinfo_linux.go
-index dde5be19bc..eb3bdfe8b0 100644
+index 1fcf08310c..040c5a4dd6 100644
 --- a/pkg/sysinfo/sysinfo_linux.go
 +++ b/pkg/sysinfo/sysinfo_linux.go
 @@ -51,7 +51,9 @@ func New(quiet bool) *SysInfo {

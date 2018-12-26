@@ -4,5 +4,5 @@ RUN git clone https://github.com/containernetworking/plugins.git /go/src/github.
 WORKDIR /go/src/github.com/containernetworking/plugins
 ARG CNI_PLUGINS_COMMIT
 RUN git pull && git checkout ${CNI_PLUGINS_COMMIT}
-RUN ./build.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" && \
+RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" && \
   mkdir -p /out/cni && cp -f bin/* /out/cni
