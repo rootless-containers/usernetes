@@ -1,4 +1,4 @@
-From 13fe1412615e3970c161ca314412534842d1bd34 Mon Sep 17 00:00:00 2001
+From 096dda66f267d14b0624630b4db4e1826e900722 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -22,7 +22,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  9 files changed, 56 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index 70f3382d5f..106a2d2f59 100644
+index 61e9e649ed..1fd6c0d1df 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
 @@ -149,6 +149,7 @@ go_library(
@@ -182,7 +182,7 @@ index b59c6a0836..77fb9b87bb 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 27490aa2cf..987495f95e 100644
+index 7fafae4109..0ff3aa394a 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -33,6 +33,7 @@ import (
@@ -193,7 +193,7 @@ index 27490aa2cf..987495f95e 100644
  	"k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -1609,10 +1610,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1586,10 +1587,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -208,7 +208,7 @@ index 27490aa2cf..987495f95e 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1631,7 +1635,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1608,7 +1612,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)

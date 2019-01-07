@@ -1,0 +1,470 @@
+From d95632d09ceb851d5da228aaf69c230adc241ebf Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+Date: Mon, 7 Jan 2019 20:46:42 +0900
+Subject: [PATCH] Update cri to a7d1b3c7dc4984d094dfe48528ea96bb72abd3d2
+
+Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+---
+ vendor.conf                                   |   2 +-
+ .../containerd/cri/pkg/config/config.go       |  10 +
+ .../cri/pkg/server/container_create.go        |  47 ++++-
+ .../containerd/cri/pkg/server/helpers.go      |  25 +++
+ .../containerd/cri/pkg/server/sandbox_run.go  |  31 ++-
+ .../containerd/cri/pkg/server/service.go      |   9 +-
+ vendor/k8s.io/klog/{LICENSE => LICENSE~HEAD}  |   0
+ ...roup, DisableApparmor, RestrictOOMScoreAdj | 191 ++++++++++++++++++
+ 8 files changed, 296 insertions(+), 19 deletions(-)
+ rename vendor/k8s.io/klog/{LICENSE => LICENSE~HEAD} (100%)
+ create mode 100644 vendor/k8s.io/klog/LICENSE~[DNM_DIRTYVENDOR] cri: support DisableCgroup, DisableApparmor, RestrictOOMScoreAdj
+
+diff --git a/vendor.conf b/vendor.conf
+index 1ff41b7f..99ae2970 100644
+--- a/vendor.conf
++++ b/vendor.conf
+@@ -43,7 +43,7 @@ github.com/google/go-cmp v0.1.0
+ go.etcd.io/bbolt v1.3.1-etcd.8
+ 
+ # cri dependencies
+-github.com/containerd/cri 4b4b2abb2eb19ad6913a6c5d2a6869a0a43a3fc1 # master
++github.com/containerd/cri a7d1b3c7dc4984d094dfe48528ea96bb72abd3d2 # master
+ github.com/containerd/go-cni 40bcf8ec8acd7372be1d77031d585d5d8e561c90
+ github.com/blang/semver v3.1.0
+ github.com/containernetworking/cni v0.6.0
+diff --git a/vendor/github.com/containerd/cri/pkg/config/config.go b/vendor/github.com/containerd/cri/pkg/config/config.go
+index 7d53a7b5..9a8d23da 100644
+--- a/vendor/github.com/containerd/cri/pkg/config/config.go
++++ b/vendor/github.com/containerd/cri/pkg/config/config.go
+@@ -142,6 +142,16 @@ type PluginConfig struct {
+ 	// Log line longer than the limit will be split into multiple lines. Non-positive
+ 	// value means no limit.
+ 	MaxContainerLogLineSize int `toml:"max_container_log_line_size" json:"maxContainerLogSize"`
++	// DisableCgroup indicates to disable the cgroup support.
++	// This is useful when the containerd does not have permission to access cgroup.
++	DisableCgroup bool `toml:"disable_cgroup" json:"disableCgroup"`
++	// DisableApparmor indicates to disable the apparmor support.
++	// This is useful when the containerd does not have permission to access Apparmor.
++	DisableApparmor bool `toml:"disable_apparmor" json:"disableApparmor"`
++	// RestrictOOMScoreAdj indicates to limit the lower bound of OOMScoreAdj to the containerd's
++	// current OOMScoreADj.
++	// This is useful when the containerd does not have permission to decrease OOMScoreAdj.
++	RestrictOOMScoreAdj bool `toml:"restrict_oom_score_adj" json:"restrictOOMScoreAdj"`
+ }
+ 
+ // X509KeyPairStreaming contains the x509 configuration for streaming
+diff --git a/vendor/github.com/containerd/cri/pkg/server/container_create.go b/vendor/github.com/containerd/cri/pkg/server/container_create.go
+index 78262687..1d396055 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/container_create.go
++++ b/vendor/github.com/containerd/cri/pkg/server/container_create.go
+@@ -92,7 +92,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
+ 	// Reserve the container name to avoid concurrent `CreateContainer` request creating
+ 	// the same container.
+ 	id := util.GenerateID()
+-	name := makeContainerName(config.GetMetadata(), sandboxConfig.GetMetadata())
++	metadata := config.GetMetadata()
++	if metadata == nil {
++		return nil, errors.New("container config must include metadata")
++	}
++	name := makeContainerName(metadata, sandboxConfig.GetMetadata())
+ 	logrus.Debugf("Generated id %q for container %q", id, name)
+ 	if err = c.containerNameIndex.Reserve(name, id); err != nil {
+ 		return nil, errors.Wrapf(err, "failed to reserve container name %q", name)
+@@ -417,12 +421,18 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
+ 
+ 	g.SetRootReadonly(securityContext.GetReadonlyRootfs())
+ 
+-	setOCILinuxResource(&g, config.GetLinux().GetResources())
+-
+-	if sandboxConfig.GetLinux().GetCgroupParent() != "" {
+-		cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id,
+-			c.config.SystemdCgroup)
+-		g.SetLinuxCgroupsPath(cgroupsPath)
++	if c.config.DisableCgroup {
++		g.SetLinuxCgroupsPath("")
++	} else {
++		setOCILinuxResourceCgroup(&g, config.GetLinux().GetResources())
++		if sandboxConfig.GetLinux().GetCgroupParent() != "" {
++			cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id,
++				c.config.SystemdCgroup)
++			g.SetLinuxCgroupsPath(cgroupsPath)
++		}
++	}
++	if err := setOCILinuxResourceOOMScoreAdj(&g, config.GetLinux().GetResources(), c.config.RestrictOOMScoreAdj); err != nil {
++		return nil, err
+ 	}
+ 
+ 	// Set namespaces, share namespace with sandbox container.
+@@ -744,8 +754,8 @@ func setOCIBindMountsPrivileged(g *generate.Generator) {
+ 	spec.Linux.MaskedPaths = nil
+ }
+ 
+-// setOCILinuxResource set container resource limit.
+-func setOCILinuxResource(g *generate.Generator, resources *runtime.LinuxContainerResources) {
++// setOCILinuxResourceCgroup set container cgroup resource limit.
++func setOCILinuxResourceCgroup(g *generate.Generator, resources *runtime.LinuxContainerResources) {
+ 	if resources == nil {
+ 		return
+ 	}
+@@ -753,11 +763,28 @@ func setOCILinuxResource(g *generate.Generator, resources *runtime.LinuxContaine
+ 	g.SetLinuxResourcesCPUQuota(resources.GetCpuQuota())
+ 	g.SetLinuxResourcesCPUShares(uint64(resources.GetCpuShares()))
+ 	g.SetLinuxResourcesMemoryLimit(resources.GetMemoryLimitInBytes())
+-	g.SetProcessOOMScoreAdj(int(resources.GetOomScoreAdj()))
+ 	g.SetLinuxResourcesCPUCpus(resources.GetCpusetCpus())
+ 	g.SetLinuxResourcesCPUMems(resources.GetCpusetMems())
+ }
+ 
++// setOCILinuxResourceOOMScoreAdj set container OOMScoreAdj resource limit.
++func setOCILinuxResourceOOMScoreAdj(g *generate.Generator, resources *runtime.LinuxContainerResources, restrictOOMScoreAdjFlag bool) error {
++	if resources == nil {
++		return nil
++	}
++	adj := int(resources.GetOomScoreAdj())
++	if restrictOOMScoreAdjFlag {
++		var err error
++		adj, err = restrictOOMScoreAdj(adj)
++		if err != nil {
++			return err
++		}
++	}
++	g.SetProcessOOMScoreAdj(adj)
++
++	return nil
++}
++
+ // getOCICapabilitiesList returns a list of all available capabilities.
+ func getOCICapabilitiesList() []string {
+ 	var caps []string
+diff --git a/vendor/github.com/containerd/cri/pkg/server/helpers.go b/vendor/github.com/containerd/cri/pkg/server/helpers.go
+index c8a5778a..4b710b94 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/helpers.go
++++ b/vendor/github.com/containerd/cri/pkg/server/helpers.go
+@@ -18,6 +18,7 @@ package server
+ 
+ import (
+ 	"fmt"
++	"io/ioutil"
+ 	"os"
+ 	"path"
+ 	"path/filepath"
+@@ -496,3 +497,27 @@ func getRuntimeOptions(c containers.Container) (interface{}, error) {
+ 	}
+ 	return opts, nil
+ }
++
++func getCurrentOOMScoreAdj() (int, error) {
++	b, err := ioutil.ReadFile("/proc/self/oom_score_adj")
++	if err != nil {
++		return 0, errors.Wrap(err, "could not get the daemon oom_score_adj")
++	}
++	s := strings.TrimSpace(string(b))
++	i, err := strconv.Atoi(s)
++	if err != nil {
++		return 0, errors.Wrap(err, "could not get the daemon oom_score_adj")
++	}
++	return i, nil
++}
++
++func restrictOOMScoreAdj(preferredOOMScoreAdj int) (int, error) {
++	currentOOMScoreAdj, err := getCurrentOOMScoreAdj()
++	if err != nil {
++		return preferredOOMScoreAdj, err
++	}
++	if preferredOOMScoreAdj < currentOOMScoreAdj {
++		return currentOOMScoreAdj, nil
++	}
++	return preferredOOMScoreAdj, nil
++}
+diff --git a/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go b/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
+index d5aa700b..3f2d206f 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
++++ b/vendor/github.com/containerd/cri/pkg/server/sandbox_run.go
+@@ -58,7 +58,11 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
+ 
+ 	// Generate unique id and name for the sandbox and reserve the name.
+ 	id := util.GenerateID()
+-	name := makeSandboxName(config.GetMetadata())
++	metadata := config.GetMetadata()
++	if metadata == nil {
++		return nil, errors.New("sandbox config must include metadata")
++	}
++	name := makeSandboxName(metadata)
+ 	logrus.Debugf("Generated id %q for sandbox %q", id, name)
+ 	// Reserve the sandbox name to avoid concurrent `RunPodSandbox` request starting the
+ 	// same sandbox.
+@@ -371,10 +375,14 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
+ 	// TODO(random-liu): [P2] Consider whether to add labels and annotations to the container.
+ 
+ 	// Set cgroups parent.
+-	if config.GetLinux().GetCgroupParent() != "" {
+-		cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
+-			c.config.SystemdCgroup)
+-		g.SetLinuxCgroupsPath(cgroupsPath)
++	if c.config.DisableCgroup {
++		g.SetLinuxCgroupsPath("")
++	} else {
++		if config.GetLinux().GetCgroupParent() != "" {
++			cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
++				c.config.SystemdCgroup)
++			g.SetLinuxCgroupsPath(cgroupsPath)
++		}
+ 	}
+ 	// When cgroup parent is not set, containerd-shim will create container in a child cgroup
+ 	// of the cgroup itself is in.
+@@ -430,8 +438,17 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
+ 
+ 	// Note: LinuxSandboxSecurityContext does not currently provide an apparmor profile
+ 
+-	g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
+-	g.SetProcessOOMScoreAdj(int(defaultSandboxOOMAdj))
++	if !c.config.DisableCgroup {
++		g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
++	}
++	adj := int(defaultSandboxOOMAdj)
++	if c.config.RestrictOOMScoreAdj {
++		adj, err = restrictOOMScoreAdj(adj)
++		if err != nil {
++			return nil, err
++		}
++	}
++	g.SetProcessOOMScoreAdj(adj)
+ 
+ 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
+ 	g.AddAnnotation(annotations.SandboxID, id)
+diff --git a/vendor/github.com/containerd/cri/pkg/server/service.go b/vendor/github.com/containerd/cri/pkg/server/service.go
+index ce648ae5..d041d30d 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/service.go
++++ b/vendor/github.com/containerd/cri/pkg/server/service.go
+@@ -28,6 +28,7 @@ import (
+ 	cni "github.com/containerd/go-cni"
+ 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
+ 	runcseccomp "github.com/opencontainers/runc/libcontainer/seccomp"
++	runcsystem "github.com/opencontainers/runc/libcontainer/system"
+ 	"github.com/opencontainers/selinux/go-selinux"
+ 	"github.com/pkg/errors"
+ 	"github.com/sirupsen/logrus"
+@@ -108,7 +109,7 @@ func NewCRIService(config criconfig.Config, client *containerd.Client) (CRIServi
+ 	c := &criService{
+ 		config:             config,
+ 		client:             client,
+-		apparmorEnabled:    runcapparmor.IsEnabled(),
++		apparmorEnabled:    runcapparmor.IsEnabled() && !config.DisableApparmor,
+ 		seccompEnabled:     runcseccomp.IsEnabled(),
+ 		os:                 osinterface.RealOS{},
+ 		sandboxStore:       sandboxstore.NewStore(),
+@@ -120,6 +121,12 @@ func NewCRIService(config criconfig.Config, client *containerd.Client) (CRIServi
+ 		initialized:        atomic.NewBool(false),
+ 	}
+ 
++	if runcsystem.RunningInUserNS() {
++		if !(config.DisableCgroup && !c.apparmorEnabled && config.RestrictOOMScoreAdj) {
++			logrus.Warn("Running containerd in a user namespace typically requires disable_cgroup, disable_apparmor, restrict_oom_score_adj set to be true")
++		}
++	}
++
+ 	if c.config.EnableSelinux {
+ 		if !selinux.GetEnabled() {
+ 			logrus.Warn("Selinux is not supported")
+diff --git a/vendor/k8s.io/klog/LICENSE b/vendor/k8s.io/klog/LICENSE~HEAD
+similarity index 100%
+rename from vendor/k8s.io/klog/LICENSE
+rename to vendor/k8s.io/klog/LICENSE~HEAD
+diff --git a/vendor/k8s.io/klog/LICENSE~[DNM_DIRTYVENDOR] cri: support DisableCgroup, DisableApparmor, RestrictOOMScoreAdj b/vendor/k8s.io/klog/LICENSE~[DNM_DIRTYVENDOR] cri: support DisableCgroup, DisableApparmor, RestrictOOMScoreAdj
+new file mode 100644
+index 00000000..37ec93a1
+--- /dev/null
++++ b/vendor/k8s.io/klog/LICENSE~[DNM_DIRTYVENDOR] cri: support DisableCgroup, DisableApparmor, RestrictOOMScoreAdj	
+@@ -0,0 +1,191 @@
++Apache License
++Version 2.0, January 2004
++http://www.apache.org/licenses/
++
++TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++1. Definitions.
++
++"License" shall mean the terms and conditions for use, reproduction, and
++distribution as defined by Sections 1 through 9 of this document.
++
++"Licensor" shall mean the copyright owner or entity authorized by the copyright
++owner that is granting the License.
++
++"Legal Entity" shall mean the union of the acting entity and all other entities
++that control, are controlled by, or are under common control with that entity.
++For the purposes of this definition, "control" means (i) the power, direct or
++indirect, to cause the direction or management of such entity, whether by
++contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the
++outstanding shares, or (iii) beneficial ownership of such entity.
++
++"You" (or "Your") shall mean an individual or Legal Entity exercising
++permissions granted by this License.
++
++"Source" form shall mean the preferred form for making modifications, including
++but not limited to software source code, documentation source, and configuration
++files.
++
++"Object" form shall mean any form resulting from mechanical transformation or
++translation of a Source form, including but not limited to compiled object code,
++generated documentation, and conversions to other media types.
++
++"Work" shall mean the work of authorship, whether in Source or Object form, made
++available under the License, as indicated by a copyright notice that is included
++in or attached to the work (an example is provided in the Appendix below).
++
++"Derivative Works" shall mean any work, whether in Source or Object form, that
++is based on (or derived from) the Work and for which the editorial revisions,
++annotations, elaborations, or other modifications represent, as a whole, an
++original work of authorship. For the purposes of this License, Derivative Works
++shall not include works that remain separable from, or merely link (or bind by
++name) to the interfaces of, the Work and Derivative Works thereof.
++
++"Contribution" shall mean any work of authorship, including the original version
++of the Work and any modifications or additions to that Work or Derivative Works
++thereof, that is intentionally submitted to Licensor for inclusion in the Work
++by the copyright owner or by an individual or Legal Entity authorized to submit
++on behalf of the copyright owner. For the purposes of this definition,
++"submitted" means any form of electronic, verbal, or written communication sent
++to the Licensor or its representatives, including but not limited to
++communication on electronic mailing lists, source code control systems, and
++issue tracking systems that are managed by, or on behalf of, the Licensor for
++the purpose of discussing and improving the Work, but excluding communication
++that is conspicuously marked or otherwise designated in writing by the copyright
++owner as "Not a Contribution."
++
++"Contributor" shall mean Licensor and any individual or Legal Entity on behalf
++of whom a Contribution has been received by Licensor and subsequently
++incorporated within the Work.
++
++2. Grant of Copyright License.
++
++Subject to the terms and conditions of this License, each Contributor hereby
++grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free,
++irrevocable copyright license to reproduce, prepare Derivative Works of,
++publicly display, publicly perform, sublicense, and distribute the Work and such
++Derivative Works in Source or Object form.
++
++3. Grant of Patent License.
++
++Subject to the terms and conditions of this License, each Contributor hereby
++grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free,
++irrevocable (except as stated in this section) patent license to make, have
++made, use, offer to sell, sell, import, and otherwise transfer the Work, where
++such license applies only to those patent claims licensable by such Contributor
++that are necessarily infringed by their Contribution(s) alone or by combination
++of their Contribution(s) with the Work to which such Contribution(s) was
++submitted. If You institute patent litigation against any entity (including a
++cross-claim or counterclaim in a lawsuit) alleging that the Work or a
++Contribution incorporated within the Work constitutes direct or contributory
++patent infringement, then any patent licenses granted to You under this License
++for that Work shall terminate as of the date such litigation is filed.
++
++4. Redistribution.
++
++You may reproduce and distribute copies of the Work or Derivative Works thereof
++in any medium, with or without modifications, and in Source or Object form,
++provided that You meet the following conditions:
++
++You must give any other recipients of the Work or Derivative Works a copy of
++this License; and
++You must cause any modified files to carry prominent notices stating that You
++changed the files; and
++You must retain, in the Source form of any Derivative Works that You distribute,
++all copyright, patent, trademark, and attribution notices from the Source form
++of the Work, excluding those notices that do not pertain to any part of the
++Derivative Works; and
++If the Work includes a "NOTICE" text file as part of its distribution, then any
++Derivative Works that You distribute must include a readable copy of the
++attribution notices contained within such NOTICE file, excluding those notices
++that do not pertain to any part of the Derivative Works, in at least one of the
++following places: within a NOTICE text file distributed as part of the
++Derivative Works; within the Source form or documentation, if provided along
++with the Derivative Works; or, within a display generated by the Derivative
++Works, if and wherever such third-party notices normally appear. The contents of
++the NOTICE file are for informational purposes only and do not modify the
++License. You may add Your own attribution notices within Derivative Works that
++You distribute, alongside or as an addendum to the NOTICE text from the Work,
++provided that such additional attribution notices cannot be construed as
++modifying the License.
++You may add Your own copyright statement to Your modifications and may provide
++additional or different license terms and conditions for use, reproduction, or
++distribution of Your modifications, or for any such Derivative Works as a whole,
++provided Your use, reproduction, and distribution of the Work otherwise complies
++with the conditions stated in this License.
++
++5. Submission of Contributions.
++
++Unless You explicitly state otherwise, any Contribution intentionally submitted
++for inclusion in the Work by You to the Licensor shall be under the terms and
++conditions of this License, without any additional terms or conditions.
++Notwithstanding the above, nothing herein shall supersede or modify the terms of
++any separate license agreement you may have executed with Licensor regarding
++such Contributions.
++
++6. Trademarks.
++
++This License does not grant permission to use the trade names, trademarks,
++service marks, or product names of the Licensor, except as required for
++reasonable and customary use in describing the origin of the Work and
++reproducing the content of the NOTICE file.
++
++7. Disclaimer of Warranty.
++
++Unless required by applicable law or agreed to in writing, Licensor provides the
++Work (and each Contributor provides its Contributions) on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
++including, without limitation, any warranties or conditions of TITLE,
++NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are
++solely responsible for determining the appropriateness of using or
++redistributing the Work and assume any risks associated with Your exercise of
++permissions under this License.
++
++8. Limitation of Liability.
++
++In no event and under no legal theory, whether in tort (including negligence),
++contract, or otherwise, unless required by applicable law (such as deliberate
++and grossly negligent acts) or agreed to in writing, shall any Contributor be
++liable to You for damages, including any direct, indirect, special, incidental,
++or consequential damages of any character arising as a result of this License or
++out of the use or inability to use the Work (including but not limited to
++damages for loss of goodwill, work stoppage, computer failure or malfunction, or
++any and all other commercial damages or losses), even if such Contributor has
++been advised of the possibility of such damages.
++
++9. Accepting Warranty or Additional Liability.
++
++While redistributing the Work or Derivative Works thereof, You may choose to
++offer, and charge a fee for, acceptance of support, warranty, indemnity, or
++other liability obligations and/or rights consistent with this License. However,
++in accepting such obligations, You may act only on Your own behalf and on Your
++sole responsibility, not on behalf of any other Contributor, and only if You
++agree to indemnify, defend, and hold each Contributor harmless for any liability
++incurred by, or claims asserted against, such Contributor by reason of your
++accepting any such warranty or additional liability.
++
++END OF TERMS AND CONDITIONS
++
++APPENDIX: How to apply the Apache License to your work
++
++To apply the Apache License to your work, attach the following boilerplate
++notice, with the fields enclosed by brackets "[]" replaced with your own
++identifying information. (Don't include the brackets!) The text should be
++enclosed in the appropriate comment syntax for the file format. We also
++recommend that a file or class name and description of purpose be included on
++the same "printed page" as the copyright notice for easier identification within
++third-party archives.
++
++   Copyright [yyyy] [name of copyright owner]
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++   you may not use this file except in compliance with the License.
++   You may obtain a copy of the License at
++
++     http://www.apache.org/licenses/LICENSE-2.0
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
+-- 
+2.17.1
+
