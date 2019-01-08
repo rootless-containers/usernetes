@@ -2,7 +2,7 @@
 source $(dirname $0)/../common/common.inc.sh
 
 export _CRIO_ROOTLESS=1
-mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/crio
+mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio
 
 # It looks like both crio.conf["registries"] and --registry CLI flags are needed
 # https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
