@@ -125,7 +125,7 @@ $ ./run.sh default-containerd
 
 If you don't need Kubernetes:
 ```console
-$ ./run.sh dockerd
+$ ./run.sh rootlesskit default-docker-nokube
 ```
 
 ### Use `docker`
