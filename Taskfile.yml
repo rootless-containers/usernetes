@@ -1,154 +1,71 @@
-# Usernetes: (CRIO|Docker) & Kubernetes without the root privileges
-#
-# You need to use `run.sh` for executing these tasks.
-# Please refer to `README.md` for the usage.
 version: '2'
-
 output: prefixed
-
 tasks:
-  crio:
-    env:
-      _CRIO_ROOTLESS: 1
+  rootlesskit:
     cmds:
-      - test $_USERNETES_CHILD
-      - mkdir -p $HOME/.local/share/containers
-      - mkdir -p $HOME/.config/crio
-# It looks like both crio.conf["registries"] and --registry CLI flags are needed
-# https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
-      - cmd: |
-          [ ! -f $HOME/.config/crio/crio.conf ] && \
-          cat  > $HOME/.config/crio/crio.conf << EOF
-          registries = ['registry.access.redhat.com', 'registry.fedoraproject.org', 'docker.io']
-          EOF
-        ignore_error: true
-# workaround: https://github.com/rootless-containers/usernetes/issues/30
-      - cmd: |
-          mkdir -p $HOME/.config/containers
-          [ ! -f $HOME/.config/containers/policy.json ] && \
-          cat  > $HOME/.config/containers/policy.json << EOF
-          {"default": [{"type": "insecureAcceptAnything"}]}
-          EOF
-        ignore_error: true
-      - |
-        $(pwd)/bin/crio \
-        --signature-policy $HOME/.config/containers/policy.json \
-        --config $HOME/.config/crio/crio.conf \
-        --registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
-        --conmon $(pwd)/bin/conmon \
-        --runroot $XDG_RUNTIME_DIR/crio \
-        --runtimes runc:$(pwd)/bin/runc \
-        --cni-config-dir $(pwd)/config/crio/cni \
-        --cni-plugin-dir $(pwd)/bin/cni \
-        --root $HOME/.local/share/containers/storage --cgroup-manager=cgroupfs \
-        --storage-driver vfs --runtime $(pwd)/bin/runc
-  containerd:
-    cmds:
-      - test $_USERNETES_CHILD
-      - cmd: |
-          cat > $XDG_RUNTIME_DIR/usernetes/containerd.toml << EOF
-          root = "$HOME/.local/share/containerd"
-          state = "$XDG_RUNTIME_DIR/containerd"
-          [grpc]
-            address = "$XDG_RUNTIME_DIR/containerd/containerd.sock"
-          [plugins]
-            [plugins.linux]
-              runtime_root = "$XDG_RUNTIME_DIR/containerd/runc"
-            [plugins.cri]
-              disable_cgroup = true
-              disable_apparmor = true
-              restrict_oom_score_adj = true
-              [plugins.cri.containerd]
-              # If you are on Ubuntu you can use "overlayfs". Otherwise you need to use "native".
-                snapshotter = "$( (uname -v | grep Ubuntu > /dev/null) && echo overlayfs || echo native )"
-              [plugins.cri.cni]
-                bin_dir = "$(pwd)/bin/cni"
-                conf_dir = "$(pwd)/config/containerd/cni"
-          EOF
-      - containerd -c $XDG_RUNTIME_DIR/usernetes/containerd.toml
+      - ./boot/rootlesskit.sh
   dockerd:
     cmds:
-      - test $_USERNETES_CHILD
-# dockerd launches containerd by itself
-      - dockerd --experimental
-  etcd:
+      - ./boot/dockerd.sh
+  kubelet-dockershim:
     cmds:
-      - test $_USERNETES_CHILD
-      - etcd --data-dir $HOME/.local/share/usernetes/etcd
-  kube-apiserver:
+      - ./boot/kubelet-dockershim.sh
+  crio:
     cmds:
-      - test $_USERNETES_CHILD
-      - |
-        hyperkube kube-apiserver \
-        --etcd-servers http://127.0.0.1:2379 \
-        --admission-control=AlwaysAdmit \
-        --authorization-mode=AlwaysAllow \
-        --anonymous-auth=true
-  kube-controller-manager:
-    cmds:
-      - test $_USERNETES_CHILD
-      - hyperkube kube-controller-manager --master http://localhost:8080
-  kube-scheduler:
-    cmds:
-      - test $_USERNETES_CHILD
-      - hyperkube kube-scheduler --master http://localhost:8080
-  kube-proxy:
-    cmds:
-      - test $_USERNETES_CHILD
-# TODO: figure out whether other proxy-mode work
-      - hyperkube kube-proxy --kubeconfig localhost.kubeconfig --proxy-mode=userspace
-  kubelet:
-    cmds:
-      - test $_USERNETES_CHILD
-      - |
-        hyperkube kubelet \
-        --cert-dir $HOME/.config/usernetes/pki \
-        --root-dir $HOME/.local/share/usernetes/kubelet \
-        --log-dir $HOME/.local/share/usernetes/kubelet-log \
-        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
-        --docker-endpoint unix://${XDG_RUNTIME_DIR}/docker.sock \
-        --kubeconfig localhost.kubeconfig \
-        --anonymous-auth=true \
-        --authorization-mode=AlwaysAllow \
-        --fail-swap-on=false \
-        --feature-gates DevicePlugins=false
+      - ./boot/crio.sh
   kubelet-crio:
     cmds:
-      - test $_USERNETES_CHILD
-      - |
-        hyperkube kubelet \
-        --container-runtime remote \
-        --container-runtime-endpoint unix:///run/crio/crio.sock \
-        --cert-dir $HOME/.config/usernetes/pki \
-        --root-dir $HOME/.local/share/usernetes/kubelet \
-        --log-dir $HOME/.local/share/usernetes/kubelet-log \
-        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
-        --kubeconfig localhost.kubeconfig \
-        --anonymous-auth=true \
-        --authorization-mode=AlwaysAllow \
-        --fail-swap-on=false \
-        --feature-gates DevicePlugins=false
+      - ./boot/kubelet-crio.sh
+  containerd:
+    cmds:
+      - ./boot/containerd.sh
   kubelet-containerd:
     cmds:
-      - test $_USERNETES_CHILD
-      - |
-        hyperkube kubelet \
-        --container-runtime remote \
-        --container-runtime-endpoint unix://$XDG_RUNTIME_DIR/containerd/containerd.sock \
-        --cert-dir $HOME/.config/usernetes/pki \
-        --root-dir $HOME/.local/share/usernetes/kubelet \
-        --log-dir $HOME/.local/share/usernetes/kubelet-log \
-        --volume-plugin-dir $HOME/.local/share/usernetes/kubelet-plugins-exec \
-        --kubeconfig localhost.kubeconfig \
-        --anonymous-auth=true \
-        --authorization-mode=AlwaysAllow \
-        --fail-swap-on=false \
-        --feature-gates DevicePlugins=false
+      - ./boot/kubelet-containerd.sh
+  etcd:
+    cmds:
+      - ./boot/etcd.sh
+  kube-apiserver:
+    cmds:
+      - ./boot/kube-apiserver.sh
+  kube-controller-manager:
+    cmds:
+      - ./boot/kube-controller-manager.sh
+  kube-scheduler:
+    cmds:
+      - ./boot/kube-scheduler.sh
+  kube-proxy:
+    cmds:
+      - ./boot/kube-proxy.sh
   kube-common:
-    deps: [etcd,kube-apiserver,kube-controller-manager,kube-scheduler,kube-proxy]
-  default:
-    deps: [dockerd,kube-common,kubelet]
+    deps:
+      - etcd
+      - kube-apiserver
+      - kube-controller-manager
+      - kube-scheduler
+      - kube-proxy
+  default-docker:
+    deps:
+      - rootlesskit
+      - dockerd
+      - kubelet-dockershim
+      - kube-common
+  default-docker-nokube:
+     deps:
+      - rootlesskit
+      - dockerd
   default-crio:
-    deps: [crio,kube-common,kubelet-crio]
+    deps:
+      - rootlesskit
+      - crio
+      - kubelet-crio
+      - kube-common
   default-containerd:
-    deps: [containerd,kube-common,kubelet-containerd]
+    deps:
+      - rootlesskit
+      - containerd
+      - kubelet-containerd
+      - kube-common
+  default:
+    deps:
+      - default-docker
