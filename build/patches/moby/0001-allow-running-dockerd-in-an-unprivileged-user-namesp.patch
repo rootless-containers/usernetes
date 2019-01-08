@@ -1,7 +1,7 @@
-From d37beaaed44119dde4de99bb037634391b2b6c4f Mon Sep 17 00:00:00 2001
+From 751fb0333ffb8f475ab75aff3532862602cf5db6 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Mon, 15 Oct 2018 16:52:53 +0900
-Subject: [PATCH 2/2] allow running `dockerd` in an unprivileged user namespace
+Subject: [PATCH] allow running `dockerd` in an unprivileged user namespace
  (rootless mode)
 
 Please refer to `docs/rootless.md`.
@@ -13,32 +13,38 @@ TLDR:
 
 Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 ---
- Dockerfile                                    | 14 ++++
- cmd/dockerd/config_common_unix.go             | 23 ++++++
+ Dockerfile                                    | 14 +++
+ cli/config/configdir.go                       |  2 +
+ cmd/dockerd/config_common_unix.go             | 21 +++++
  cmd/dockerd/config_unix.go                    |  4 +-
- cmd/dockerd/daemon.go                         | 34 +++++++--
- cmd/dockerd/daemon_unix.go                    | 25 +++++-
- contrib/dockerd-rootless.sh                   | 36 +++++++++
+ cmd/dockerd/daemon.go                         | 43 +++++++--
+ cmd/dockerd/daemon_unix.go                    | 24 ++++-
+ cmd/dockerd/options.go                        |  2 +
+ contrib/dockerd-rootless.sh                   | 69 +++++++++++++++
  daemon/config/config_unix.go                  |  6 ++
  daemon/config/config_windows.go               |  5 ++
  daemon/daemon.go                              |  1 +
+ daemon/daemon_unix.go                         |  3 -
  daemon/info.go                                |  3 +
  daemon/info_unix.go                           |  4 +
  daemon/info_windows.go                        |  4 +
- daemon/oci_linux.go                           |  9 ++-
- docs/rootless.md                              | 76 +++++++++++++++++++
- hack/dockerfile/install/rootlesskit.installer | 33 ++++++++
- hack/dockerfile/install/slirp4netns.installer | 27 +++++++
+ daemon/listeners/listeners_linux.go           |  5 ++
+ daemon/oci_linux.go                           |  9 +-
+ docs/rootless.md                              | 88 +++++++++++++++++++
+ hack/dockerfile/install/rootlesskit.installer | 34 +++++++
+ hack/dockerfile/install/slirp4netns.installer | 28 ++++++
  hack/make/.binary-setup                       |  3 +
  hack/make/binary-daemon                       |  3 +-
  hack/make/install-binary                      |  3 +
- opts/hosts.go                                 | 20 ++++-
+ opts/hosts.go                                 | 22 ++++-
  opts/hosts_test.go                            |  4 +-
+ pkg/homedir/homedir_linux.go                  | 88 +++++++++++++++++++
+ pkg/homedir/homedir_others.go                 | 20 +++++
  pkg/sysinfo/sysinfo_linux.go                  |  4 +-
  rootless/doc.go                               |  2 +
- rootless/rootless.go                          | 22 ++++++
- rootless/specconv/specconv_linux.go           | 38 ++++++++++
- 25 files changed, 387 insertions(+), 16 deletions(-)
+ rootless/rootless.go                          | 22 +++++
+ rootless/specconv/specconv_linux.go           | 38 ++++++++
+ 31 files changed, 559 insertions(+), 19 deletions(-)
  create mode 100755 contrib/dockerd-rootless.sh
  create mode 100644 docs/rootless.md
  create mode 100755 hack/dockerfile/install/rootlesskit.installer
@@ -48,7 +54,7 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  create mode 100644 rootless/specconv/specconv_linux.go
 
 diff --git a/Dockerfile b/Dockerfile
-index 004c868b0f..1c7f2db96a 100644
+index 53e761872e..fa83b1a993 100644
 --- a/Dockerfile
 +++ b/Dockerfile
 @@ -161,7 +161,19 @@ ENV INSTALL_BINARY_NAME=tini
@@ -80,26 +86,38 @@ index 004c868b0f..1c7f2db96a 100644
  
  ENV PATH=/usr/local/cli:$PATH
  ENV DOCKER_BUILDTAGS apparmor seccomp selinux
+diff --git a/cli/config/configdir.go b/cli/config/configdir.go
+index 4bef4e104d..f0b68ee387 100644
+--- a/cli/config/configdir.go
++++ b/cli/config/configdir.go
+@@ -13,6 +13,8 @@ var (
+ )
+ 
+ // Dir returns the path to the configuration directory as specified by the DOCKER_CONFIG environment variable.
++// If DOCKER_CONFIG is unset, Dir returns ~/.docker .
++// Dir ignores XDG_CONFIG_HOME (same as the docker client).
+ // TODO: this was copied from cli/config/configfile and should be removed once cmd/dockerd moves
+ func Dir() string {
+ 	return configDir
 diff --git a/cmd/dockerd/config_common_unix.go b/cmd/dockerd/config_common_unix.go
-index febf30ae9f..acf3ad6b2b 100644
+index febf30ae9f..f876b4ec1a 100644
 --- a/cmd/dockerd/config_common_unix.go
 +++ b/cmd/dockerd/config_common_unix.go
-@@ -3,9 +3,14 @@
+@@ -3,9 +3,13 @@
  package main
  
  import (
-+	"os"
 +	"path/filepath"
-+	"strings"
 +
  	"github.com/docker/docker/api/types"
  	"github.com/docker/docker/daemon/config"
  	"github.com/docker/docker/opts"
++	"github.com/docker/docker/pkg/homedir"
 +	"github.com/docker/docker/rootless"
  	"github.com/spf13/pflag"
  )
  
-@@ -15,6 +20,24 @@ var (
+@@ -15,6 +19,23 @@ var (
  	defaultExecRoot = "/var/run/docker"
  )
  
@@ -107,18 +125,17 @@ index febf30ae9f..acf3ad6b2b 100644
 +	if !rootless.RunningWithNonRootUsername {
 +		return
 +	}
-+	//  pam_systemd sets XDG_RUNTIME_DIR but not other dirs.
-+	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
-+		dirs := strings.Split(xdgDataHome, ":")
-+		defaultDataRoot = filepath.Join(dirs[0], "docker")
-+	} else if home := os.Getenv("HOME"); home != "" {
-+		defaultDataRoot = filepath.Join(home, ".local", "share", "docker")
++	dataHome, err := homedir.GetDataHome()
++	if err != nil {
++		panic(err)
 +	}
-+	if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
-+		dirs := strings.Split(xdgRuntimeDir, ":")
-+		defaultPidFile = filepath.Join(dirs[0], "docker.pid")
-+		defaultExecRoot = filepath.Join(dirs[0], "docker")
++	defaultDataRoot = filepath.Join(dataHome, "docker")
++	runtimeDir, err := homedir.GetRuntimeDir()
++	if err != nil {
++		panic(err)
 +	}
++	defaultPidFile = filepath.Join(runtimeDir, "docker.pid")
++	defaultExecRoot = filepath.Join(runtimeDir, "docker")
 +}
 +
  // installUnixConfigFlags adds command-line options to the top-level flag parser for
@@ -145,10 +162,17 @@ index 2dbd84b1db..a730b81228 100644
 +	flags.BoolVar(&conf.Rootless, "rootless", rootless.RunningWithNonRootUsername, "Enable rootless mode (experimental)")
  }
 diff --git a/cmd/dockerd/daemon.go b/cmd/dockerd/daemon.go
-index 0daf197270..b0fac35386 100644
+index 0daf197270..6aeb08e428 100644
 --- a/cmd/dockerd/daemon.go
 +++ b/cmd/dockerd/daemon.go
-@@ -46,6 +46,7 @@ import (
+@@ -40,12 +40,14 @@ import (
+ 	"github.com/docker/docker/libcontainerd/supervisor"
+ 	dopts "github.com/docker/docker/opts"
+ 	"github.com/docker/docker/pkg/authorization"
++	"github.com/docker/docker/pkg/homedir"
+ 	"github.com/docker/docker/pkg/jsonmessage"
+ 	"github.com/docker/docker/pkg/pidfile"
+ 	"github.com/docker/docker/pkg/plugingetter"
  	"github.com/docker/docker/pkg/signal"
  	"github.com/docker/docker/pkg/system"
  	"github.com/docker/docker/plugin"
@@ -156,7 +180,7 @@ index 0daf197270..b0fac35386 100644
  	"github.com/docker/docker/runconfig"
  	"github.com/docker/go-connections/tlsconfig"
  	swarmapi "github.com/docker/swarmkit/api"
-@@ -98,6 +99,17 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+@@ -98,6 +100,17 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
  	if cli.Config.Experimental {
  		logrus.Warn("Running experimental build")
  	}
@@ -174,7 +198,35 @@ index 0daf197270..b0fac35386 100644
  
  	system.InitLCOW(cli.Config.Experimental)
  
-@@ -140,7 +152,8 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+@@ -115,11 +128,14 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+ 		return err
+ 	}
+ 
++	potentiallyUnderRuntimeDir := []string{cli.Config.ExecRoot}
++
+ 	if cli.Pidfile != "" {
+ 		pf, err := pidfile.New(cli.Pidfile)
+ 		if err != nil {
+ 			return errors.Wrap(err, "failed to start daemon")
+ 		}
++		potentiallyUnderRuntimeDir = append(potentiallyUnderRuntimeDir, cli.Pidfile)
+ 		defer func() {
+ 			if err := pf.Remove(); err != nil {
+ 				logrus.Error(err)
+@@ -127,6 +143,12 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+ 		}()
+ 	}
+ 
++	// Set sticky bit if XDG_RUNTIME_DIR is set && the file is actually under XDG_RUNTIME_DIR
++	if _, err := homedir.StickRuntimeDirContents(potentiallyUnderRuntimeDir); err != nil {
++		// StickRuntimeDirContents returns nil error if XDG_RUNTIME_DIR is just unset
++		logrus.WithError(err).Warn("cannot set sticky bit on files under XDG_RUNTIME_DIR")
++	}
++
+ 	serverConfig, err := newAPIServerConfig(cli)
+ 	if err != nil {
+ 		return errors.Wrap(err, "failed to create API server")
+@@ -140,7 +162,8 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
  
  	ctx, cancel := context.WithCancel(context.Background())
  	if cli.Config.ContainerdAddr == "" && runtime.GOOS != "windows" {
@@ -184,7 +236,7 @@ index 0daf197270..b0fac35386 100644
  			opts, err := cli.getContainerdDaemonOpts()
  			if err != nil {
  				cancel()
-@@ -157,7 +170,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
+@@ -157,7 +180,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
  			// Try to wait for containerd to shutdown
  			defer r.WaitTimeout(10 * time.Second)
  		} else {
@@ -193,7 +245,7 @@ index 0daf197270..b0fac35386 100644
  		}
  	}
  	defer cancel()
-@@ -585,7 +598,7 @@ func loadListeners(cli *DaemonCli, serverConfig *apiserver.Config) ([]string, er
+@@ -585,7 +608,7 @@ func loadListeners(cli *DaemonCli, serverConfig *apiserver.Config) ([]string, er
  	var hosts []string
  	for i := 0; i < len(cli.Config.Hosts); i++ {
  		var err error
@@ -202,7 +254,7 @@ index 0daf197270..b0fac35386 100644
  			return nil, errors.Wrapf(err, "error parsing -H %s", cli.Config.Hosts[i])
  		}
  
-@@ -662,9 +675,18 @@ func validateAuthzPlugins(requestedPlugins []string, pg plugingetter.PluginGette
+@@ -662,9 +685,17 @@ func validateAuthzPlugins(requestedPlugins []string, pg plugingetter.PluginGette
  	return nil
  }
  
@@ -212,9 +264,8 @@ index 0daf197270..b0fac35386 100644
 +func systemContainerdRunning(isRootless bool) (string, bool) {
 +	addr := containerddefaults.DefaultAddress
 +	if isRootless {
-+		if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
-+			dirs := strings.Split(xdgRuntimeDir, ":")
-+			addr = filepath.Join(dirs[0], "containerd/containerd.sock")
++		if runtimeDir, err := homedir.GetRuntimeDir(); err == nil {
++			addr = filepath.Join(runtimeDir, "containerd", "containerd.sock")
 +		} else {
 +			return "", false
 +		}
@@ -225,20 +276,14 @@ index 0daf197270..b0fac35386 100644
  
  // configureDaemonLogs sets the logrus logging level and formatting
 diff --git a/cmd/dockerd/daemon_unix.go b/cmd/dockerd/daemon_unix.go
-index 7b03e28594..e298ab8623 100644
+index 7b03e28594..8b73951a77 100644
 --- a/cmd/dockerd/daemon_unix.go
 +++ b/cmd/dockerd/daemon_unix.go
-@@ -9,17 +9,38 @@ import (
- 	"os/signal"
- 	"path/filepath"
- 	"strconv"
-+	"strings"
- 
- 	"github.com/containerd/containerd/runtime/v1/linux"
- 	"github.com/docker/docker/cmd/dockerd/hack"
+@@ -15,11 +15,31 @@ import (
  	"github.com/docker/docker/daemon"
  	"github.com/docker/docker/daemon/config"
  	"github.com/docker/docker/libcontainerd/supervisor"
++	"github.com/docker/docker/pkg/homedir"
 +	"github.com/docker/docker/rootless"
  	"github.com/docker/libnetwork/portallocator"
  	"golang.org/x/sys/unix"
@@ -257,18 +302,17 @@ index 7b03e28594..e298ab8623 100644
 +	// NOTE: CLI uses ~/.docker while the daemon uses ~/.config/docker, because
 +	// ~/.docker was not designed to store daemon configurations.
 +	// In future, the daemon directory may be renamed to ~/.config/moby-engine (?).
-+	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
-+		dirs := strings.Split(xdgConfigHome, ":")
-+		defaultDaemonConfigDir = filepath.Join(dirs[0], "docker")
-+	} else if home := os.Getenv("HOME"); home != "" {
-+		defaultDaemonConfigDir = filepath.Join(home, ".config", "docker")
++	configHome, err := homedir.GetConfigHome()
++	if err != nil {
++		panic(err)
 +	}
++	defaultDaemonConfigDir = filepath.Join(configHome, "docker")
 +	defaultDaemonConfigFile = filepath.Join(defaultDaemonConfigDir, "daemon.json")
 +}
  
  // setDefaultUmask sets the umask to 0022 to avoid problems
  // caused by custom umask
-@@ -34,7 +55,7 @@ func setDefaultUmask() error {
+@@ -34,7 +54,7 @@ func setDefaultUmask() error {
  }
  
  func getDaemonConfDir(_ string) string {
@@ -277,13 +321,34 @@ index 7b03e28594..e298ab8623 100644
  }
  
  func (cli *DaemonCli) getPlatformContainerdDaemonOpts() ([]supervisor.DaemonOpt, error) {
+diff --git a/cmd/dockerd/options.go b/cmd/dockerd/options.go
+index cb5601a768..f6ea21a6dc 100644
+--- a/cmd/dockerd/options.go
++++ b/cmd/dockerd/options.go
+@@ -49,6 +49,8 @@ func newDaemonOptions(config *config.Config) *daemonOptions {
+ // InstallFlags adds flags for the common options on the FlagSet
+ func (o *daemonOptions) InstallFlags(flags *pflag.FlagSet) {
+ 	if dockerCertPath == "" {
++		// cliconfig.Dir returns $DOCKER_CONFIG or ~/.docker.
++		// cliconfig.Dir does not look up $XDG_CONFIG_HOME
+ 		dockerCertPath = cliconfig.Dir()
+ 	}
+ 
 diff --git a/contrib/dockerd-rootless.sh b/contrib/dockerd-rootless.sh
 new file mode 100755
-index 0000000000..011cf41a3d
+index 0000000000..75ecc2e1b4
 --- /dev/null
 +++ b/contrib/dockerd-rootless.sh
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,69 @@
 +#!/bin/sh
++# dockerd-rootless.sh executes dockerd in rootless mode.
++#
++# Usage: dockerd-rootless.sh --experimental [DOCKERD_OPTIONS]
++# Currently, specifying --experimental is mandatory.
++#
++# /etc/subuid and /etc/subgid needs to be configured for the current user.
++# See the documentation for the further information.
++
 +set -e -x
 +if ! [ -w $XDG_RUNTIME_DIR ]; then
 +	echo "XDG_RUNTIME_DIR needs to be set and writable"
@@ -294,12 +359,36 @@ index 0000000000..011cf41a3d
 +	exit 1
 +fi
 +
++rootlesskit=""
++for f in docker-rootlesskit rootlesskit; do
++	if which $f >/dev/null 2>&1; then
++		rootlesskit=$f
++		break
++	fi
++done
++if [ -z $rootlesskit ]; then
++	echo "rootlesskit needs to be installed"
++	exit 1
++fi
++
++slirp4netns=""
++for f in docker-slirp4netns slirp4netns; do
++	if which $f >/dev/null 2>&1; then
++		slirp4netns=$f
++		break
++	fi
++done
++if [ -z $slirp4netns ]; then
++	echo "slirp4netns needs to be installed"
++	exit 1
++fi
++
 +if [ -z $_DOCKERD_ROOTLESS_CHILD ]; then
 +	_DOCKERD_ROOTLESS_CHILD=1
 +	export _DOCKERD_ROOTLESS_CHILD
 +	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
 +	#
-+	# --net specifies the network stack. slirp4netns, vpnkit, and vdeplug_slirp are supported.
++	# --net specifies the network stack. slirp4netns and VPNKit are supported.
 +	# Currently, slirp4netns is the fastest.
 +	# See https://github.com/rootless-containers/rootlesskit for the benchmark result.
 +	#
@@ -308,9 +397,10 @@ index 0000000000..011cf41a3d
 +	#         namespace from being unexpectedly unmounted when `/etc/resolv.conf` is recreated on the host
 +	#         (by either systemd-networkd or NetworkManager)
 +	# * /run: copy-up is required so that we can create /run/docker (hardcoded for plugins) in our namespace
-+	rootlesskit \
-+		--net=slirp4netns --mtu=65520 \
++	$rootlesskit \
++		--net=slirp4netns --slirp4netns-binary $slirp4netns --mtu=65520 \
 +		--copy-up=/etc --copy-up=/run \
++		$DOCKERD_ROOTLESS_ROOTLESSKIT_FLAGS \
 +		$0 $@
 +else
 +	[ $_DOCKERD_ROOTLESS_CHILD = 1 ]
@@ -354,7 +444,7 @@ index 0aa7d54bf2..47624fab46 100644
 +	return false
 +}
 diff --git a/daemon/daemon.go b/daemon/daemon.go
-index c37d7c9f77..e22f2acd3b 100644
+index 651a57a139..428da80846 100644
 --- a/daemon/daemon.go
 +++ b/daemon/daemon.go
 @@ -800,6 +800,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
@@ -365,6 +455,20 @@ index c37d7c9f77..e22f2acd3b 100644
  	if err := ensureDefaultAppArmorProfile(); err != nil {
  		logrus.Errorf(err.Error())
  	}
+diff --git a/daemon/daemon_unix.go b/daemon/daemon_unix.go
+index 817025e93b..f4b18b3ca5 100644
+--- a/daemon/daemon_unix.go
++++ b/daemon/daemon_unix.go
+@@ -745,9 +745,6 @@ func verifyDaemonSettings(conf *config.Config) error {
+ 
+ // checkSystem validates platform-specific requirements
+ func checkSystem() error {
+-	if os.Geteuid() != 0 {
+-		return fmt.Errorf("The Docker daemon needs to be run as root")
+-	}
+ 	return checkKernel()
+ }
+ 
 diff --git a/daemon/info.go b/daemon/info.go
 index 5332ce1038..31f89efe96 100644
 --- a/daemon/info.go
@@ -403,6 +507,29 @@ index 2c1ff460c3..62f5d46a6e 100644
 +func (daemon *Daemon) configStoreRootless() bool {
 +	return false
 +}
+diff --git a/daemon/listeners/listeners_linux.go b/daemon/listeners/listeners_linux.go
+index c8956db258..9b5b3b7e77 100644
+--- a/daemon/listeners/listeners_linux.go
++++ b/daemon/listeners/listeners_linux.go
+@@ -8,6 +8,7 @@ import (
+ 	"strconv"
+ 
+ 	"github.com/coreos/go-systemd/activation"
++	"github.com/docker/docker/pkg/homedir"
+ 	"github.com/docker/go-connections/sockets"
+ 	"github.com/sirupsen/logrus"
+ )
+@@ -45,6 +46,10 @@ func Init(proto, addr, socketGroup string, tlsConfig *tls.Config) ([]net.Listene
+ 		if err != nil {
+ 			return nil, fmt.Errorf("can't create unix socket %s: %v", addr, err)
+ 		}
++		if _, err := homedir.StickRuntimeDirContents([]string{addr}); err != nil {
++			// StickRuntimeDirContents returns nil error if XDG_RUNTIME_DIR is just unset
++			logrus.WithError(err).Warnf("cannot set sticky bit on socket %s under XDG_RUNTIME_DIR", addr)
++		}
+ 		ls = append(ls, l)
+ 	default:
+ 		return nil, fmt.Errorf("invalid protocol format: %q", proto)
 diff --git a/daemon/oci_linux.go b/daemon/oci_linux.go
 index e330f4fc66..d4dbf2690b 100644
 --- a/daemon/oci_linux.go
@@ -443,15 +570,15 @@ index e330f4fc66..d4dbf2690b 100644
  
 diff --git a/docs/rootless.md b/docs/rootless.md
 new file mode 100644
-index 0000000000..6aae49d6e4
+index 0000000000..d4f833b044
 --- /dev/null
 +++ b/docs/rootless.md
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,88 @@
 +# Rootless mode (Experimental)
 +
 +The rootless mode allows running `dockerd` as an unprivileged user, using `user_namespaces(7)`, `mount_namespaces(7)`, `network_namespaces(7)`, and [slirp4netns](https://github.com/rootless-containers/slirp4netns).
 +
-+No SUID binary is required except `newuidmap` and `newgidmap`.
++No SETUID/SETCAP binary is required except `newuidmap` and `newgidmap`.
 +
 +## Requirements
 +* `newuidmap` and `newgidmap` need to be installed on the host. These commands are provided by the `uidmap` package on most distros.
@@ -469,8 +596,20 @@ index 0000000000..6aae49d6e4
 +penguin:231072:65536
 +```
 +
-+* Some distros such as Debian (excluding Ubuntu) and Arch Linux require `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"`.
-+* Some distros require `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter`.
++### Distribution-specific hint
++
++#### Debian (excluding Ubuntu)
++* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
++
++#### Arch Linux
++* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
++
++#### openSUSE
++* `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
++
++#### RHEL/CentOS 7
++* `sudo sh -c "echo 28633 > /proc/sys/user/max_user_namespaces"` is required
++* [COPR package `vbatts/shadow-utils-newxidmap`](https://copr.fedorainfracloud.org/coprs/vbatts/shadow-utils-newxidmap/) needs to be installed
 +
 +## Restrictions
 +
@@ -494,7 +633,7 @@ index 0000000000..6aae49d6e4
 +* The socket path is set to `$XDG_RUNTIME_DIR/docker.sock` by default. `$XDG_RUNTIME_DIR` is typically set to `/run/user/$UID`.
 +* The data dir is set to `~/.local/share/docker` by default.
 +* The exec dir is set to `$XDG_RUNTIME_DIR/docker` by default.
-+* The config dir is set to `~/.config/docker` (not `~/.docker`) by default.
++* The daemon config dir is set to `~/.config/docker` (not `~/.docker`, which is used by the client) by default.
 +* The `dockerd-rootless.sh` script executes `dockerd` in its own user, mount, and network namespace. You can enter the namespaces by running `nsenter -U --preserve-credentials -n -m -t $(cat $XDG_RUNTIME_DIR/docker.pid)`.
 +
 +### Client
@@ -525,13 +664,14 @@ index 0000000000..6aae49d6e4
 +```
 diff --git a/hack/dockerfile/install/rootlesskit.installer b/hack/dockerfile/install/rootlesskit.installer
 new file mode 100755
-index 0000000000..cf0c0bff39
+index 0000000000..3949eb950e
 --- /dev/null
 +++ b/hack/dockerfile/install/rootlesskit.installer
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,34 @@
 +#!/bin/sh
 +
-+ROOTLESSKIT_COMMIT=99d60416c7076922cf78bae9f976b6295af4eb86
++# v0.2.0
++ROOTLESSKIT_COMMIT=77cdbed39ff42bc96fb23830065ec2e28b7767e6
 +
 +install_rootlesskit() {
 +	case "$1" in
@@ -560,17 +700,18 @@ index 0000000000..cf0c0bff39
 +	git clone https://github.com/rootless-containers/rootlesskit.git "$GOPATH/src/github.com/rootless-containers/rootlesskit"
 +	cd "$GOPATH/src/github.com/rootless-containers/rootlesskit"
 +	git checkout -q "$ROOTLESSKIT_COMMIT"
-+	go build $BUILD_MODE -ldflags="$ROOTLESSKIT_LDFLAGS" -o ${PREFIX}/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit
++	go build $BUILD_MODE -ldflags="$ROOTLESSKIT_LDFLAGS" -o "${PREFIX}/rootlesskit" github.com/rootless-containers/rootlesskit/cmd/rootlesskit
 +}
 diff --git a/hack/dockerfile/install/slirp4netns.installer b/hack/dockerfile/install/slirp4netns.installer
 new file mode 100755
-index 0000000000..111495d059
+index 0000000000..249b15ef6c
 --- /dev/null
 +++ b/hack/dockerfile/install/slirp4netns.installer
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,28 @@
 +#!/bin/sh
 +
-+SLIRP4NETNS_COMMIT=5e4789b9a21cab3315801e1750670e10a1c86a2a
++# v0.2.0
++SLIRP4NETNS_COMMIT=4a59899d79285e9962550f171f73492171aae267
 +install_slirp4netns() {
 +	case "$1" in
 +	"dynamic")
@@ -588,12 +729,12 @@ index 0000000000..111495d059
 +	cd "$GOPATH/src/github.com/rootless-containers/slirp4netns"
 +	git checkout -q "$SLIRP4NETNS_COMMIT"
 +	./autogen.sh
-+	./configure ${CONFIGURE_FLAGS}
++	./configure "$CONFIGURE_FLAGS"
 +	make
-+	mkdir -p ${PREFIX}
-+	cp slirp4netns ${PREFIX}/slirp4netns
++	mkdir -p "$PREFIX"
++	cp slirp4netns "${PREFIX}/slirp4netns"
 +	# GPL v2
-+	cp COPYING ${PREFIX}/slirp4netns.LICENSE
++	cp COPYING "${PREFIX}/slirp4netns.LICENSE"
 +}
 diff --git a/hack/make/.binary-setup b/hack/make/.binary-setup
 index 69bb39b364..7553ef4244 100644
@@ -638,19 +779,22 @@ index 7a1af19b9c..9a7408a710 100644
 +	install_binary "${DEST}/${DOCKER_DAEMON_ROOTLESS_SH_BINARY_NAME}"
  )
 diff --git a/opts/hosts.go b/opts/hosts.go
-index 2adf4211d5..1ba32ce932 100644
+index 2adf4211d5..7e0744fb78 100644
 --- a/opts/hosts.go
 +++ b/opts/hosts.go
-@@ -4,6 +4,8 @@ import (
+@@ -4,8 +4,11 @@ import (
  	"fmt"
  	"net"
  	"net/url"
-+	"os"
 +	"path/filepath"
  	"strconv"
  	"strings"
++
++	"github.com/docker/docker/pkg/homedir"
  )
-@@ -18,6 +20,9 @@ var (
+ 
+ var (
+@@ -18,6 +21,9 @@ var (
  	// DefaultUnixSocket Path for the unix socket.
  	// Docker daemon by default always listens on the default unix socket
  	DefaultUnixSocket = "/var/run/docker.sock"
@@ -660,21 +804,22 @@ index 2adf4211d5..1ba32ce932 100644
  	// DefaultTCPHost constant defines the default host string used by docker on Windows
  	DefaultTCPHost = fmt.Sprintf("tcp://%s:%d", DefaultHTTPHost, DefaultHTTPPort)
  	// DefaultTLSHost constant defines the default host string used by docker for TLS sockets
-@@ -26,6 +31,13 @@ var (
+@@ -26,6 +32,14 @@ var (
  	DefaultNamedPipe = `//./pipe/docker_engine`
  )
  
 +func init() {
-+	if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
-+		dirs := strings.Split(xdgRuntimeDir, ":")
-+		DefaultUserUnixSocket = filepath.Join(dirs[0], "docker.sock")
++	runtimeDir, err := homedir.GetRuntimeDir()
++	if err == nil {
++		DefaultUserUnixSocket = filepath.Join(runtimeDir, "docker.sock")
 +	}
++	// leave DefaultUserUnixSocket as-is if GetRuntimeDir returns non-nil error
 +}
 +
  // ValidateHost validates that the specified string is a valid host and returns it.
  func ValidateHost(val string) (string, error) {
  	host := strings.TrimSpace(val)
-@@ -42,13 +54,17 @@ func ValidateHost(val string) (string, error) {
+@@ -42,13 +56,17 @@ func ValidateHost(val string) (string, error) {
  }
  
  // ParseHost and set defaults for a Daemon host string
@@ -714,6 +859,138 @@ index e46326a5be..ec42a6c303 100644
  			t.Errorf("Expected for %v [%v], got [%v, %v]", value, expected, actual, err)
  		}
  	}
+diff --git a/pkg/homedir/homedir_linux.go b/pkg/homedir/homedir_linux.go
+index ee15ed52b1..47ecd0c092 100644
+--- a/pkg/homedir/homedir_linux.go
++++ b/pkg/homedir/homedir_linux.go
+@@ -1,7 +1,10 @@
+ package homedir // import "github.com/docker/docker/pkg/homedir"
+ 
+ import (
++	"errors"
+ 	"os"
++	"path/filepath"
++	"strings"
+ 
+ 	"github.com/docker/docker/pkg/idtools"
+ )
+@@ -19,3 +22,88 @@ func GetStatic() (string, error) {
+ 	}
+ 	return usr.Home, nil
+ }
++
++// GetRuntimeDir returns XDG_RUNTIME_DIR.
++// XDG_RUNTIME_DIR is typically configured via pam_systemd.
++// GetRuntimeDir returns non-nil error if XDG_RUNTIME_DIR is not set.
++//
++// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
++func GetRuntimeDir() (string, error) {
++	if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
++		return xdgRuntimeDir, nil
++	}
++	return "", errors.New("could not get XDG_RUNTIME_DIR")
++}
++
++// StickRuntimeDirContents sets the sticky bit on files that are under
++// XDG_RUNTIME_DIR, so that the files won't be periodically removed by the system.
++//
++// StickyRuntimeDir returns slice of sticked files.
++// StickyRuntimeDir returns nil error if XDG_RUNTIME_DIR is not set.
++//
++// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
++func StickRuntimeDirContents(files []string) ([]string, error) {
++	runtimeDir, err := GetRuntimeDir()
++	if err != nil {
++		// ignore error if runtimeDir is empty
++		return nil, nil
++	}
++	runtimeDir, err = filepath.Abs(runtimeDir)
++	if err != nil {
++		return nil, err
++	}
++	var sticked []string
++	for _, f := range files {
++		f, err = filepath.Abs(f)
++		if err != nil {
++			return sticked, err
++		}
++		if strings.HasPrefix(f, runtimeDir+"/") {
++			if err = stick(f); err != nil {
++				return sticked, err
++			}
++			sticked = append(sticked, f)
++		}
++	}
++	return sticked, nil
++}
++
++func stick(f string) error {
++	st, err := os.Stat(f)
++	if err != nil {
++		return err
++	}
++	m := st.Mode()
++	m |= os.ModeSticky
++	return os.Chmod(f, m)
++}
++
++// GetDataHome returns XDG_DATA_HOME.
++// GetDataHome returns $HOME/.local/share and nil error if XDG_DATA_HOME is not set.
++//
++// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
++func GetDataHome() (string, error) {
++	if xdgDataHome := os.Getenv("XDG_DATA_HOME"); xdgDataHome != "" {
++		return xdgDataHome, nil
++	}
++	home := os.Getenv("HOME")
++	if home == "" {
++		return "", errors.New("could not get either XDG_DATA_HOME or HOME")
++	}
++	return filepath.Join(home, ".local", "share"), nil
++}
++
++// GetConfigHome returns XDG_CONFIG_HOME.
++// GetConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
++//
++// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
++func GetConfigHome() (string, error) {
++	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
++		return xdgConfigHome, nil
++	}
++	home := os.Getenv("HOME")
++	if home == "" {
++		return "", errors.New("could not get either XDG_CONFIG_HOME or HOME")
++	}
++	return filepath.Join(home, ".config"), nil
++}
+diff --git a/pkg/homedir/homedir_others.go b/pkg/homedir/homedir_others.go
+index 75ada2fe54..f0a363dedf 100644
+--- a/pkg/homedir/homedir_others.go
++++ b/pkg/homedir/homedir_others.go
+@@ -11,3 +11,23 @@ import (
+ func GetStatic() (string, error) {
+ 	return "", errors.New("homedir.GetStatic() is not supported on this system")
+ }
++
++// GetRuntimeDir is unsupported on non-linux system.
++func GetRuntimeDir() (string, error) {
++	return "", errors.New("homedir.GetRuntimeDir() is not supported on this system")
++}
++
++// StickRuntimeDirContents is unsupported on non-linux system.
++func StickRuntimeDirContents(files []string) ([]string, error) {
++	return nil, errors.New("homedir.StickRuntimeDirContents() is not supported on this system")
++}
++
++// GetDataHome is unsupported on non-linux system.
++func GetDataHome() (string, error) {
++	return "", errors.New("homedir.GetDataHome() is not supported on this system")
++}
++
++// GetConfigHome is unsupported on non-linux system.
++func GetConfigHome() (string, error) {
++	return "", errors.New("homedir.GetConfigHome() is not supported on this system")
++}
 diff --git a/pkg/sysinfo/sysinfo_linux.go b/pkg/sysinfo/sysinfo_linux.go
 index 1fcf08310c..040c5a4dd6 100644
 --- a/pkg/sysinfo/sysinfo_linux.go

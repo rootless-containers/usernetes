@@ -37,6 +37,7 @@ tasks:
         --registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
         --conmon $(pwd)/bin/conmon \
         --runroot $XDG_RUNTIME_DIR/crio \
+        --runtimes runc:$(pwd)/bin/runc \
         --cni-config-dir $(pwd)/config/crio/cni \
         --cni-plugin-dir $(pwd)/bin/cni \
         --root $HOME/.local/share/containers/storage --cgroup-manager=cgroupfs \

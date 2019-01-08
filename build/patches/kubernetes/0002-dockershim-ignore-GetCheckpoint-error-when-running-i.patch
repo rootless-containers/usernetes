@@ -1,4 +1,4 @@
-From 3ce12f254e5bcc3fb28fc5c643b8f5a8e9ed88c4 Mon Sep 17 00:00:00 2001
+From b097264fc7d80611e812ed7591722ecfc603cdcd Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
 Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
@@ -23,7 +23,7 @@ index 5915ed0212..a8e4e88a0c 100644
      ] + select({
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/pkg/kubelet/dockershim/docker_sandbox.go b/pkg/kubelet/dockershim/docker_sandbox.go
-index 0443793d8d..ec18905cdf 100644
+index 01d7f9b495..c1cf7ac565 100644
 --- a/pkg/kubelet/dockershim/docker_sandbox.go
 +++ b/pkg/kubelet/dockershim/docker_sandbox.go
 @@ -27,6 +27,8 @@ import (
