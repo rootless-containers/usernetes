@@ -16,8 +16,7 @@ state = "$XDG_RUNTIME_DIR/containerd"
     disable_apparmor = true
     restrict_oom_score_adj = true
     [plugins.cri.containerd]
-    # If you are on Ubuntu you can use "overlayfs". Otherwise you need to use "native".
-      snapshotter = "$( (uname -v | grep Ubuntu >/dev/null) && echo overlayfs || echo native)"
+      snapshotter = "$( overlayfs::supported && echo overlayfs || echo native )"
     [plugins.cri.cni]
       bin_dir = "$U7S_BASE_DIR/bin/cni"
       conf_dir = "$U7S_BASE_DIR/config/containerd/cni"
