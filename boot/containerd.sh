@@ -1,6 +1,8 @@
 #!/bin/bash
 source $(dirname $0)/../common/common.inc.sh
+nsenter::main $0 $@
 
+mkdir -p $XDG_RUNTIME_DIR/usernetes
 cat >$XDG_RUNTIME_DIR/usernetes/containerd.toml <<EOF
 root = "$XDG_DATA_HOME/containerd"
 state = "$XDG_RUNTIME_DIR/containerd"
@@ -20,4 +22,4 @@ state = "$XDG_RUNTIME_DIR/containerd"
       bin_dir = "$U7S_BASE_DIR/bin/cni"
       conf_dir = "$U7S_BASE_DIR/config/containerd/cni"
 EOF
-exec $(dirname $0)/nsenter.sh containerd -c $XDG_RUNTIME_DIR/usernetes/containerd.toml $@
+exec containerd -c $XDG_RUNTIME_DIR/usernetes/containerd.toml $@

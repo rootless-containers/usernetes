@@ -1,5 +1,6 @@
 #!/bin/bash
 source $(dirname $0)/../common/common.inc.sh
+nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1
 mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio
@@ -19,7 +20,7 @@ if [[ ! -f $XDG_CONFIG_HOME/containers/policy.json ]]; then
 EOF
 fi
 
-exec $(dirname $0)/nsenter.sh crio \
+exec crio \
 	--signature-policy $XDG_CONFIG_HOME/containers/policy.json \
 	--config $XDG_CONFIG_HOME/crio/crio.conf \
 	--registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
