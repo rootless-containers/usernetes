@@ -37,6 +37,9 @@ else
 	# Remove the xtables lock for the parent namespace
 	rm -f /run/xtables.lock
 	rk_pid=$(cat $rk_state_dir/child_pid)
+	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
+	# child_pid might be created before the child is ready
+	echo $rk_pid > $rk_state_dir/_child_pid.u7s-ready
 	log::info "RootlessKit ready, PID=${rk_pid}, state directory=$rk_state_dir ."
 	log::info "Hint: You can enter RootlessKit namespaces by running \`nsenter -U --preserve-credential -n -m -t ${rk_pid}\`."
 	rc=0

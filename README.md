@@ -19,6 +19,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
  - [Advanced guide](#advanced-guide)
    - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
    - [Routing ping packets](#routing-ping-packets)
+   - [Run Usernetes in Docker](#run-usernetes-in-docker)
  - [License](#license)
 
 ## Status
@@ -93,11 +94,11 @@ $ cd usernetes
 
 ## Install from source
 
+Requires Docker 17.05+ for building Usernetes from the source.
+Docker 18.09+ with `DOCKER_BUILDKIT=1` is recommended.
+
 ```console
-$ git clone https://github.com/rootless-containers/usernetes.git
-$ cd usernetes
-$ go get -u github.com/go-task/task/cmd/task
-$ task -d build
+$ make
 ```
 
 ## Quick start
@@ -179,6 +180,15 @@ To route ping packets, you need to set up `net.ipv4.ping_group_range` properly a
 
 ```console
 $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
+```
+
+### Run Usernetes in Docker
+
+```console
+$ docker build -t usernetes .
+$ docker run -d --name usernetes-node --privileged usernetes default-docker
+$ docker exec -it usernetes-node ./kubectl.sh run -it --rm --image busybox foo
+/ #
 ```
 
 ## License
