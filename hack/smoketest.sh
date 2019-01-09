@@ -16,6 +16,10 @@ function cleanup() {
 	docker rm -f $container
 }
 trap cleanup EXIT
-sleep 10
-docker exec -it $container ./kubectl.sh get nodes -o yaml
-docker exec -it $container ./kubectl.sh run --rm -i --image busybox --restart=Never hello echo hello
+docker exec $container ./boot/nsenter.sh echo rootlesskit ready
+timeout 60 sh -ex -c "until docker exec $container ./kubectl.sh get nodes; do sleep 5; done"
+function k(){
+	docker exec -it $container ./kubectl.sh $@
+}
+k get nodes -o yaml
+k run --rm -i --image busybox --restart=Never hello echo hello $container
