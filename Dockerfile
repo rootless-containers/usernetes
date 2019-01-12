@@ -2,10 +2,10 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 12/25/2018 (v0.2.0)
-ARG ROOTLESSKIT_COMMIT=77cdbed39ff42bc96fb23830065ec2e28b7767e6
-# 12/25/2018 (v0.2.0)
-ARG SLIRP4NETNS_COMMIT=4a59899d79285e9962550f171f73492171aae267
+# 1/12/2019
+ARG ROOTLESSKIT_COMMIT=16c6c0fdfddefa63406989f8ad22294bc3b03a34
+# 1/12/2019 (v0.3.0-alpha.0)
+ARG SLIRP4NETNS_COMMIT=d013231cdc6607788be81599017f9199f634fe0b
 # 12/20/2018
 ARG RUNC_COMMIT=bbb17efcb4c0ab986407812a31ba333a7450064c
 # 01/08/2019
@@ -178,7 +178,7 @@ COPY --from=gotask-build /out/* /
 #### Test (test-main)
 FROM ubuntu:18.04 AS test-main
 # libglib2.0: require by conmon
-RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
+RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap socat
 RUN useradd --create-home --home-dir /home/user --uid 1000 user
 COPY . /home/user/usernetes
 COPY --from=bin-main / /home/user/usernetes/bin

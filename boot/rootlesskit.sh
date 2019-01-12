@@ -1,7 +1,14 @@
 #!/bin/bash
+# Customizable environment variables:
+# * $U7S_ROOTLESSKIT_FLAGS
+# * $U7S_ROOTLESSKIT_PORTS
+
 source $(dirname $0)/../common/common.inc.sh
 
 rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
+
+: ${U7S_ROOTLESSKIT_FLAGS=}
+: ${U7S_ROOTLESSKIT_PORTS=}
 
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
@@ -22,6 +29,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	rootlesskit \
 		--state-dir $rk_state_dir \
 		--net=slirp4netns --mtu=65520 \
+		--port-driver=socat \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib \
 		$0 $@
 else
@@ -42,6 +50,9 @@ else
 	echo $rk_pid > $rk_state_dir/_child_pid.u7s-ready
 	log::info "RootlessKit ready, PID=${rk_pid}, state directory=$rk_state_dir ."
 	log::info "Hint: You can enter RootlessKit namespaces by running \`nsenter -U --preserve-credential -n -m -t ${rk_pid}\`."
+	if [[ -n $U7S_ROOTLESSKIT_PORTS ]]; then
+		rootlessctl --socket $rk_state_dir/api.sock add-ports $U7S_ROOTLESSKIT_PORTS
+	fi
 	rc=0
 	if [[ $# -eq 0 ]]; then
 		sleep infinity || rc=$?
