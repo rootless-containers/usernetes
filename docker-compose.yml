@@ -6,6 +6,7 @@ services:
     image: usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.100.0/24
+# 2379/tcp: etcd, 8080/tcp: kube-apiserver, 10251/tcp: kube-scheduler, 10252/tcp: kube-controller-manager
       - U7S_ROOTLESSKIT_PORTS=0.0.0.0:2379:2379/tcp 0.0.0.0:8080:8080/tcp 0.0.0.0:10251:10251/tcp 0.0.0.0:10252:10252/tcp
     entrypoint:
       - /home/user/usernetes/run.sh
@@ -19,7 +20,8 @@ services:
     image: usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.101.0/24
-      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp
+# 10250/tcp: kubelet, 8472/udp: reserved for flannel
+      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
       - U7S_KUBECONFIG=/home/user/usernetes/config/docker-compose-master.kubeconfig
     entrypoint:
       - /home/user/usernetes/run.sh
@@ -31,7 +33,7 @@ services:
     image: usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.102.0/24
-      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp
+      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
       - U7S_KUBECONFIG=/home/user/usernetes/config/docker-compose-master.kubeconfig
     entrypoint:
       - /home/user/usernetes/run.sh
