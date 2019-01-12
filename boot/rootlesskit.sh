@@ -27,14 +27,25 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	#         (by either systemd-networkd or NetworkManager)
 	# * /run: copy-up is required so that we can create /run/docker (hardcoded for plugins) in our namespace
 	# * /var/lib: copy-up is required for several Kube stuff
+	# * /opt: copy-up is required for mounting /opt/cni/bin
 	rootlesskit \
 		--state-dir $rk_state_dir \
 		--net=slirp4netns --mtu=65520 \
 		--port-driver=socat \
-		--copy-up=/etc --copy-up=/run --copy-up=/var/lib \
+		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
+	# Remove symlinks so that the child won't be confused by the parent configuration
+	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/docker /etc/kubernetes
+
+	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
+	mkdir -p /etc/cni/net.d
+	cp -f $U7S_BASE_DIR/config/cni_net.d/* /etc/cni/net.d
+	# Bind-mount /opt/cni/net.d (Likely to be hardcoded in CNI installers)
+	mkdir -p /opt/cni/bin
+	mount --bind $U7S_BASE_DIR/bin/cni /opt/cni/bin
+
 	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube.
 	binds=(/var/lib/kubelet /var/lib/dockershim /var/lib/cni /var/log)
 	# /run/docker is hard-coded in Docker for plugins.
@@ -44,8 +55,6 @@ else
 		mkdir -p $src $f
 		mount --bind $src $f
 	done
-	# Remove the xtables lock for the parent namespace
-	rm -f /run/xtables.lock
 	rk_pid=$(cat $rk_state_dir/child_pid)
 	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
 	# child_pid might be created before the child is ready
