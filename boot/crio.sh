@@ -1,5 +1,6 @@
 #!/bin/bash
-source $(dirname $0)/../common/common.inc.sh
+export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
+source $U7S_BASE_DIR/common/common.inc.sh
 nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1

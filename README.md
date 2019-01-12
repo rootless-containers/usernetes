@@ -16,19 +16,23 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
    - [Use `docker`](#use-docker)
    - [Use `kubectl`](#use-kubectl)
    - [Reset to factory defaults](#reset-to-factory-defaults)
+ - [Run Usernetes in Docker](#run-usernetes-in-docker)
+   - [Single node](#single-node)
+   - [Multi node (Docker Compose)](#docker-compose)
  - [Advanced guide](#advanced-guide)
    - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
    - [Routing ping packets](#routing-ping-packets)
-   - [Run Usernetes in Docker](#run-usernetes-in-docker)
  - [License](#license)
 
 ## Status
 
 * [X] Moby (`dockerd`): Almost usable (except Swarm-mode)
-* [X] Kubernetes: Early POC with a single node
+* [X] Kubernetes: Multi-node POC is available
   * [X] dockershim
   * [X] CRI-O
   * [X] containerd
+* CNI: single-node only
+  * [ ] Flannel
 
 ## How it works
 
@@ -159,6 +163,31 @@ $ ./kubectl.sh get nodes
 $ ./cleanup.sh
 ```
 
+## Run Usernetes in Docker
+
+### Single node
+
+```console
+$ docker build -t usernetes .
+$ docker run -d --name usernetes-node -p 127.0.0.1:8080:8080  -e U7S_ROOTLESSKIT_PORTS=0.0.0.0:8080:8080/tcp --privileged usernetes default-docker
+$ export KUBECONFIG=./config/localhost.kubeconfig
+$ kubectl run -it --rm --image busybox foo
+/ #
+```
+
+### Multi node (Docker Compose)
+
+```console
+$ docker build -t usernetes .
+$ docker-compose up -d
+$ export KUBECONFIG=./config/localhost.kubeconfig
+$ kubectl get nodes -o wide
+NAME           STATUS    ROLES     AGE       VERSION           EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+38c7ee9f62a7   Ready     <none>    55s       v1.14-usernetes   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
+8aaaaaac2b22   Ready     <none>    55s       v1.14-usernetes   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
+```
+
+
 ## Advanced guide
 
 ### Expose netns ports to the host
@@ -180,15 +209,6 @@ To route ping packets, you need to set up `net.ipv4.ping_group_range` properly a
 
 ```console
 $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
-```
-
-### Run Usernetes in Docker
-
-```console
-$ docker build -t usernetes .
-$ docker run -d --name usernetes-node --privileged usernetes default-docker
-$ docker exec -it usernetes-node ./kubectl.sh run -it --rm --image busybox foo
-/ #
 ```
 
 ## License

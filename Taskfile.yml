@@ -37,19 +37,41 @@ tasks:
   kube-proxy:
     cmds:
       - ./boot/kube-proxy.sh
-  kube-common:
+  kube-apiserver+kube-controller-manager+kube-scheduler:
     deps:
-      - etcd
       - kube-apiserver
       - kube-controller-manager
       - kube-scheduler
+  dockerd+kubelet-dockershim+kube-proxy:
+    deps:
+      - dockerd
+      - kubelet-dockershim
       - kube-proxy
+  crio+kubelet-crio+kube-proxy:
+    deps:
+      - crio
+      - kubelet-crio
+      - kube-proxy
+  containerd+kubelet-containerd+kube-proxy:
+    deps:
+      - containerd
+      - kubelet-containerd
+      - kube-proxy
+  docker-compose-master-with-etcd:
+    deps:
+      - rootlesskit
+      - etcd
+      - kube-apiserver+kube-controller-manager+kube-scheduler
+  docker-compose-node-docker:
+    deps:
+      - rootlesskit
+      - dockerd+kubelet-dockershim+kube-proxy
   default-docker:
     deps:
       - rootlesskit
-      - dockerd
-      - kubelet-dockershim
-      - kube-common
+      - etcd
+      - kube-apiserver+kube-controller-manager+kube-scheduler
+      - dockerd+kubelet-dockershim+kube-proxy
   default-docker-nokube:
      deps:
       - rootlesskit
@@ -57,15 +79,15 @@ tasks:
   default-crio:
     deps:
       - rootlesskit
-      - crio
-      - kubelet-crio
-      - kube-common
+      - etcd
+      - kube-apiserver+kube-controller-manager+kube-scheduler
+      - crio+kubelet-crio+kube-proxy
   default-containerd:
     deps:
       - rootlesskit
-      - containerd
-      - kubelet-containerd
-      - kube-common
+      - etcd
+      - kube-apiserver+kube-controller-manager+kube-scheduler
+      - containerd+kubelet-containerd+kube-proxy
   default:
     deps:
       - default-docker

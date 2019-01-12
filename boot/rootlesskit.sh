@@ -3,7 +3,8 @@
 # * $U7S_ROOTLESSKIT_FLAGS
 # * $U7S_ROOTLESSKIT_PORTS
 
-source $(dirname $0)/../common/common.inc.sh
+export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
+source $U7S_BASE_DIR/common/common.inc.sh
 
 rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 
@@ -31,6 +32,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 		--net=slirp4netns --mtu=65520 \
 		--port-driver=socat \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib \
+		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
 	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube.
@@ -47,7 +49,7 @@ else
 	rk_pid=$(cat $rk_state_dir/child_pid)
 	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
 	# child_pid might be created before the child is ready
-	echo $rk_pid > $rk_state_dir/_child_pid.u7s-ready
+	echo $rk_pid >$rk_state_dir/_child_pid.u7s-ready
 	log::info "RootlessKit ready, PID=${rk_pid}, state directory=$rk_state_dir ."
 	log::info "Hint: You can enter RootlessKit namespaces by running \`nsenter -U --preserve-credential -n -m -t ${rk_pid}\`."
 	if [[ -n $U7S_ROOTLESSKIT_PORTS ]]; then

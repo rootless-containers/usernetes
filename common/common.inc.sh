@@ -2,10 +2,11 @@
 # Common functions
 
 # Customizable environment variables:
+# * $U7S_BASE_DIR: Usernetes base directory
 # * $U7S_DEBUG: enable debug mode if set to "1"
 
 # Environment variables set by this script:
-# * $U7S_BASE_DIR: set to the Usernetes base directory
+# * $U7S_KUBECONFIG: set to $U7S_BASE_DIR/config/localhost.kubeconfig if not set
 # * $PATH: $U7S_BASE_DIR/bin:/sbin:/usr/sbin are prepended
 # * $XDG_DATA_HOME: $HOME/.local/share if not set
 # * $XDG_CONFIG_HOME: $HOME/.config if not set
@@ -92,7 +93,7 @@ function nsenter::_nsenter() {
 function overlayfs::supported() {
 	rc=0
 	(uname -v | grep Ubuntu >/dev/null) || rc=$?
-	return rc
+	return $rc
 }
 
 # entrypoint begins
@@ -111,14 +112,20 @@ if ! [[ -w $HOME ]]; then
 	return 1
 fi
 
-# export U7S_BASE_DIR
-U7S_BASE_DIR=$(realpath $(dirname $0)/..)
-export U7S_BASE_DIR
+: ${U7S_BASE_DIR=}
+if [[ -z $U7S_BASE_DIR ]]; then
+	log::error "Usernetes base directory (\$U7S_BASE_DIR) not set"
+	return 1
+fi
 log::debug "Usernetes base directory (\$U7S_BASE_DIR) = $U7S_BASE_DIR"
 if ! [[ -d $U7S_BASE_DIR ]]; then
 	log::error "Usernetes base directory ($U7S_BASE_DIR) not found"
 	return 1
 fi
+
+# export U7S_KUBECONFIG
+: ${U7S_KUBECONFIG=$U7S_BASE_DIR/config/localhost.kubeconfig}
+export U7S_KUBECONFIG
 
 # export PATH
 PATH=$U7S_BASE_DIR/bin:/sbin:/usr/sbin:$PATH
