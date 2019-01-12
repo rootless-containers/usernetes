@@ -2,10 +2,10 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 12/25/2018 (v0.2.0)
-ARG ROOTLESSKIT_COMMIT=77cdbed39ff42bc96fb23830065ec2e28b7767e6
-# 12/25/2018 (v0.2.0)
-ARG SLIRP4NETNS_COMMIT=4a59899d79285e9962550f171f73492171aae267
+# 1/12/2019
+ARG ROOTLESSKIT_COMMIT=16c6c0fdfddefa63406989f8ad22294bc3b03a34
+# 1/12/2019 (v0.3.0-alpha.0)
+ARG SLIRP4NETNS_COMMIT=d013231cdc6607788be81599017f9199f634fe0b
 # 12/20/2018
 ARG RUNC_COMMIT=bbb17efcb4c0ab986407812a31ba333a7450064c
 # 01/08/2019
@@ -22,7 +22,7 @@ ARG KUBERNETES_COMMIT=8b3b5a9fe7b57cfe014927d575a9ad90cb536419
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.14-usernetes
 ARG BAZEL_RELEASE=0.21.0
-ARG ETCD_RELEASE=v3.3.10
+ARG ETCD_RELEASE=v3.3.11
 ARG GOTASK_RELEASE=v2.3.0
 
 ### Common base images (common-*)
@@ -150,9 +150,11 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/linux_amd64_stripped/hyperkube /out
 
 #### etcd (etcd-build)
+FROM busybox AS etcd-build
 ARG ETCD_RELEASE
-FROM quay.io/coreos/etcd:${ETCD_RELEASE} AS etcd-build
-RUN mkdir /out && cp /usr/local/bin/etcd /usr/local/bin/etcdctl /out
+RUN mkdir /tmp-etcd out && \
+  wget -O - https://github.com/etcd-io/etcd/releases/download/v3.3.11/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
+  cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
 #### go-task (gotask-build)
 FROM busybox AS gotask-build
@@ -178,7 +180,7 @@ COPY --from=gotask-build /out/* /
 #### Test (test-main)
 FROM ubuntu:18.04 AS test-main
 # libglib2.0: require by conmon
-RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
+RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap socat
 RUN useradd --create-home --home-dir /home/user --uid 1000 user
 COPY . /home/user/usernetes
 COPY --from=bin-main / /home/user/usernetes/bin

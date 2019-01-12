@@ -1,5 +1,6 @@
 #!/bin/bash
-source $(dirname $0)/../common/common.inc.sh
+export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
+source $U7S_BASE_DIR/common/common.inc.sh
 nsenter::main $0 $@
 
 mkdir -p $XDG_RUNTIME_DIR/usernetes
@@ -16,7 +17,7 @@ state = "$XDG_RUNTIME_DIR/containerd"
     disable_apparmor = true
     restrict_oom_score_adj = true
     [plugins.cri.containerd]
-      snapshotter = "$( overlayfs::supported && echo overlayfs || echo native )"
+      snapshotter = "$(overlayfs::supported && echo overlayfs || echo native)"
     [plugins.cri.cni]
       bin_dir = "$U7S_BASE_DIR/bin/cni"
       conf_dir = "$U7S_BASE_DIR/config/containerd/cni"
