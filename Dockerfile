@@ -22,7 +22,7 @@ ARG KUBERNETES_COMMIT=8b3b5a9fe7b57cfe014927d575a9ad90cb536419
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.14-usernetes
 ARG BAZEL_RELEASE=0.21.0
-ARG ETCD_RELEASE=v3.3.10
+ARG ETCD_RELEASE=v3.3.11
 ARG GOTASK_RELEASE=v2.3.0
 
 ### Common base images (common-*)
@@ -150,9 +150,11 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/linux_amd64_stripped/hyperkube /out
 
 #### etcd (etcd-build)
+FROM busybox AS etcd-build
 ARG ETCD_RELEASE
-FROM quay.io/coreos/etcd:${ETCD_RELEASE} AS etcd-build
-RUN mkdir /out && cp /usr/local/bin/etcd /usr/local/bin/etcdctl /out
+RUN mkdir /tmp-etcd out && \
+  wget -O - https://github.com/etcd-io/etcd/releases/download/v3.3.11/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
+  cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
 #### go-task (gotask-build)
 FROM busybox AS gotask-build
