@@ -19,6 +19,8 @@ ARG CRIO_COMMIT=650fae1c52ff809c8447fd6dcdc1e9e3747efe65
 ARG CNI_PLUGINS_COMMIT=ee819c71a17d50f27439dbd979337effb2efd21b
 # 01/07/2019
 ARG KUBERNETES_COMMIT=8b3b5a9fe7b57cfe014927d575a9ad90cb536419
+# 01/23/2017 (v.1.7.3.2)
+ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.14-usernetes
 ARG BAZEL_RELEASE=0.21.0
@@ -149,6 +151,16 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/linux_amd64_stripped/hyperkube /out
 
+### socat (socat-build)
+FROM ubuntu:18.04 AS socat-build
+RUN apt-get update && apt-get install -y autoconf automake libtool build-essential git yodl
+RUN git clone git://repo.or.cz/socat.git /socat
+WORKDIR /socat
+ARG SOCAT_COMMIT
+RUN git pull && git checkout ${SOCAT_COMMIT}
+RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
+  mkdir -p /out && cp -f socat /out
+
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
@@ -174,13 +186,14 @@ COPY --from=containerd-build /out/* /
 COPY --from=crio-build /out/* /
 COPY --from=cniplugins-build /out/* /
 COPY --from=k8s-build /out/* /
+COPY --from=socat-build /out/* /
 COPY --from=etcd-build /out/* /
 COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
 FROM ubuntu:18.04 AS test-main
 # libglib2.0: require by conmon
-RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap socat
+RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
 RUN useradd --create-home --home-dir /home/user --uid 1000 user
 COPY . /home/user/usernetes
 COPY --from=bin-main / /home/user/usernetes/bin
