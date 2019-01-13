@@ -33,10 +33,10 @@ down:
 	docker-compose down
 
 _artifact:
-	rm -rf _artifact
+	rm -rf _artifact _SHA256SUM
 	mkdir _artifact
 	tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz .
-	sha256sum _artifact/* | tee _artifact/SHA256SUM
+	(cd _artifact ; sha256sum * > ../_SHA256SUM; mv ../_SHA256SUM ./SHA256SUM)
 
 _upload-artifact-to-transfer-sh:
 	echo "Uploading usernetes-x86_64.tbz"
