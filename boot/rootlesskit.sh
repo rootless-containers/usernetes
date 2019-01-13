@@ -33,7 +33,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	# * /opt: copy-up is required for mounting /opt/cni/bin
 	rootlesskit \
 		--state-dir $rk_state_dir \
-		--net=slirp4netns --mtu=65520 \
+		--net=slirp4netns --mtu=65520 --disable-host-loopback \
 		--port-driver=socat \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		$U7S_ROOTLESSKIT_FLAGS \

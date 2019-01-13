@@ -2,8 +2,8 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 1/12/2019
-ARG ROOTLESSKIT_COMMIT=16c6c0fdfddefa63406989f8ad22294bc3b03a34
+# 1/14/2019 (v0.3.0-alpha.0)
+ARG ROOTLESSKIT_COMMIT=3c4582e950e3a67795c2832179c125b258b78124
 # 1/12/2019 (v0.3.0-alpha.0)
 ARG SLIRP4NETNS_COMMIT=d013231cdc6607788be81599017f9199f634fe0b
 # 12/20/2018
