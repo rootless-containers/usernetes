@@ -166,7 +166,7 @@ Or
 
 ```console
 $ ./rootlessctl.sh add-ports 127.0.0.1:8080:8080/tcp
-$ expose KUBECONFIG=$(pwd)/config/localhost.kubeconfig
+$ export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
 $ kubectl get nodes
 ```
 
