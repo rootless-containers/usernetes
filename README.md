@@ -9,9 +9,9 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
  - [Install from binary](#install-from-binary)
  - [Install from source](#install-from-source)
  - [Quick start](#quick-start)
-   - [Start Kubernetes using Docker](#start-kubernetes-using-docker)
-   - [Start Kubernetes using CRI-O](#start-kubernetes-using-cri-o)
-   - [Start Kubernetes using containerd](#start-kubernetes-using-containerd)
+   - [Start Kubernetes with Docker](#start-kubernetes-with-docker)
+   - [Start Kubernetes with CRI-O](#start-kubernetes-with-cri-o)
+   - [Start Kubernetes with containerd](#start-kubernetes-with-containerd)
    - [Start dockerd only (No Kubernetes)](#start-dockerd-only-no-kubernetes)
    - [Use `docker`](#use-docker)
    - [Use `kubectl`](#use-kubectl)
@@ -26,13 +26,16 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 
 ## Status
 
-* [X] Moby (`dockerd`): Almost usable (except Swarm-mode)
-* [X] Kubernetes: Multi-node POC is available
+* [X] Moby (`dockerd`)
+* [X] Kubernetes
   * [X] dockershim
   * [X] CRI-O
   * [X] containerd
-* CNI: Multi-node POC is available
+* [X] Multi-node CNI
   * [X] Flannel (VXLAN)
+* [ ] Multi-node Docker Swarm-mode
+
+Currently, Usernetes uses our patched version of Moby and Kubernetes. See [`./src/patches`](./src/patches).
 
 ## How it works
 
@@ -71,21 +74,27 @@ penguin:231072:65536
 * `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
 * `sudo prlimit --nofile=:65536 --pid $$` is required for Kubernetes
 
+#### RHEL/CentOS 7
+* `sudo sh -c "echo 28633 > /proc/sys/user/max_user_namespaces"` is required
+* [COPR package `vbatts/shadow-utils-newxidmap`](https://copr.fedorainfracloud.org/coprs/vbatts/shadow-utils-newxidmap/) needs to be installed
+
 ## Restrictions
 
+Common:
+* Following features are not supported:
+  * Cgroups (including `docker top`, which depends on the cgroups device controller)
+  * Apparmor
+  * Checkpoint
+
 Moby (`dockerd`):
-* Only `vfs` graphdriver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported. [Starting with Linux 4.18](https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.18-FUSE), we will be also able
- to implement FUSE snapshotters.
-* Cgroups (including `docker top`) and AppArmor are disabled at the moment. (FIXME: we could enable Cgroups if configured on the host)
-* Checkpoint is not supported at the moment.
-* Running rootless `dockerd` in rootless/rootful `dockerd` is also possible, but not fully tested.
-* You can form Swarm-mode clusters but overlay networking is not functional.
+* Only `vfs` storage driver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported.
+* Overlay network is not supported
 
-CRI-O & containerd:
-* To be documented (almost same as Moby)
+CRI-O:
+* Only `vfs` storage driver is supported.
 
-Kubernetes:
-* Multi-node networking is untested
+containerd:
+* Only `native` storage driver is supported. However, on Ubuntu and a few distros, `overlayfs` is also supported.
 
 ## Install from binary
 
@@ -98,28 +107,30 @@ $ cd usernetes
 
 ## Install from source
 
-Requires Docker 17.05+ for building Usernetes from the source.
+Docker 17.05+ is required for building Usernetes from the source.
 Docker 18.09+ with `DOCKER_BUILDKIT=1` is recommended.
 
 ```console
 $ make
 ```
 
+Binaries are genereted under `./bin` directory.
+
 ## Quick start
 
-### Start Kubernetes using Docker
+### Start Kubernetes with Docker
 
 ```console
 $ ./run.sh
 ```
 
-### Start Kubernetes using CRI-O
+### Start Kubernetes with CRI-O
 
 ```console
 $ ./run.sh default-crio
 ```
 
-### Start Kubernetes using containerd
+### Start Kubernetes with containerd
 
 ```console
 $ ./run.sh default-containerd
@@ -130,13 +141,13 @@ $ ./run.sh default-containerd
 
 If you don't need Kubernetes:
 ```console
-$ ./run.sh rootlesskit default-docker-nokube
+$ ./run.sh default-docker-nokube
 ```
 
 ### Use `docker`
 
 ```console
-$ docker -H unix:///run/user/1001/docker.sock info
+$ docker -H unix://$XDG_RUNTIME_DIR/docker.sock info
 ```
 
 Or
@@ -148,13 +159,22 @@ $ ./dockercli.sh info
 ### Use `kubectl`
 
 ```console
-$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) hyperkube kubectl --kubeconfig=./localhost.kubeconfig get nodes
+$ ./kubectl.sh get nodes
+```
+
+Or 
+
+```console
+$ ./rootlessctl.sh add-ports 127.0.0.1:8080:8080/tcp
+$ expose KUBECONFIG=$(pwd)/config/localhost.kubeconfig
+$ kubectl get nodes
 ```
 
 Or
 
 ```console
-$ ./kubectl.sh get nodes
+$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) hyperkube \
+  kubectl --kubeconfig=./config/localhost.kubeconfig get nodes
 ```
 
 ### Reset to factory defaults
@@ -176,7 +196,6 @@ $ kubectl run -it --rm --image busybox foo
 ```
 
 ### Multi node (Docker Compose)
-
 
 ```console
 $ docker build -t usernetes .
@@ -212,9 +231,14 @@ Connecting to 10.5.61.2 (10.5.61.2:80)
 As Usernetes runs in a network namespace (with [slirp4netns](https://github.com/rootless-containers/slirp4netns)),
 you can't expose container ports to the host by just running `docker run -p` or `kubectl expose --type=NodePort`.
 
-In addition, you need to expose Usernetes netns ports to the host via `socat`.
+In addition, you need to expose Usernetes netns ports to the host:
 
-e.g.
+```console
+$ ./rootlessctl.sh add-ports 0.0.0.0:8080:80/tcp
+```
+
+You can also manually expose Usernetes netns ports manually with `socat`:
+
 ```console
 $ pid=$(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid)
 $ socat -t -- TCP-LISTEN:8080,reuseaddr,fork EXEC:"nsenter -U -n -t $pid socat -t -- STDIN TCP4\:127.0.0.1\:80"

@@ -7,7 +7,7 @@ Please feel free to replace/add/remove `*.patch` files in this directory!
 
 Steps (e.g. for Kubernetes):
 * Clone the upstream Kubernetes (`git clone https://github.com/kubernetes/kubernetes.git`)
-* Checkout `KUBERNETES_COMMIT` specified in [`../Taskfile.yml`](../Taskfile.yml)
+* Checkout `KUBERNETES_COMMIT` specified in [`../../Dockerfile`](../../Dockerfile)
 * Apply patches in this directory (`git am *.patch`)
 * Commit your own change with `Signed-off-by` line (`git commit -a -s`)
 * Consider melding your change into existing commits if your change is trivial (`git rebase -i ...`)
