@@ -19,11 +19,12 @@ ARG CRIO_COMMIT=650fae1c52ff809c8447fd6dcdc1e9e3747efe65
 ARG CNI_PLUGINS_COMMIT=ee819c71a17d50f27439dbd979337effb2efd21b
 # 01/07/2019
 ARG KUBERNETES_COMMIT=8b3b5a9fe7b57cfe014927d575a9ad90cb536419
-# 01/23/2017 (v.1.7.3.2)
-ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.14-usernetes
 ARG BAZEL_RELEASE=0.21.0
+# 01/23/2017 (v.1.7.3.2)
+ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
+ARG FLANNEL_RELEASE=v0.10.0
 ARG ETCD_RELEASE=v3.3.11
 ARG GOTASK_RELEASE=v2.3.0
 
@@ -161,6 +162,13 @@ RUN git pull && git checkout ${SOCAT_COMMIT}
 RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
   mkdir -p /out && cp -f socat /out
 
+#### flannel (flannel-build)
+FROM busybox AS flannel-build
+ARG FLANNEL_RELEASE
+RUN mkdir -p /out && \
+  wget -O /out/flanneld https://github.com/coreos/flannel/releases/download/${FLANNEL_RELEASE}/flanneld-amd64 && \
+  chmod +x /out/flanneld
+
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
@@ -187,6 +195,7 @@ COPY --from=crio-build /out/* /
 COPY --from=cniplugins-build /out/* /
 COPY --from=k8s-build /out/* /
 COPY --from=socat-build /out/* /
+COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
 COPY --from=gotask-build /out/* /
 

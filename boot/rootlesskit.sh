@@ -2,6 +2,7 @@
 # Customizable environment variables:
 # * $U7S_ROOTLESSKIT_FLAGS
 # * $U7S_ROOTLESSKIT_PORTS
+# * $U7S_FLANNEL
 
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
@@ -10,11 +11,13 @@ rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 
 : ${U7S_ROOTLESSKIT_FLAGS=}
 : ${U7S_ROOTLESSKIT_PORTS=}
+: ${U7S_FLANNEL=}
 
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
 	_U7S_CHILD=1
-	export _U7S_CHILD
+	_U7S_PARENT_IP=$(hostname -i)
+	export _U7S_CHILD _U7S_PARENT_IP
 	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
 	#
 	# --net specifies the network stack. slirp4netns and VPNKit are supported.
@@ -36,12 +39,19 @@ if [[ $_U7S_CHILD == 0 ]]; then
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
+	# save `hostname -i`
+	echo $_U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
+
 	# Remove symlinks so that the child won't be confused by the parent configuration
 	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/docker /etc/kubernetes
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d
 	cp -f $U7S_BASE_DIR/config/cni_net.d/* /etc/cni/net.d
+	if [[ $U7S_FLANNEL == 1 ]]; then
+		cp -f $U7S_BASE_DIR/config/flannel/cni_net.d/* /etc/cni/net.d
+		mkdir -p /run/flannel
+	fi
 	# Bind-mount /opt/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /opt/cni/bin
 	mount --bind $U7S_BASE_DIR/bin/cni /opt/cni/bin

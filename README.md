@@ -18,7 +18,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
    - [Reset to factory defaults](#reset-to-factory-defaults)
  - [Run Usernetes in Docker](#run-usernetes-in-docker)
    - [Single node](#single-node)
-   - [Multi node (Docker Compose)](#docker-compose)
+   - [Multi node (Docker Compose)](#multi-node-docker-compose)
  - [Advanced guide](#advanced-guide)
    - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
    - [Routing ping packets](#routing-ping-packets)
@@ -31,8 +31,8 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
   * [X] dockershim
   * [X] CRI-O
   * [X] containerd
-* CNI: single-node only
-  * [ ] Flannel
+* CNI: Multi-node POC is available
+  * [X] Flannel (VXLAN)
 
 ## How it works
 
@@ -177,16 +177,33 @@ $ kubectl run -it --rm --image busybox foo
 
 ### Multi node (Docker Compose)
 
+
 ```console
 $ docker build -t usernetes .
 $ docker-compose up -d
 $ export KUBECONFIG=./config/localhost.kubeconfig
-$ kubectl get nodes -o wide
-NAME           STATUS    ROLES     AGE       VERSION           EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-38c7ee9f62a7   Ready     <none>    55s       v1.14-usernetes   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
-8aaaaaac2b22   Ready     <none>    55s       v1.14-usernetes   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
 ```
 
+Flannel VXLAN `10.5.0.0/16` is configured by default.
+
+```console
+$ kubectl get nodes -o wide
+NAME           STATUS   ROLES    AGE     VERSION           INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+42253058d29e   Ready    <none>   6m11s   v1.14-usernetes   10.0.101.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
+ee4d63c102c6   Ready    <none>   6m11s   v1.14-usernetes   10.0.102.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
+$ kubectl run --replicas=2 --image=nginx:alpine nginx
+$ kubectl get pods -o wide
+NAME                     READY   STATUS    RESTARTS   AGE     IP          NODE           NOMINATED NODE   READINESS GATES
+nginx-6b4b85b77b-pz864   1/1     Running   0          3m18s   10.5.74.2   ee4d63c102c6   <none>           <none>
+nginx-6b4b85b77b-r6rpl   1/1     Running   0          3m18s   10.5.61.2   42253058d29e   <none>           <none>
+$ kubectl exec -it nginx-6b4b85b77b-pz864 -- wget -O - 10.5.61.2
+Connecting to 10.5.61.2 (10.5.61.2:80)
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+...
+```
 
 ## Advanced guide
 
