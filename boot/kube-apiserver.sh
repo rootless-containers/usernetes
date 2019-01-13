@@ -7,4 +7,5 @@ exec $(dirname $0)/nsenter.sh hyperkube kube-apiserver \
 	--admission-control=AlwaysAdmit \
 	--authorization-mode=AlwaysAllow \
 	--anonymous-auth=true \
+	--allow-privileged \
 	$@

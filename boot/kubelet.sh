@@ -12,4 +12,5 @@ exec $(dirname $0)/nsenter.sh hyperkube kubelet \
 	--authorization-mode=AlwaysAllow \
 	--fail-swap-on=false \
 	--feature-gates DevicePlugins=false \
+	--allow-privileged \
 	$@

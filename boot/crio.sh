@@ -28,8 +28,8 @@ exec crio \
 	--conmon $U7S_BASE_DIR/bin/conmon \
 	--runroot $XDG_RUNTIME_DIR/crio \
 	--runtimes runc:$U7S_BASE_DIR/bin/runc \
-	--cni-config-dir $U7S_BASE_DIR/config/crio/cni \
-	--cni-plugin-dir $U7S_BASE_DIR/bin/cni \
+	--cni-config-dir /etc/cni/net.d \
+	--cni-plugin-dir /opt/cni/bin \
 	--root $XDG_DATA_HOME/containers/storage \
 	--cgroup-manager=cgroupfs \
 	--storage-driver vfs \

@@ -19,7 +19,7 @@ state = "$XDG_RUNTIME_DIR/containerd"
     [plugins.cri.containerd]
       snapshotter = "$(overlayfs::supported && echo overlayfs || echo native)"
     [plugins.cri.cni]
-      bin_dir = "$U7S_BASE_DIR/bin/cni"
-      conf_dir = "$U7S_BASE_DIR/config/containerd/cni"
+      bin_dir = "/opt/cni/bin"
+      conf_dir = "/etc/cni/net.d"
 EOF
 exec containerd -c $XDG_RUNTIME_DIR/usernetes/containerd.toml $@

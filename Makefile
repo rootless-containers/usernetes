@@ -25,6 +25,13 @@ _test:
 	./hack/smoketest.sh $(IMAGE) default-containerd
 	./hack/smoketest.sh $(IMAGE) default-crio
 
+up: image
+	docker-compose up -d
+	echo "To use kubectl: export KUBECONFIG=$(shell pwd)/config/localhost.kubeconfig"
+
+down:
+	docker-compose down
+
 _artifact:
 	rm -rf _artifact
 	mkdir _artifact
@@ -43,4 +50,4 @@ clean:
 
 _ci: image _test _binaries _artifact _upload-artifact-to-transfer-sh
 
-.PHONY: binaries _binaries image test _test _artifact _upload-artifact-to-transfer-sh clean _ci
+.PHONY: binaries _binaries image test _test up down _artifact _upload-artifact-to-transfer-sh clean _ci

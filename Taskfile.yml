@@ -25,6 +25,9 @@ tasks:
   etcd:
     cmds:
       - ./boot/etcd.sh
+  etcd-init-data:
+    cmds:
+      - ./boot/etcd-init-data.sh
   kube-apiserver:
     cmds:
       - ./boot/kube-apiserver.sh
@@ -42,6 +45,9 @@ tasks:
       - kube-apiserver
       - kube-controller-manager
       - kube-scheduler
+  flanneld:
+    cmds:
+      - ./boot/flanneld.sh
   dockerd+kubelet-dockershim+kube-proxy:
     deps:
       - dockerd
@@ -57,15 +63,21 @@ tasks:
       - containerd
       - kubelet-containerd
       - kube-proxy
-  docker-compose-master-with-etcd:
+  docker-compose-master+etcd:
     deps:
       - rootlesskit
       - etcd
+      - etcd-init-data
       - kube-apiserver+kube-controller-manager+kube-scheduler
   docker-compose-node-docker:
     deps:
       - rootlesskit
       - dockerd+kubelet-dockershim+kube-proxy
+# NOTE: requires $U7S_FLANNEL=1 to be set
+  docker-compose-node-docker+flanneld:
+    deps:
+      - docker-compose-node-docker
+      - flanneld
   default-docker:
     deps:
       - rootlesskit
