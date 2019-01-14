@@ -208,15 +208,24 @@ Flannel VXLAN `10.5.0.0/16` is configured by default.
 ```console
 $ kubectl get nodes -o wide
 NAME           STATUS   ROLES    AGE     VERSION           INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
-42253058d29e   Ready    <none>   6m11s   v1.14-usernetes   10.0.101.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
-ee4d63c102c6   Ready    <none>   6m11s   v1.14-usernetes   10.0.102.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
-$ kubectl run --replicas=2 --image=nginx:alpine nginx
+967e81e90e1f   Ready    <none>   3m42s   v1.14-usernetes   10.0.101.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   docker://Unknown
+b2204f192e5c   Ready    <none>   3m42s   v1.14-usernetes   10.0.102.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   cri-o://1.14.0-dev
+ba0133c68378   Ready    <none>   3m42s   v1.14-usernetes   10.0.103.100   <none>        Ubuntu 18.04.1 LTS   4.15.0-43-generic   containerd://1.2.0-168-gb3807c5d
+$ kubectl run --replicas=3 --image=nginx:alpine nginx
 $ kubectl get pods -o wide
-NAME                     READY   STATUS    RESTARTS   AGE     IP          NODE           NOMINATED NODE   READINESS GATES
-nginx-6b4b85b77b-pz864   1/1     Running   0          3m18s   10.5.74.2   ee4d63c102c6   <none>           <none>
-nginx-6b4b85b77b-r6rpl   1/1     Running   0          3m18s   10.5.61.2   42253058d29e   <none>           <none>
-$ kubectl exec -it nginx-6b4b85b77b-pz864 -- wget -O - 10.5.61.2
-Connecting to 10.5.61.2 (10.5.61.2:80)
+NAME                     READY   STATUS    RESTARTS   AGE   IP          NODE           NOMINATED NODE   READINESS GATES
+nginx-6b4b85b77b-7hqrk   1/1     Running   0          3s    10.5.13.3   b2204f192e5c   <none>           <none>
+nginx-6b4b85b77b-8rknj   1/1     Running   0          3s    10.5.79.3   967e81e90e1f   <none>           <none>
+nginx-6b4b85b77b-r466s   1/1     Running   0          3s    10.5.7.3    ba0133c68378   <none>           <none>
+$ kubectl exec -it nginx-6b4b85b77b-7hqrk -- wget -O - http://10.5.79.3
+Connecting to 10.5.79.3 (10.5.79.3:80)
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+...
+$ kubectl exec -it nginx-6b4b85b77b-7hqrk -- wget -O - http://10.5.7.3
+Connecting to 10.5.7.3 (10.5.7.3:80)
 <!DOCTYPE html>
 <html>
 <head>
