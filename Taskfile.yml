@@ -78,6 +78,22 @@ tasks:
     deps:
       - docker-compose-node-docker
       - flanneld
+  docker-compose-node-crio:
+    deps:
+      - rootlesskit
+      - crio+kubelet-crio+kube-proxy
+  docker-compose-node-crio+flanneld:
+    deps:
+      - docker-compose-node-crio
+      - flanneld
+  docker-compose-node-containerd:
+    deps:
+      - rootlesskit
+      - containerd+kubelet-containerd+kube-proxy
+  docker-compose-node-containerd+flanneld:
+    deps:
+      - docker-compose-node-containerd
+      - flanneld
   default-docker:
     deps:
       - rootlesskit

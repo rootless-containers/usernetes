@@ -17,7 +17,7 @@ services:
       - 127.0.0.1:8080:8080
     networks:
       - usernetes
-  node-1:
+  node-docker:
     image: usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.101.0/24
@@ -31,7 +31,7 @@ services:
     privileged: true
     networks:
       - usernetes
-  node-2:
+  node-crio:
     image: usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.102.0/24
@@ -40,7 +40,20 @@ services:
       - U7S_FLANNEL=1
     entrypoint:
       - /home/user/usernetes/run.sh
-      - docker-compose-node-docker+flanneld
+      - docker-compose-node-crio+flanneld
+    privileged: true
+    networks:
+      - usernetes
+  node-containerd:
+    image: usernetes
+    environment:
+      - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.103.0/24
+      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
+      - U7S_KUBECONFIG=/home/user/usernetes/config/docker-compose-master.kubeconfig
+      - U7S_FLANNEL=1
+    entrypoint:
+      - /home/user/usernetes/run.sh
+      - docker-compose-node-containerd+flanneld
     privileged: true
     networks:
       - usernetes
