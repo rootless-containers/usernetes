@@ -192,7 +192,8 @@ COPY --from=moby-build /out/* /
 COPY --from=dockercli-build /out/* /
 COPY --from=containerd-build /out/* /
 COPY --from=crio-build /out/* /
-COPY --from=cniplugins-build /out/* /
+# can't use wildcard here: https://github.com/rootless-containers/usernetes/issues/78
+COPY --from=cniplugins-build /out/cni /cni
 COPY --from=k8s-build /out/* /
 COPY --from=socat-build /out/* /
 COPY --from=flannel-build /out/* /
