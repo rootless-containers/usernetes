@@ -8,7 +8,7 @@ fi
 image=$1
 arg=$2
 
-container="$1-$2"
+container="$(echo $1-$2 | sed -e s@/@-@g)"
 
 set -x
 docker run -d --name $container --privileged $image $arg

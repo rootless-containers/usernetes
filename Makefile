@@ -1,7 +1,7 @@
 # targets prefixed with underscore are not intended be invoked by human
 
 .DEFAULT_GOAL := binaries
-IMAGE=usernetes
+IMAGE=rootlesscontainers/usernetes
 
 binaries: image _binaries
 

@@ -37,6 +37,8 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 
 Currently, Usernetes uses our patched version of Moby and Kubernetes. See [`./src/patches`](./src/patches).
 
+Deployment shell scripts are in POC status.
+
 ## How it works
 
 Usernetes executes Moby (aka Docker) and Kubernetes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/mount_namespaces.7.html), and [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html).
@@ -185,11 +187,18 @@ $ ./cleanup.sh
 
 ## Run Usernetes in Docker
 
+All-in-one Docker image is available as [`rootlesscontainers/usernetes`](https://hub.docker.com/r/rootlesscontainers/usernetes) on Docker Hub.
+
+To build the image manually:
+
+```console
+$ docker build -t rootlesscontainers/usernetes .
+```
+
 ### Single node
 
 ```console
-$ docker build -t usernetes .
-$ docker run -d --name usernetes-node -p 127.0.0.1:8080:8080  -e U7S_ROOTLESSKIT_PORTS=0.0.0.0:8080:8080/tcp --privileged usernetes default-docker
+$ docker run -d --name usernetes-node -p 127.0.0.1:8080:8080  -e U7S_ROOTLESSKIT_PORTS=0.0.0.0:8080:8080/tcp --privileged rootlesscontainers/usernetes default-docker
 $ export KUBECONFIG=./config/localhost.kubeconfig
 $ kubectl run -it --rm --image busybox foo
 / #
@@ -198,7 +207,6 @@ $ kubectl run -it --rm --image busybox foo
 ### Multi node (Docker Compose)
 
 ```console
-$ docker build -t usernetes .
 $ docker-compose up -d
 $ export KUBECONFIG=./config/localhost.kubeconfig
 ```
