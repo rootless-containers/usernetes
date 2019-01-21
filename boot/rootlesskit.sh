@@ -16,8 +16,8 @@ rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
 	_U7S_CHILD=1
-	_U7S_PARENT_IP=$(hostname -i)
-	export _U7S_CHILD _U7S_PARENT_IP
+	: ${U7S_PARENT_IP=$(hostname -I | sed -e 's/ .*//g')}
+	export _U7S_CHILD U7S_PARENT_IP
 	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
 	#
 	# --net specifies the network stack. slirp4netns and VPNKit are supported.
@@ -39,8 +39,8 @@ if [[ $_U7S_CHILD == 0 ]]; then
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
-	# save `hostname -i`
-	echo $_U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
+	# save IP address
+	echo $U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
 
 	# Remove symlinks so that the child won't be confused by the parent configuration
 	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/docker /etc/kubernetes
