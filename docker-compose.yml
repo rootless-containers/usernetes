@@ -3,7 +3,7 @@ version: "3"
 services:
 # FIXME: master components should not require RootlessKit
   master:
-    image: usernetes
+    image: rootlesscontainers/usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.100.0/24
 # 2379/tcp: etcd, 8080/tcp: kube-apiserver, 10251/tcp: kube-scheduler, 10252/tcp: kube-controller-manager
@@ -18,7 +18,7 @@ services:
     networks:
       - usernetes
   node-docker:
-    image: usernetes
+    image: rootlesscontainers/usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.101.0/24
 # 10250/tcp: kubelet, 8472/udp: reserved for flannel
@@ -32,7 +32,7 @@ services:
     networks:
       - usernetes
   node-crio:
-    image: usernetes
+    image: rootlesscontainers/usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.102.0/24
       - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
@@ -45,7 +45,7 @@ services:
     networks:
       - usernetes
   node-containerd:
-    image: usernetes
+    image: rootlesscontainers/usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.103.0/24
       - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
