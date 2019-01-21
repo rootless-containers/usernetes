@@ -195,6 +195,9 @@ To build the image manually:
 $ docker build -t rootlesscontainers/usernetes .
 ```
 
+The image is by default based on Ubuntu.
+To build a Fedora-based image (experimental), set `--build-arg BASEOS=fedora`.
+
 ### Single node
 
 ```console
