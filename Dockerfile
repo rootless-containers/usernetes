@@ -28,6 +28,8 @@ ARG FLANNEL_RELEASE=v0.10.0
 ARG ETCD_RELEASE=v3.3.11
 ARG GOTASK_RELEASE=v2.3.0
 
+ARG BASEOS=ubuntu
+
 ### Common base images (common-*)
 FROM golang:1.11-alpine AS common-golang-alpine
 RUN apk add --no-cache git
@@ -201,9 +203,17 @@ COPY --from=etcd-build /out/* /
 COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
-FROM ubuntu:18.04 AS test-main
+FROM ubuntu:18.04 AS test-main-ubuntu
 # libglib2.0: require by conmon
 RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
+
+# fedora image is experimental
+FROM fedora:29 AS test-main-fedora
+# As of Jan 2019, fedora:29 has wrong permission bits on newuidmap newgidmap
+RUN chmod +s /usr/bin/newuidmap /usr/bin/newgidmap
+RUN dnf install -y git iproute iptables hostname
+
+FROM test-main-$BASEOS AS test-main
 RUN useradd --create-home --home-dir /home/user --uid 1000 user
 COPY . /home/user/usernetes
 COPY --from=bin-main / /home/user/usernetes/bin
