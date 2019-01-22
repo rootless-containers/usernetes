@@ -211,7 +211,7 @@ RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables
 FROM fedora:29 AS test-main-fedora
 # As of Jan 2019, fedora:29 has wrong permission bits on newuidmap newgidmap
 RUN chmod +s /usr/bin/newuidmap /usr/bin/newgidmap
-RUN dnf install -y git iproute iptables hostname
+RUN dnf install -y git iproute iptables hostname procps-ng
 
 FROM test-main-$BASEOS AS test-main
 RUN useradd --create-home --home-dir /home/user --uid 1000 user
