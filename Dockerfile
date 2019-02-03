@@ -8,8 +8,8 @@ ARG ROOTLESSKIT_COMMIT=3c4582e950e3a67795c2832179c125b258b78124
 ARG SLIRP4NETNS_COMMIT=d013231cdc6607788be81599017f9199f634fe0b
 # 12/20/2018
 ARG RUNC_COMMIT=bbb17efcb4c0ab986407812a31ba333a7450064c
-# 01/08/2019
-ARG MOBY_COMMIT=f9dbd383bb6e31d97ec276ef7dbf69e89bc22f66
+# 02/03/2019
+ARG MOBY_COMMIT=93d994e29c9cc8d81f1b0477e28d705fa7e2cd72
 ARG DOCKER_CLI_RELEASE=18.09.1-rc1
 # 02/01/2019
 ARG CONTAINERD_COMMIT=6b25c1e45c2b8246dba17de3b1d574f6720ce79f
@@ -73,11 +73,6 @@ RUN git clone https://github.com/moby/moby.git /go/src/github.com/docker/docker
 WORKDIR /go/src/github.com/docker/docker
 ARG MOBY_COMMIT
 RUN git pull && git checkout ${MOBY_COMMIT}
-COPY ./src/patches/moby /patches
-# `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
 
 FROM moby-base AS moby-build-docker-init
 RUN apk --no-cache add cmake
