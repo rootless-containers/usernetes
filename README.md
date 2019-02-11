@@ -37,7 +37,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 
 Currently, Usernetes uses our patched version of Moby and Kubernetes. See [`./src/patches`](./src/patches).
 
-Deployment shell scripts are in POC status.
+Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
 
 ## How it works
 
