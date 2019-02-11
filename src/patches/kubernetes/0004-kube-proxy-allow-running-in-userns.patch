@@ -1,4 +1,4 @@
-From 5201fc1623b51d4dacfd67d43bfda202de24b4b4 Mon Sep 17 00:00:00 2001
+From 6c44e6f9dae2833b8b7bffb4049568846ca1a743 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 4/4] kube-proxy: allow running in userns
@@ -12,13 +12,13 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  4 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index f76d454296..4e05482267 100644
+index 75052c2ded..2e996668cb 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
-@@ -62,6 +62,7 @@ go_library(
-         "//staging/src/k8s.io/client-go/tools/clientcmd/api:go_default_library",
-         "//staging/src/k8s.io/client-go/tools/record:go_default_library",
+@@ -65,6 +65,7 @@ go_library(
+         "//staging/src/k8s.io/component-base/config:go_default_library",
          "//staging/src/k8s.io/kube-proxy/config/v1alpha1:go_default_library",
+         "//vendor/github.com/fsnotify/fsnotify:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
          "//vendor/github.com/spf13/cobra:go_default_library",
