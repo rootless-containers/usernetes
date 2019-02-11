@@ -2,30 +2,30 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 1/14/2019 (v0.3.0-alpha.0)
-ARG ROOTLESSKIT_COMMIT=3c4582e950e3a67795c2832179c125b258b78124
-# 1/12/2019 (v0.3.0-alpha.0)
-ARG SLIRP4NETNS_COMMIT=d013231cdc6607788be81599017f9199f634fe0b
-# 12/20/2018
-ARG RUNC_COMMIT=bbb17efcb4c0ab986407812a31ba333a7450064c
-# 02/03/2019
-ARG MOBY_COMMIT=93d994e29c9cc8d81f1b0477e28d705fa7e2cd72
-ARG DOCKER_CLI_RELEASE=18.09.1-rc1
-# 02/01/2019
-ARG CONTAINERD_COMMIT=6b25c1e45c2b8246dba17de3b1d574f6720ce79f
-# 01/07/2019
-ARG CRIO_COMMIT=650fae1c52ff809c8447fd6dcdc1e9e3747efe65
-# 12/20/2018
-ARG CNI_PLUGINS_COMMIT=ee819c71a17d50f27439dbd979337effb2efd21b
-# 01/07/2019
-ARG KUBERNETES_COMMIT=8b3b5a9fe7b57cfe014927d575a9ad90cb536419
+# 02/05/2019 (v0.3.0-alpha.1)
+ARG ROOTLESSKIT_COMMIT=7905ee34b3d9d1f27fe2ffa3c5fd3d01bb3644dd
+# 01/26/2019 (v0.3.0-alpha.2)
+ARG SLIRP4NETNS_COMMIT=30883b5aef81510915ca0e0b28072e809172e1f6
+# 02/08/2019
+ARG RUNC_COMMIT=6635b4f0c6af3810594d2770f662f34ddc15b40d
+# 02/11/2019
+ARG MOBY_COMMIT=f18cf23e97b01855d210eb497494fef8ac511073
+ARG DOCKER_CLI_RELEASE=18.09.1
+# 02/11/2019
+ARG CONTAINERD_COMMIT=b02ab6c742a48d5ea0ebadaa3c18329356a383a4
+# 02/05/2019
+ARG CRIO_COMMIT=3b9de7a5d2115ee8968ef04fa26f5125efbb71f5
+# 02/07/2018
+ARG CNI_PLUGINS_COMMIT=1865a0701ec6c6fae796344001333b4fda7a8701
+# 02/11/2019
+ARG KUBERNETES_COMMIT=6671d2556f1af67e703c329b1186896d7c6f9f4d
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.14-usernetes
-ARG BAZEL_RELEASE=0.21.0
+ARG BAZEL_RELEASE=0.22.0
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
-ARG FLANNEL_RELEASE=v0.10.0
-ARG ETCD_RELEASE=v3.3.11
+ARG FLANNEL_RELEASE=v0.11.0
+ARG ETCD_RELEASE=v3.3.12
 ARG GOTASK_RELEASE=v2.3.0
 
 ARG BASEOS=ubuntu
@@ -165,7 +165,7 @@ RUN mkdir -p /out && \
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
 RUN mkdir /tmp-etcd out && \
-  wget -O - https://github.com/etcd-io/etcd/releases/download/v3.3.11/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
+  wget -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
 #### go-task (gotask-build)
