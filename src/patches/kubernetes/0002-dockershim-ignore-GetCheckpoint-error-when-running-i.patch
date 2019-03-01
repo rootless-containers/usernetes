@@ -1,4 +1,4 @@
-From b55c4a76fcc8fa6097c002635cd65dc0f53345d8 Mon Sep 17 00:00:00 2001
+From 6bfbf7539fd4ec23c517027c5d54bd9b1bca0682 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:48:27 +0900
 Subject: [PATCH 2/4] dockershim: ignore GetCheckpoint error when running in
@@ -11,10 +11,10 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  2 files changed, 10 insertions(+), 5 deletions(-)
 
 diff --git a/pkg/kubelet/dockershim/BUILD b/pkg/kubelet/dockershim/BUILD
-index 5915ed0212..a8e4e88a0c 100644
+index c3f6563994..608bf6a6b3 100644
 --- a/pkg/kubelet/dockershim/BUILD
 +++ b/pkg/kubelet/dockershim/BUILD
-@@ -68,6 +68,7 @@ go_library(
+@@ -70,6 +70,7 @@ go_library(
          "//vendor/github.com/docker/docker/pkg/jsonmessage:go_default_library",
          "//vendor/github.com/docker/go-connections/nat:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
@@ -23,7 +23,7 @@ index 5915ed0212..a8e4e88a0c 100644
      ] + select({
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/pkg/kubelet/dockershim/docker_sandbox.go b/pkg/kubelet/dockershim/docker_sandbox.go
-index 01d7f9b495..c1cf7ac565 100644
+index d72712f077..c0c5484656 100644
 --- a/pkg/kubelet/dockershim/docker_sandbox.go
 +++ b/pkg/kubelet/dockershim/docker_sandbox.go
 @@ -27,6 +27,8 @@ import (

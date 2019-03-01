@@ -1,4 +1,4 @@
-From a3dbe0547f5680b2440fb83954d9e1bb3f026424 Mon Sep 17 00:00:00 2001
+From 997247be91c5417114b9fea19ccffaa7b436d42d Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -10,10 +10,10 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 353b7c641a..2e18c281c8 100644
+index ee61d44d63..9d2aab332f 100644
 --- a/pkg/kubelet/cm/BUILD
 +++ b/pkg/kubelet/cm/BUILD
-@@ -87,6 +87,7 @@ go_library(
+@@ -88,6 +88,7 @@ go_library(
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
@@ -22,7 +22,7 @@ index 353b7c641a..2e18c281c8 100644
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index af7a779173..c788fa4446 100644
+index cf84736b8e..abbe15817d 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -32,6 +32,7 @@ import (
@@ -33,7 +33,7 @@ index af7a779173..c788fa4446 100644
  	"k8s.io/klog"
  
  	"k8s.io/api/core/v1"
-@@ -376,7 +377,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
+@@ -390,7 +391,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
  			klog.V(2).Infof("Updating kernel flag: %v, expected value: %v, actual value: %v", flag, expectedValue, val)
  			err = sysctl.SetSysctl(flag, expectedValue)
  			if err != nil {
