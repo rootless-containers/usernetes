@@ -57,7 +57,7 @@ function nsenter::main() {
 
 function nsenter::_nsenter_retry_loop() {
 	local max_trial=10
-	log::info_n "Entering to RootlessKit namespaces: "
+	log::info_n "Entering RootlessKit namespaces: "
 	for ((i = 0; i < max_trial; i++)); do
 		rc=0
 		nsenter::_nsenter echo OK 2>/dev/null || rc=$?
