@@ -249,7 +249,7 @@ Connecting to 10.5.7.3 (10.5.7.3:80)
 ### Expose netns ports to the host
 
 As Usernetes runs in a network namespace (with [slirp4netns](https://github.com/rootless-containers/slirp4netns)),
-you can't expose container ports to the host by just running `docker run -p` or `kubectl expose --type=NodePort`.
+you can't expose container ports to the host by just running `kubectl expose --type=NodePort`.
 
 In addition, you need to expose Usernetes netns ports to the host:
 

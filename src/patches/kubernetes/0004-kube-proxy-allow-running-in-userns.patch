@@ -1,4 +1,4 @@
-From 5e349ac48e86206cb4e316c6999200be378fb8d8 Mon Sep 17 00:00:00 2001
+From 227ed14d458e9016fb13df082c7698ebadbd1d59 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 4/4] kube-proxy: allow running in userns
@@ -24,7 +24,7 @@ index d30c4dcc11..05b49da2f4 100644
          "//vendor/github.com/spf13/cobra:go_default_library",
          "//vendor/github.com/spf13/pflag:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index a92c1492f5..468b2c725a 100644
+index d8bd8614e7..04bfe4d312 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -47,6 +47,7 @@ import (
@@ -35,7 +35,7 @@ index a92c1492f5..468b2c725a 100644
  
  	"k8s.io/klog"
  )
-@@ -258,6 +259,12 @@ func newProxyServer(
+@@ -259,6 +260,12 @@ func newProxyServer(
  
  	iptInterface.AddReloadFunc(proxier.Sync)
  
@@ -48,7 +48,7 @@ index a92c1492f5..468b2c725a 100644
  	return &ProxyServer{
  		Client:                 client,
  		EventClient:            eventClient,
-@@ -269,7 +276,7 @@ func newProxyServer(
+@@ -270,7 +277,7 @@ func newProxyServer(
  		Broadcaster:            eventBroadcaster,
  		Recorder:               recorder,
  		ConntrackConfiguration: config.Conntrack,
