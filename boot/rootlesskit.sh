@@ -34,7 +34,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	rootlesskit \
 		--state-dir $rk_state_dir \
 		--net=slirp4netns --mtu=65520 --disable-host-loopback \
-		--port-driver=socat \
+		--port-driver=builtin \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@

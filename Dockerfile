@@ -2,36 +2,36 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 02/05/2019 (v0.3.0-alpha.1)
-ARG ROOTLESSKIT_COMMIT=7905ee34b3d9d1f27fe2ffa3c5fd3d01bb3644dd
-# 01/26/2019 (v0.3.0-alpha.2)
-ARG SLIRP4NETNS_COMMIT=30883b5aef81510915ca0e0b28072e809172e1f6
-# 02/26/2019
-ARG RUNC_COMMIT=f79e211b1d5763d25fb8debda70a764ca86a0f23
+# 03/20/2019 (v0.3.0-beta.0)
+ARG ROOTLESSKIT_COMMIT=ed2671442965115b84ecf82d4831cc48747d89b8
+# 03/14/2019 (v0.3.0-beta.1)
+ARG SLIRP4NETNS_COMMIT=831c9002880c2fd350c38788fe0663995bd3e75a
+# 03/14/2019
+ARG RUNC_COMMIT=f56b4cbeadc407e715d9b2ba49e62185bd81cef4
 # 03/01/2019
-ARG MOBY_COMMIT=9c83848fc95a200c0c69a34cdeeb1f18a090c13a
-ARG DOCKER_CLI_RELEASE=18.09.3-rc1
-# 03/01/2019
-ARG CONTAINERD_COMMIT=5840ecc3d80f2210b08a1963c788351c6cb7d018
-# 03/01/2019
-ARG CRIO_COMMIT=8de2ffc9e0809e98a72b93e35b74b8e5d4b0c29c
-# 02/28/2018
-ARG CNI_PLUGINS_COMMIT=afd7391938547d363dd55800afb44be7ad3b4fcd
-# 02/28/2019
-ARG KUBERNETES_COMMIT=983cf51c53431170e11d1d41a820ee6bd7bd4bcc
+ARG MOBY_COMMIT=7c197c18d30e1683767709d69397ad1c0a5b2164
+ARG DOCKER_CLI_RELEASE=18.09.4-rc1
+# 03/21/2019
+ARG CONTAINERD_COMMIT=ceba56893a76f22cf0126c46d835c80fb3833408
+# 03/22/2019
+ARG CRIO_COMMIT=af8f12daf73df0a203440c94f6e88725d13ab582
+# 03/21/2018
+ARG CNI_PLUGINS_COMMIT=82a0651d0a4d86738e9d6c8e27fa38eab07351ef
+# 03/22/2019
+ARG KUBERNETES_COMMIT=ab35bd06689744ee275fbec4d43cc7a30f5cca4d
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.14-usernetes
-ARG BAZEL_RELEASE=0.22.0
+ARG KUBE_GIT_VERSION=v1.15-usernetes
+ARG BAZEL_RELEASE=0.23.2
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.3.12
-ARG GOTASK_RELEASE=v2.4.0
+ARG GOTASK_RELEASE=v2.5.0
 
 ARG BASEOS=ubuntu
 
 ### Common base images (common-*)
-FROM golang:1.11-alpine AS common-golang-alpine
+FROM golang:1.12-alpine AS common-golang-alpine
 RUN apk add --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
@@ -46,11 +46,12 @@ RUN git pull && git checkout ${ROOTLESSKIT_COMMIT}
 ENV CGO_ENABLED=0
 RUN mkdir /out && \
   go build -o /out/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit && \
-  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
+  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl && \
+  go build -o /out/rootlesskit-docker-proxy github.com/rootless-containers/rootlesskit/cmd/rootlesskit-docker-proxy
 
 #### slirp4netns (slirp4netns-build)
 FROM alpine:3.8 AS slirp4netns-build
-RUN apk add --no-cache git build-base autoconf automake libtool linux-headers
+RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT
@@ -106,7 +107,7 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
 ### CRI-O (crio-build)
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
 # TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
-FROM golang:1.11 AS crio-build
+FROM golang:1.12 AS crio-build
 RUN apt-get update && apt-get install -y build-essential libglib2.0-dev
 RUN git clone https://github.com/kubernetes-incubator/cri-o.git /go/src/github.com/kubernetes-incubator/cri-o
 WORKDIR /go/src/github.com/kubernetes-incubator/cri-o
@@ -125,7 +126,7 @@ RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" 
   mkdir /out && mv bin /out/cni
 
 ### Kubernetes (k8s-build)
-FROM golang:1.11 AS k8s-build
+FROM golang:1.12 AS k8s-build
 RUN apt-get update && apt-get install -y -q patch
 ARG BAZEL_RELEASE
 ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel

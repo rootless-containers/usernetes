@@ -1,4 +1,4 @@
-From 997247be91c5417114b9fea19ccffaa7b436d42d Mon Sep 17 00:00:00 2001
+From c0ef145fbfa289bd4c3b7279b430e2576c8b9879 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns

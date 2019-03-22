@@ -1,4 +1,4 @@
-From 18b00911cabe69f8731b1939b7c2ce9e6ea677bd Mon Sep 17 00:00:00 2001
+From 306a8df21b03ee529f61d12c99bbdc11854d96c0 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -22,12 +22,12 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  9 files changed, 56 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index b824a8dbbb..6465d4175f 100644
+index 420a68734b..64abbcc5eb 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
-@@ -148,6 +148,7 @@ go_library(
+@@ -145,6 +145,7 @@ go_library(
+         "//vendor/github.com/google/cadvisor/events:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
-         "//vendor/github.com/google/cadvisor/info/v2:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
@@ -182,18 +182,18 @@ index b59c6a0836..77fb9b87bb 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 9b63bcd484..db154e6542 100644
+index d3cac7bdfa..c3eedb71d6 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
-@@ -33,6 +33,7 @@ import (
+@@ -32,6 +32,7 @@ import (
+ 	"time"
  
  	cadvisorapi "github.com/google/cadvisor/info/v1"
- 	cadvisorapiv2 "github.com/google/cadvisor/info/v2"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -1587,10 +1588,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1581,10 +1582,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -208,7 +208,7 @@ index 9b63bcd484..db154e6542 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1609,7 +1613,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1603,7 +1607,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)
@@ -220,19 +220,19 @@ index 9b63bcd484..db154e6542 100644
  			}
  		}
 diff --git a/pkg/kubelet/server/stats/BUILD b/pkg/kubelet/server/stats/BUILD
-index dde9b3cbc7..ab27634a60 100644
+index 954fec082d..ebed2ee104 100644
 --- a/pkg/kubelet/server/stats/BUILD
 +++ b/pkg/kubelet/server/stats/BUILD
-@@ -28,6 +28,7 @@ go_library(
-         "//vendor/github.com/emicklei/go-restful:go_default_library",
+@@ -30,6 +30,7 @@ go_library(
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
+         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
      ],
  )
  
 diff --git a/pkg/kubelet/server/stats/summary.go b/pkg/kubelet/server/stats/summary.go
-index 29d3b31a35..bb701605f7 100644
+index ac7c04c628..44823b68d1 100644
 --- a/pkg/kubelet/server/stats/summary.go
 +++ b/pkg/kubelet/server/stats/summary.go
 @@ -21,7 +21,9 @@ import (
