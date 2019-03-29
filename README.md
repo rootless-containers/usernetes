@@ -58,9 +58,9 @@ $ id -u
 1001
 $ whoami
 penguin
-$ grep ^$(whoami): /etc/subuid
+$ grep "^$(whoami):" /etc/subuid
 penguin:231072:65536
-$ grep ^$(whoami): /etc/subgid
+$ grep "^$(whoami):" /etc/subgid
 penguin:231072:65536
 ```
 
