@@ -4,7 +4,7 @@ source $U7S_BASE_DIR/common/common.inc.sh
 nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1
-mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio
+mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio $XDG_CONFIG_HOME/crio/runc
 
 # It looks like both crio.conf["registries"] and --registry CLI flags are needed
 # https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
@@ -27,7 +27,7 @@ exec crio \
 	--registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
 	--conmon $U7S_BASE_DIR/bin/conmon \
 	--runroot $XDG_RUNTIME_DIR/crio \
-	--runtimes runc:$U7S_BASE_DIR/bin/runc \
+	--runtimes runc:$U7S_BASE_DIR/bin/runc:$XDG_RUNTIME_DIR/crio/runc \
 	--cni-config-dir /etc/cni/net.d \
 	--cni-plugin-dir /opt/cni/bin \
 	--root $XDG_DATA_HOME/containers/storage \

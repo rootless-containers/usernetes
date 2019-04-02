@@ -1,9 +1,9 @@
-From 227ed14d458e9016fb13df082c7698ebadbd1d59 Mon Sep 17 00:00:00 2001
-From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+From bd8d50af379848a6f3a265044be86cc936dbe602 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 4/4] kube-proxy: allow running in userns
 
-Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
  cmd/kube-proxy/app/BUILD            | 1 +
  cmd/kube-proxy/app/server_others.go | 9 ++++++++-
@@ -12,10 +12,10 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  4 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index d30c4dcc11..05b49da2f4 100644
+index 38459a7bce..37cf2de831 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
-@@ -65,6 +65,7 @@ go_library(
+@@ -64,6 +64,7 @@ go_library(
          "//staging/src/k8s.io/component-base/config:go_default_library",
          "//staging/src/k8s.io/kube-proxy/config/v1alpha1:go_default_library",
          "//vendor/github.com/fsnotify/fsnotify:go_default_library",
@@ -24,10 +24,10 @@ index d30c4dcc11..05b49da2f4 100644
          "//vendor/github.com/spf13/cobra:go_default_library",
          "//vendor/github.com/spf13/pflag:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index d8bd8614e7..04bfe4d312 100644
+index 0f0832c9bc..b761329483 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
-@@ -47,6 +47,7 @@ import (
+@@ -46,6 +46,7 @@ import (
  	utilnode "k8s.io/kubernetes/pkg/util/node"
  	utilsysctl "k8s.io/kubernetes/pkg/util/sysctl"
  	"k8s.io/utils/exec"
@@ -35,7 +35,7 @@ index d8bd8614e7..04bfe4d312 100644
  
  	"k8s.io/klog"
  )
-@@ -259,6 +260,12 @@ func newProxyServer(
+@@ -215,6 +216,12 @@ func newProxyServer(
  
  	iptInterface.AddReloadFunc(proxier.Sync)
  
@@ -48,7 +48,7 @@ index d8bd8614e7..04bfe4d312 100644
  	return &ProxyServer{
  		Client:                 client,
  		EventClient:            eventClient,
-@@ -270,7 +277,7 @@ func newProxyServer(
+@@ -226,7 +233,7 @@ func newProxyServer(
  		Broadcaster:            eventBroadcaster,
  		Recorder:               recorder,
  		ConntrackConfiguration: config.Conntrack,
@@ -58,10 +58,10 @@ index d8bd8614e7..04bfe4d312 100644
  		NodeRef:                nodeRef,
  		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/BUILD b/pkg/proxy/userspace/BUILD
-index b7887c85b5..17a7be8ebb 100644
+index 87e3da69e9..92ee648153 100644
 --- a/pkg/proxy/userspace/BUILD
 +++ b/pkg/proxy/userspace/BUILD
-@@ -33,6 +33,7 @@ go_library(
+@@ -35,6 +35,7 @@ go_library(
          "//staging/src/k8s.io/apimachinery/pkg/util/sets:go_default_library",
          "//staging/src/k8s.io/apimachinery/pkg/util/wait:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
@@ -70,10 +70,10 @@ index b7887c85b5..17a7be8ebb 100644
      ] + select({
          "@io_bazel_rules_go//go/platform:android": [
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index 661092b1b2..c0983f6e44 100644
+index ae55842b30..40d13d981a 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
-@@ -25,6 +25,7 @@ import (
+@@ -26,6 +26,7 @@ import (
  	"sync/atomic"
  	"time"
  
@@ -81,7 +81,7 @@ index 661092b1b2..c0983f6e44 100644
  	"k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-@@ -179,7 +180,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
+@@ -206,7 +207,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
  
  	err = setRLimit(64 * 1000)
  	if err != nil {

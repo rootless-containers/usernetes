@@ -2,26 +2,26 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 03/20/2019 (v0.3.0-beta.0)
-ARG ROOTLESSKIT_COMMIT=ed2671442965115b84ecf82d4831cc48747d89b8
-# 03/14/2019 (v0.3.0-beta.1)
-ARG SLIRP4NETNS_COMMIT=831c9002880c2fd350c38788fe0663995bd3e75a
-# 03/14/2019
-ARG RUNC_COMMIT=f56b4cbeadc407e715d9b2ba49e62185bd81cef4
-# 03/01/2019
-ARG MOBY_COMMIT=7c197c18d30e1683767709d69397ad1c0a5b2164
-ARG DOCKER_CLI_RELEASE=18.09.4-rc1
-# 03/21/2019
-ARG CONTAINERD_COMMIT=ceba56893a76f22cf0126c46d835c80fb3833408
-# 03/22/2019
-ARG CRIO_COMMIT=af8f12daf73df0a203440c94f6e88725d13ab582
-# 03/21/2018
-ARG CNI_PLUGINS_COMMIT=82a0651d0a4d86738e9d6c8e27fa38eab07351ef
-# 03/22/2019
-ARG KUBERNETES_COMMIT=ab35bd06689744ee275fbec4d43cc7a30f5cca4d
+# 04/19/2019 (v0.4.0)
+ARG ROOTLESSKIT_COMMIT=e92d5e772ee7e103aecf380c5874a40c52876ff0
+# 03/28/2019 (v0.3.0)
+ARG SLIRP4NETNS_COMMIT=4992082b2af77c09bca6bd8504e2ebfa5e118c18
+# 04/04/2019
+ARG RUNC_COMMIT=029124da7af7360afa781a0234d1b083550f797c
+# 04/21/2019
+ARG MOBY_COMMIT=aac801ac751a9562698d2eb1de262f74476b93f9
+ARG DOCKER_CLI_RELEASE=19.03.0-beta1
+# 04/20/2019
+ARG CONTAINERD_COMMIT=835e6d01fb46d197afdb76be6179ff7d9c75e3c4
+# 04/21/2019
+ARG CRIO_COMMIT=cb188cae9a564549a8e418f4810fbbbf4244e7f6
+# 04/18/2019
+ARG CNI_PLUGINS_COMMIT=7df5acee0f254e447001ea57291e20467acb8522
+# 04/21/2019
+ARG KUBERNETES_COMMIT=1377108c084545e2279bd67eed56e54283572302
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.15-usernetes
-ARG BAZEL_RELEASE=0.23.2
+ARG BAZEL_RELEASE=0.24.1
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 ARG FLANNEL_RELEASE=v0.11.0
@@ -108,12 +108,12 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
 # TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
 FROM golang:1.12 AS crio-build
-RUN apt-get update && apt-get install -y build-essential libglib2.0-dev
-RUN git clone https://github.com/kubernetes-incubator/cri-o.git /go/src/github.com/kubernetes-incubator/cri-o
-WORKDIR /go/src/github.com/kubernetes-incubator/cri-o
+RUN apt-get update && apt-get install -y build-essential libglib2.0-dev libseccomp-dev
+RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
+WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-RUN make BUILDTAGS="exclude_graphdriver_btrfs exclude_graphdriver_devicemapper containers_image_openpgp" binaries && \
+RUN make BUILDTAGS="exclude_graphdriver_btrfs exclude_graphdriver_devicemapper containers_image_openpgp containers_image_ostree_stub" binaries && \
   mkdir /out && cp bin/conmon bin/crio /out
 
 ### CNI Plugins (cniplugins-build)
