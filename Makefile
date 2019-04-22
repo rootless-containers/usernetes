@@ -48,6 +48,6 @@ _upload-artifact-to-transfer-sh:
 clean:
 	rm -rf _artifact bin
 
-_ci: image _test _binaries _artifact _upload-artifact-to-transfer-sh
+_ci: image _test _binaries _artifact # _upload-artifact-to-transfer-sh
 
 .PHONY: binaries _binaries image test _test up down _artifact _upload-artifact-to-transfer-sh clean _ci
