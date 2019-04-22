@@ -40,9 +40,9 @@ _artifact:
 
 _upload-artifact-to-transfer-sh:
 	echo "Uploading usernetes-x86_64.tbz"
-	curl --progress-bar --upload-file _artifact/usernetes-x86_64.tbz https://transfer.sh/usernetes-x86_64.tbz
+	curl --retry 10 --progress-bar --upload-file _artifact/usernetes-x86_64.tbz https://transfer.sh/usernetes-x86_64.tbz
 	echo -e "\nUploading SHA256SUM"
-	curl --progress-bar --upload-file _artifact/SHA256SUM https://transfer.sh/SHA256SUM
+	curl --retry 10 --progress-bar --upload-file _artifact/SHA256SUM https://transfer.sh/SHA256SUM
 	echo -e "\nThe transfer.sh URL will expire in 14 days."
 
 clean:
