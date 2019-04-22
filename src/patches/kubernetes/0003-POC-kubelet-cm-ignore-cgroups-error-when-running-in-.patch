@@ -1,5 +1,5 @@
-From 306a8df21b03ee529f61d12c99bbdc11854d96c0 Mon Sep 17 00:00:00 2001
-From: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+From 404537d58be97e491be0ef5f4b39e2b68207f7c0 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
  userns
@@ -8,10 +8,10 @@ This is a hacky POC; we need to implement rootless PCM in the proper way.
 Especially, pcm.Exists(existingPodName) needs to be implemented to return true
 even when cgroups is not available.
 
-Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
  pkg/kubelet/BUILD                             |  1 +
- pkg/kubelet/cm/cgroup_manager_linux.go        | 10 +++++++---
+ pkg/kubelet/cm/cgroup_manager_linux.go        | 14 +++++++++++---
  pkg/kubelet/cm/container_manager_linux.go     | 11 +++++++++--
  pkg/kubelet/cm/qos_container_manager_linux.go | 19 +++++++++++++++----
  pkg/kubelet/dockershim/cm/BUILD               |  1 +
@@ -19,13 +19,13 @@ Signed-off-by: Akihiro Suda <suda.akihiro@lab.ntt.co.jp>
  pkg/kubelet/kubelet.go                        | 10 ++++++++--
  pkg/kubelet/server/stats/BUILD                |  1 +
  pkg/kubelet/server/stats/summary.go           | 10 +++++++++-
- 9 files changed, 56 insertions(+), 13 deletions(-)
+ 9 files changed, 60 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index 420a68734b..64abbcc5eb 100644
+index 182fbb4015..fca9b0bbd4 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
-@@ -145,6 +145,7 @@ go_library(
+@@ -148,6 +148,7 @@ go_library(
          "//vendor/github.com/google/cadvisor/events:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
@@ -34,7 +34,7 @@ index 420a68734b..64abbcc5eb 100644
          "//vendor/k8s.io/utils/integer:go_default_library",
          "//vendor/k8s.io/utils/path:go_default_library",
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index b08bab132d..88e02b151c 100644
+index b08bab132d..4465c20c4b 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -29,6 +29,7 @@ import (
@@ -57,7 +57,18 @@ index b08bab132d..88e02b151c 100644
  		}, nil
  	case libcontainerSystemd:
  		// this means you asked systemd to manage cgroups, but systemd was not on the host, so all you can do is panic...
-@@ -482,7 +484,9 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
+@@ -323,6 +325,10 @@ type subsystem interface {
+ 
+ // getSupportedSubsystems returns a map of subsystem and if it must be mounted for the kubelet to function.
+ func getSupportedSubsystems() map[subsystem]bool {
++	if rsystem.RunningInUserNS() {
++		// FIXME(AkihiroSuda): not quite correct
++		return map[subsystem]bool{}
++	}
+ 	supportedSubsystems := map[subsystem]bool{
+ 		&cgroupfs.MemoryGroup{}: true,
+ 		&cgroupfs.CpuGroup{}:    true,
+@@ -482,7 +488,9 @@ func (m *cgroupManagerImpl) Create(cgroupConfig *CgroupConfig) error {
  	// in the tasks file. We use the function to create all the required
  	// cgroup files but not attach any "real" pid to the cgroup.
  	if err := manager.Apply(-1); err != nil {
@@ -69,7 +80,7 @@ index b08bab132d..88e02b151c 100644
  
  	// it may confuse why we call set after we do apply, but the issue is that runc
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index abbe15817d..419a700ba6 100644
+index 7a298272eb..42832837fe 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -481,13 +481,20 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
@@ -182,7 +193,7 @@ index b59c6a0836..77fb9b87bb 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index d3cac7bdfa..c3eedb71d6 100644
+index 1d4f739ce7..cd6c8b991e 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -32,6 +32,7 @@ import (
