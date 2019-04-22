@@ -6,6 +6,10 @@ before_install:
   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
   - sudo apt-get update
   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+  - sudo cat /etc/docker/daemon.json
+# Apr 22, 2019: daemon.json contains `{"registry-mirrors": ["https://mirror.gcr.io"]}`, doesn't work well with BuildKit?
+  - sudo rm -f /etc/docker/daemon.json
+  - sudo systemctl restart docker
 script:
 # --progress=tty doesn't work with Travis: "This log is too long to be displayed. Please reduce the verbosity of your build or download the raw log."
   - make _ci DOCKER_BUILDKIT=1 DOCKER_BUILD_FLAGS="--progress=plain"
