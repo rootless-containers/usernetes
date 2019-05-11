@@ -85,6 +85,7 @@ function nsenter::_nsenter() {
 	if ! [[ $(cat $pidfile) -eq $(cat $pidreadyfile) ]]; then
 		return 1
 	fi
+	export ROOTLESSKIT_STATE_DIR=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 	# TODO(AkihiroSuda): ping to $XDG_RUNTIME_DIR/usernetes/rootlesskit/api.sock
 	nsenter -U --preserve-credential -n -m -t $(cat $pidfile) --wd=$PWD -- $@
 }

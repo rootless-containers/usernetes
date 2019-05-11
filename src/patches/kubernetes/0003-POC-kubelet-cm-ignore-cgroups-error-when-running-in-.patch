@@ -1,4 +1,4 @@
-From 404537d58be97e491be0ef5f4b39e2b68207f7c0 Mon Sep 17 00:00:00 2001
+From cb318fb269dd3241b2e1a71069a1bbc83a92d637 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -22,11 +22,11 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  9 files changed, 60 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index 182fbb4015..fca9b0bbd4 100644
+index e3188430b9..00ca8d7778 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
-@@ -148,6 +148,7 @@ go_library(
-         "//vendor/github.com/google/cadvisor/events:go_default_library",
+@@ -147,6 +147,7 @@ go_library(
+         "//vendor/github.com/golang/groupcache/lru:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
@@ -169,7 +169,7 @@ index 80736ce241..3bf72c18c9 100644
          "@io_bazel_rules_go//go/platform:nacl": [
              "//pkg/kubelet/dockershim/libdocker:go_default_library",
 diff --git a/pkg/kubelet/dockershim/cm/container_manager_linux.go b/pkg/kubelet/dockershim/cm/container_manager_linux.go
-index b59c6a0836..77fb9b87bb 100644
+index 2abedfa0bc..6a944fb651 100644
 --- a/pkg/kubelet/dockershim/cm/container_manager_linux.go
 +++ b/pkg/kubelet/dockershim/cm/container_manager_linux.go
 @@ -27,6 +27,7 @@ import (
@@ -180,7 +180,7 @@ index b59c6a0836..77fb9b87bb 100644
  	utilversion "k8s.io/apimachinery/pkg/util/version"
  	"k8s.io/apimachinery/pkg/util/wait"
  	"k8s.io/klog"
-@@ -95,7 +96,10 @@ func (m *containerManager) doWork() {
+@@ -96,7 +97,10 @@ func (m *containerManager) doWork() {
  	//   1. Ensure processes run in the cgroups if m.cgroupsManager is not nil.
  	//   2. Ensure processes have the OOM score applied.
  	if err := kubecm.EnsureDockerInContainer(version, dockerOOMScoreAdj, m.cgroupsManager); err != nil {
@@ -193,7 +193,7 @@ index b59c6a0836..77fb9b87bb 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 1d4f739ce7..cd6c8b991e 100644
+index 2983cdd0e3..2213795969 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -32,6 +32,7 @@ import (
@@ -204,7 +204,7 @@ index 1d4f739ce7..cd6c8b991e 100644
  	"k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -1581,10 +1582,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1582,10 +1583,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -219,7 +219,7 @@ index 1d4f739ce7..cd6c8b991e 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1603,7 +1607,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1604,7 +1608,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)
@@ -272,5 +272,5 @@ index ac7c04c628..44823b68d1 100644
  	rootFsStats, err := sp.provider.RootFsStats()
  	if err != nil {
 -- 
-2.17.1
+2.20.1
 

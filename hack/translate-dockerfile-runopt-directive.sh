@@ -7,12 +7,12 @@
 #   RUN foo
 
 # Output:
-#   # syntax = docker/dockerfile:1.0-experimental
+#   # syntax = docker/dockerfile:1-experimental
 #   FROM ...
 #   ...
 #   RUN --mount=type=cache,target=/root/.cache foo
 
-echo '# syntax = docker/dockerfile:1.0-experimental'
+echo '# syntax = docker/dockerfile:1-experimental'
 
 last_runopt=""
 while IFS="" read -r line || [[ -n $line ]]; do
