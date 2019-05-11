@@ -3,6 +3,7 @@
 Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
 
  - [Status](#status)
+ - [Adoption](#adoption)
  - [How it works](#how-it-works)
  - [Requirements](#requirements)
  - [Restrictions](#restrictions)
@@ -36,8 +37,16 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
 * [ ] Multi-node Docker Swarm-mode
 
 Currently, Usernetes uses our patched version of Moby and Kubernetes. See [`./src/patches`](./src/patches).
+We are also planning to propose our pathces to the Kubernetes upstream.
 
 Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
+
+## Adoption
+
+We encourage other Kubernetes distributions to adopt Usernetes patches and tools.
+
+Currently, the following distributions adopt Usernetes:
+* [k3s](https://github.com/rancher/k3s)
 
 ## How it works
 
@@ -90,7 +99,7 @@ Common:
 
 Moby (`dockerd`):
 * Only `vfs` storage driver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported.
-* Overlay network is not supported
+* Swarm-mode Overlay network is not supported
 
 CRI-O:
 * Only `vfs` storage driver is supported.
