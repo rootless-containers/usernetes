@@ -1,4 +1,4 @@
-From bd8d50af379848a6f3a265044be86cc936dbe602 Mon Sep 17 00:00:00 2001
+From 65eba526cd989da665be056470cd08c1b4209110 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 4/4] kube-proxy: allow running in userns
@@ -12,10 +12,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 38459a7bce..37cf2de831 100644
+index 552a6cae68..35843c710b 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
-@@ -64,6 +64,7 @@ go_library(
+@@ -65,6 +65,7 @@ go_library(
          "//staging/src/k8s.io/component-base/config:go_default_library",
          "//staging/src/k8s.io/kube-proxy/config/v1alpha1:go_default_library",
          "//vendor/github.com/fsnotify/fsnotify:go_default_library",
@@ -24,7 +24,7 @@ index 38459a7bce..37cf2de831 100644
          "//vendor/github.com/spf13/cobra:go_default_library",
          "//vendor/github.com/spf13/pflag:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 0f0832c9bc..b761329483 100644
+index 1b31497db0..3f90e5cea8 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -46,6 +46,7 @@ import (
@@ -35,7 +35,7 @@ index 0f0832c9bc..b761329483 100644
  
  	"k8s.io/klog"
  )
-@@ -215,6 +216,12 @@ func newProxyServer(
+@@ -214,6 +215,12 @@ func newProxyServer(
  
  	iptInterface.AddReloadFunc(proxier.Sync)
  
@@ -48,7 +48,7 @@ index 0f0832c9bc..b761329483 100644
  	return &ProxyServer{
  		Client:                 client,
  		EventClient:            eventClient,
-@@ -226,7 +233,7 @@ func newProxyServer(
+@@ -225,7 +232,7 @@ func newProxyServer(
  		Broadcaster:            eventBroadcaster,
  		Recorder:               recorder,
  		ConntrackConfiguration: config.Conntrack,
@@ -94,5 +94,5 @@ index ae55842b30..40d13d981a 100644
  
  	proxyPorts := newPortAllocator(pr)
 -- 
-2.17.1
+2.20.1
 
