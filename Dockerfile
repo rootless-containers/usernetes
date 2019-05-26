@@ -2,31 +2,31 @@
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
-# 04/19/2019 (v0.4.0)
-ARG ROOTLESSKIT_COMMIT=e92d5e772ee7e103aecf380c5874a40c52876ff0
-# 04/25/2019
-ARG SLIRP4NETNS_COMMIT=7556fbe0f4301ca1a28853f073729933ba6cd7bf
-# 05/08/2019
-ARG RUNC_COMMIT=eb4aeed24ffbf8e2d740fafea39d91faa0ee84d0
-# 05/11/2019
-ARG MOBY_COMMIT=3998dffb806f3887f804b813069f59bc14a7f3c1
-ARG DOCKER_CLI_RELEASE=19.03.0-beta3
-# 05/11/2019
-ARG CONTAINERD_COMMIT=bc944553a8f3b113a3769a4e23f39910757079a6
-# 05/11/2019
-ARG CRIO_COMMIT=0366d726c1b5b957671412efac86c96b63175987
+# 05/15/2019 (v0.4.1)
+ARG ROOTLESSKIT_COMMIT=27a0c7a2483732b33d4192c1d178c83c6b9e202d
+# 05/26/2019
+ARG SLIRP4NETNS_COMMIT=4889f5299f407d7d7566c76a3b8b5f71c99b6db5
+# 05/23/2019
+ARG RUNC_COMMIT=5ef781c2e7acc776b1ebee5c25c2791b3a8dc139
+# 05/26/2019
+ARG MOBY_COMMIT=c2c79edfab9a0ff788fb04915bcdc54dfd56fb15
+ARG DOCKER_CLI_RELEASE=19.03.0-beta4
+# 05/25/2019
+ARG CONTAINERD_COMMIT=0e7a3c9e513da1f1dda163d5872a974a4db07d02
+# 05/25/2019
+ARG CRIO_COMMIT=307bc990a03c65f78e115c0707d72b0c10656130
 # 05/10/2019
 ARG CNI_PLUGINS_COMMIT=0950a3607bf5e8a57c6a655c7e573e6aab0dc650
-# 05/10/2019
-ARG KUBERNETES_COMMIT=b4d2cb0001cc27f4e9e91d9abf7ebcbc498bc4ae
+# 05/25/2019
+ARG KUBERNETES_COMMIT=16d33c49858579fbe13df52c065dbea6627e9aef
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.15-usernetes
-ARG BAZEL_RELEASE=0.25.2
+ARG BAZEL_RELEASE=0.25.3
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.3.13
-ARG GOTASK_RELEASE=v2.5.1
+ARG GOTASK_RELEASE=v2.5.2
 
 ARG BASEOS=ubuntu
 
@@ -50,7 +50,7 @@ RUN mkdir /out && \
   go build -o /out/rootlesskit-docker-proxy github.com/rootless-containers/rootlesskit/cmd/rootlesskit-docker-proxy
 
 #### slirp4netns (slirp4netns-build)
-FROM alpine:3.8 AS slirp4netns-build
+FROM alpine:3.9 AS slirp4netns-build
 RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
@@ -146,7 +146,7 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/hyperkube /out
 
 ### socat (socat-build)
-FROM ubuntu:18.04 AS socat-build
+FROM ubuntu:19.04 AS socat-build
 RUN apt-get update && apt-get install -y autoconf automake libtool build-essential git yodl
 RUN git clone git://repo.or.cz/socat.git /socat
 WORKDIR /socat
@@ -194,12 +194,12 @@ COPY --from=etcd-build /out/* /
 COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
-FROM ubuntu:18.04 AS test-main-ubuntu
+FROM ubuntu:19.04 AS test-main-ubuntu
 # libglib2.0: require by conmon
 RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
 
 # fedora image is experimental
-FROM fedora:29 AS test-main-fedora
+FROM fedora:30 AS test-main-fedora
 # As of Jan 2019, fedora:29 has wrong permission bits on newuidmap newgidmap
 RUN chmod +s /usr/bin/newuidmap /usr/bin/newgidmap
 RUN dnf install -y git iproute iptables hostname procps-ng

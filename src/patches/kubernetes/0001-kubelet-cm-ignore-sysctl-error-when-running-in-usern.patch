@@ -1,4 +1,4 @@
-From 62ed117c78ecf36a62ed732186e615f46208a58d Mon Sep 17 00:00:00 2001
+From 9053142162d87ce24e6db36705893871835de7f4 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -22,7 +22,7 @@ index 804c455b15..925806e1a0 100644
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 79e647b8c9..7a298272eb 100644
+index 1c4688ccf7..088b4a985f 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -32,6 +32,7 @@ import (
@@ -32,7 +32,7 @@ index 79e647b8c9..7a298272eb 100644
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/klog"
  
- 	"k8s.io/api/core/v1"
+ 	v1 "k8s.io/api/core/v1"
 @@ -390,7 +391,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
  			klog.V(2).Infof("Updating kernel flag: %v, expected value: %v, actual value: %v", flag, expectedValue, val)
  			err = sysctl.SetSysctl(flag, expectedValue)
