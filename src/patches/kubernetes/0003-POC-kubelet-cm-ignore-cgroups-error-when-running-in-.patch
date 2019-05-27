@@ -1,4 +1,4 @@
-From cb318fb269dd3241b2e1a71069a1bbc83a92d637 Mon Sep 17 00:00:00 2001
+From cb3e16740c0e5ca6a4d91512d3167dc36155d6e1 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:49:14 +0900
 Subject: [PATCH 3/4] [POC] kubelet/cm: ignore cgroups error when running in
@@ -22,10 +22,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  9 files changed, 60 insertions(+), 13 deletions(-)
 
 diff --git a/pkg/kubelet/BUILD b/pkg/kubelet/BUILD
-index e3188430b9..00ca8d7778 100644
+index 2a1c8b05d8..a3bc8f2298 100644
 --- a/pkg/kubelet/BUILD
 +++ b/pkg/kubelet/BUILD
-@@ -147,6 +147,7 @@ go_library(
+@@ -146,6 +146,7 @@ go_library(
          "//vendor/github.com/golang/groupcache/lru:go_default_library",
          "//vendor/github.com/google/cadvisor/info/v1:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
@@ -80,7 +80,7 @@ index b08bab132d..4465c20c4b 100644
  
  	// it may confuse why we call set after we do apply, but the issue is that runc
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 7a298272eb..42832837fe 100644
+index 088b4a985f..755490bcef 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -481,13 +481,20 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
@@ -193,7 +193,7 @@ index 2abedfa0bc..6a944fb651 100644
  }
  
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 2983cdd0e3..2213795969 100644
+index 65c5eb381b..d96cb6b295 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -32,6 +32,7 @@ import (
@@ -201,10 +201,10 @@ index 2983cdd0e3..2213795969 100644
  
  	cadvisorapi "github.com/google/cadvisor/info/v1"
 +	rsystem "github.com/opencontainers/runc/libcontainer/system"
- 	"k8s.io/api/core/v1"
+ 	v1 "k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -1582,10 +1583,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1595,10 +1596,13 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				break
  			}
  		}
@@ -219,7 +219,7 @@ index 2983cdd0e3..2213795969 100644
  			if err := kl.killPod(pod, nil, podStatus, nil); err == nil {
  				podKilled = true
  			}
-@@ -1604,7 +1608,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
+@@ -1617,7 +1621,9 @@ func (kl *Kubelet) syncPod(o syncPodOptions) error {
  				}
  				if err := pcm.EnsureExists(pod); err != nil {
  					kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToCreatePodContainer, "unable to ensure pod container exists: %v", err)
