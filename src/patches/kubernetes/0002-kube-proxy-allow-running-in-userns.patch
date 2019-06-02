@@ -1,7 +1,7 @@
-From 952ae7b8fa69d91f83ed89b379841cddc8a97761 Mon Sep 17 00:00:00 2001
+From 1c30b8976da49e50c11a214dd4a3be66571094f4 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
-Subject: [PATCH 3/4] kube-proxy: allow running in userns
+Subject: [PATCH 2/3] kube-proxy: allow running in userns
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
@@ -24,23 +24,23 @@ index 552a6cae68..35843c710b 100644
          "//vendor/github.com/spf13/cobra:go_default_library",
          "//vendor/github.com/spf13/pflag:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 1b31497db0..3f90e5cea8 100644
+index 1b31497db0..32310a603a 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
-@@ -46,6 +46,7 @@ import (
- 	utilnode "k8s.io/kubernetes/pkg/util/node"
- 	utilsysctl "k8s.io/kubernetes/pkg/util/sysctl"
- 	"k8s.io/utils/exec"
-+	rsystem "github.com/opencontainers/runc/libcontainer/system"
+@@ -25,6 +25,7 @@ import (
+ 	"fmt"
+ 	"net"
  
- 	"k8s.io/klog"
- )
++	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
+ 	"k8s.io/api/core/v1"
+ 	"k8s.io/apimachinery/pkg/runtime"
+ 	"k8s.io/apimachinery/pkg/types"
 @@ -214,6 +215,12 @@ func newProxyServer(
  
  	iptInterface.AddReloadFunc(proxier.Sync)
  
 +	var connTracker Conntracker
-+	if !rsystem.RunningInUserNS(){
++	if !libcontainersystem.RunningInUserNS() {
 +		// if we are in userns, sysctl does not work and connTracker should be kept nil
 +		connTracker = &realConntracker{}
 +	}
@@ -70,14 +70,14 @@ index 87e3da69e9..92ee648153 100644
      ] + select({
          "@io_bazel_rules_go//go/platform:android": [
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index ae55842b30..40d13d981a 100644
+index ae55842b30..06d3682cb4 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
  	"sync/atomic"
  	"time"
  
-+	rsystem "github.com/opencontainers/runc/libcontainer/system"
++	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -86,8 +86,8 @@ index ae55842b30..40d13d981a 100644
  	err = setRLimit(64 * 1000)
  	if err != nil {
 -		return nil, fmt.Errorf("failed to set open file handler limit: %v", err)
-+		if !rsystem.RunningInUserNS() {
-+			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v", err)
++		if !libcontainersystem.RunningInUserNS() {
++			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v (running in UserNS)", err)
 +		}
 +		klog.Errorf("failed to set open file handler limit to 64000: %v", err)
  	}
