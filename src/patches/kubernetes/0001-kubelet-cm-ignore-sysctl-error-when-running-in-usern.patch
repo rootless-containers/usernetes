@@ -1,4 +1,4 @@
-From 9053142162d87ce24e6db36705893871835de7f4 Mon Sep 17 00:00:00 2001
+From 920ceaac6fbfb6fa736d77a25e3b6a7301c3e4df Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -10,7 +10,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 804c455b15..925806e1a0 100644
+index 0d7f868d26..f8014c4e88 100644
 --- a/pkg/kubelet/cm/BUILD
 +++ b/pkg/kubelet/cm/BUILD
 @@ -88,6 +88,7 @@ go_library(
@@ -22,7 +22,7 @@ index 804c455b15..925806e1a0 100644
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 1c4688ccf7..088b4a985f 100644
+index a1f7ff1cc7..fac21eb28f 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -32,6 +32,7 @@ import (

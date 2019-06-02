@@ -11,5 +11,6 @@ exec $(dirname $0)/nsenter.sh hyperkube kubelet \
 	--anonymous-auth=true \
 	--authorization-mode=AlwaysAllow \
 	--fail-swap-on=false \
-	--feature-gates DevicePlugins=false \
+	--feature-gates DevicePlugins=false,SupportNoneCgroupDriver=true \
+	--cgroup-driver none \
 	$@

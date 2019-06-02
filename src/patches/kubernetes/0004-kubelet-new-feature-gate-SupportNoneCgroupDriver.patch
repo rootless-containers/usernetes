@@ -1,0 +1,341 @@
+From 7a74a42558ee3a43f707c30f8fbd6e1a853253b5 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+Date: Sun, 2 Jun 2019 18:39:05 +0900
+Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
+
+The "none" driver is expected to be used in "rootless" mode until OCI/CRI runtime
+get support for cgroup2 (unified) mode with nsdelegate.
+
+Even after cgroup2 gets supported in the ecosystem, the "none" driver will remain
+because nested containers might not always get support for cgroup2 (via systemd).
+
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+---
+ cmd/kubeadm/app/phases/kubelet/flags.go       |  2 +
+ cmd/kubelet/app/options/options.go            |  2 +-
+ cmd/kubelet/app/server.go                     | 43 ++++++------
+ pkg/features/kube_features.go                 | 13 ++++
+ pkg/kubelet/apis/config/types.go              |  2 +-
+ pkg/kubelet/cm/cgroup_manager_linux.go        | 69 ++++++++++++++++++-
+ pkg/kubelet/cm/cgroup_manager_unsupported.go  |  4 +-
+ pkg/kubelet/cm/container_manager_linux.go     |  7 +-
+ .../cm/pod_container_manager_linux_test.go    |  6 +-
+ pkg/kubelet/dockershim/docker_service.go      |  3 +-
+ test/e2e_node/node_container_manager_test.go  |  5 +-
+ 11 files changed, 125 insertions(+), 31 deletions(-)
+
+diff --git a/cmd/kubeadm/app/phases/kubelet/flags.go b/cmd/kubeadm/app/phases/kubelet/flags.go
+index 27c2a9948c..1f602c7ca1 100644
+--- a/cmd/kubeadm/app/phases/kubelet/flags.go
++++ b/cmd/kubeadm/app/phases/kubelet/flags.go
+@@ -80,6 +80,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
+ 		if err != nil {
+ 			klog.Warningf("cannot automatically assign a '--cgroup-driver' value when starting the Kubelet: %v\n", err)
+ 		} else {
++			// NOTE: As of Docker v19.03.0-beta5, rootless dockerd uses "cgroupfs" driver but it is substantially "none" driver.
++			// User would need to override the kubelet configuration manually.
+ 			kubeletFlags["cgroup-driver"] = driver
+ 		}
+ 		if opts.pauseImage != "" {
+diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
+index 69139621fd..30645bd6f5 100644
+--- a/cmd/kubelet/app/options/options.go
++++ b/cmd/kubelet/app/options/options.go
+@@ -525,7 +525,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+ 	fs.StringVar(&c.SystemCgroups, "system-cgroups", c.SystemCgroups, "Optional absolute name of cgroups in which to place all non-kernel processes that are not already inside a cgroup under `/`. Empty for no container. Rolling back the flag requires a reboot.")
+ 
+ 	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
+-	fs.StringVar(&c.CgroupDriver, "cgroup-driver", c.CgroupDriver, "Driver that the kubelet uses to manipulate cgroups on the host.  Possible values: 'cgroupfs', 'systemd'")
++	fs.StringVar(&c.CgroupDriver, "cgroup-driver", c.CgroupDriver, "Driver that the kubelet uses to manipulate cgroups on the host.  Possible values: 'cgroupfs', 'systemd', 'none'")
+ 	fs.StringVar(&c.CgroupRoot, "cgroup-root", c.CgroupRoot, "Optional root cgroup to use for pods. This is handled by the container runtime on a best effort basis. Default: '', which means use the container runtime default.")
+ 	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
+ 	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
+diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
+index 139a8eacbb..baaadc92c0 100644
+--- a/cmd/kubelet/app/server.go
++++ b/cmd/kubelet/app/server.go
+@@ -621,28 +621,31 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
+ 	}
+ 
+ 	var cgroupRoots []string
++	if s.CgroupDriver == "none" {
++		cgroupRoots = []string{"/"}
++	} else {
++		cgroupRoots = append(cgroupRoots, cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupDriver))
++		kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
++		if err != nil {
++			return fmt.Errorf("failed to get the kubelet's cgroup: %v", err)
++		}
++		if kubeletCgroup != "" {
++			cgroupRoots = append(cgroupRoots, kubeletCgroup)
++		}
+ 
+-	cgroupRoots = append(cgroupRoots, cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupDriver))
+-	kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
+-	if err != nil {
+-		return fmt.Errorf("failed to get the kubelet's cgroup: %v", err)
+-	}
+-	if kubeletCgroup != "" {
+-		cgroupRoots = append(cgroupRoots, kubeletCgroup)
+-	}
+-
+-	runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
+-	if err != nil {
+-		return fmt.Errorf("failed to get the container runtime's cgroup: %v", err)
+-	}
+-	if runtimeCgroup != "" {
+-		// RuntimeCgroups is optional, so ignore if it isn't specified
+-		cgroupRoots = append(cgroupRoots, runtimeCgroup)
+-	}
++		runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
++		if err != nil {
++			return fmt.Errorf("failed to get the container runtime's cgroup: %v", err)
++		}
++		if runtimeCgroup != "" {
++			// RuntimeCgroups is optional, so ignore if it isn't specified
++			cgroupRoots = append(cgroupRoots, runtimeCgroup)
++		}
+ 
+-	if s.SystemCgroups != "" {
+-		// SystemCgroups is optional, so ignore if it isn't specified
+-		cgroupRoots = append(cgroupRoots, s.SystemCgroups)
++		if s.SystemCgroups != "" {
++			// SystemCgroups is optional, so ignore if it isn't specified
++			cgroupRoots = append(cgroupRoots, s.SystemCgroups)
++		}
+ 	}
+ 
+ 	if kubeDeps.CAdvisorInterface == nil {
+diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
+index 7ee1a6d813..a55d25d98e 100644
+--- a/pkg/features/kube_features.go
++++ b/pkg/features/kube_features.go
+@@ -479,6 +479,18 @@ const (
+ 	//
+ 	// Enable support for specifying an existing PVC as a DataSource
+ 	VolumePVCDataSource featuregate.Feature = "VolumePVCDataSource"
++
++	// owner: @AkihiroSuda
++	// alpha: v1.16
++	//
++	// Enable support for "none" cgroup driver.
++	//
++	// The "none" driver is expected to be used in "rootless" mode until OCI/CRI runtime get
++	// support for cgroup2 (unified) mode with nsdelegate.
++	//
++	// Even after cgroup2 gets supported in the ecosystem, the "none" driver will remain
++	// because nested containers might not always get support for cgroup2 (via systemd).
++	SupportNoneCgroupDriver featuregate.Feature = "SupportNoneCgroupDriver"
+ )
+ 
+ func init() {
+@@ -559,6 +571,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	LocalStorageCapacityIsolationFSQuotaMonitoring: {Default: false, PreRelease: featuregate.Alpha},
+ 	NonPreemptingPriority:                          {Default: false, PreRelease: featuregate.Alpha},
+ 	VolumePVCDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
++	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
+ 
+ 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
+ 	// unintentionally on either side:
+diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
+index cfbf6e67bf..c5be27a97d 100644
+--- a/pkg/kubelet/apis/config/types.go
++++ b/pkg/kubelet/apis/config/types.go
+@@ -189,7 +189,7 @@ type KubeletConfiguration struct {
+ 	// And all Burstable and BestEffort pods are brought up under their
+ 	// specific top level QoS cgroup.
+ 	CgroupsPerQOS bool
+-	// driver that the kubelet uses to manipulate cgroups on the host (cgroupfs or systemd)
++	// driver that the kubelet uses to manipulate cgroups on the host (cgroupfs, systemd, none)
+ 	CgroupDriver string
+ 	// CPUManagerPolicy is the name of the policy to use.
+ 	// Requires the CPUManager feature gate to be enabled.
+diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
+index b08bab132d..f272c692e2 100644
+--- a/pkg/kubelet/cm/cgroup_manager_linux.go
++++ b/pkg/kubelet/cm/cgroup_manager_linux.go
+@@ -45,6 +45,9 @@ const (
+ 	libcontainerCgroupfs libcontainerCgroupManagerType = "cgroupfs"
+ 	// libcontainerSystemd means use libcontainer with systemd
+ 	libcontainerSystemd libcontainerCgroupManagerType = "systemd"
++	// noneDriver is the name of the "NOP" driver, which is used when
++	// cgroup is not accessible
++	noneDriver = "none"
+ 	// systemdSuffix is the cgroup name suffix for systemd
+ 	systemdSuffix string = ".slice"
+ )
+@@ -191,7 +194,15 @@ type cgroupManagerImpl struct {
+ var _ CgroupManager = &cgroupManagerImpl{}
+ 
+ // NewCgroupManager is a factory method that returns a CgroupManager
+-func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
++func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) (CgroupManager, error) {
++	if cgroupDriver == noneDriver {
++		if !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.SupportNoneCgroupDriver) {
++			return nil, fmt.Errorf("cgroup driver %q requires SupportNoneCgroupDriver feature gate", cgroupDriver)
++		}
++		cm := &noneCgroupManager{}
++		cm.init()
++		return cm, nil
++	}
+ 	managerType := libcontainerCgroupfs
+ 	if cgroupDriver == string(libcontainerSystemd) {
+ 		managerType = libcontainerSystemd
+@@ -199,7 +210,7 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
+ 	return &cgroupManagerImpl{
+ 		subsystems: cs,
+ 		adapter:    newLibcontainerAdapter(managerType),
+-	}
++	}, nil
+ }
+ 
+ // Name converts the cgroup to the driver specific value in cgroupfs form.
+@@ -591,3 +602,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+ 	}
+ 	return toResourceStats(stats), nil
+ }
++
++type noneCgroupManager struct {
++	names map[string]struct{}
++}
++
++func (m *noneCgroupManager) init() {
++	m.names = make(map[string]struct{})
++}
++
++func (m *noneCgroupManager) Create(c *CgroupConfig) error {
++	name := m.Name(c.Name)
++	m.names[name] = struct{}{}
++	return nil
++}
++
++func (m *noneCgroupManager) Destroy(c *CgroupConfig) error {
++	name := m.Name(c.Name)
++	delete(m.names, name)
++	return nil
++}
++
++func (m *noneCgroupManager) Update(c *CgroupConfig) error {
++	name := m.Name(c.Name)
++	m.names[name] = struct{}{}
++	return nil
++}
++
++func (m *noneCgroupManager) Exists(cgname CgroupName) bool {
++	name := m.Name(cgname)
++	_, ok := m.names[name]
++	return ok
++}
++
++func (m *noneCgroupManager) Name(cgname CgroupName) string {
++	return cgname.ToCgroupfs()
++}
++
++func (m *noneCgroupManager) CgroupName(name string) CgroupName {
++	return ParseCgroupfsToCgroupName(name)
++}
++
++func (m *noneCgroupManager) Pids(_ CgroupName) []int {
++	return nil
++}
++
++func (m *noneCgroupManager) ReduceCPULimits(cgroupName CgroupName) error {
++	return nil
++}
++
++func (m *noneCgroupManager) GetResourceStats(name CgroupName) (*ResourceStats, error) {
++	return &ResourceStats{
++		MemoryStats: &MemoryStats{},
++	}, nil
++}
+diff --git a/pkg/kubelet/cm/cgroup_manager_unsupported.go b/pkg/kubelet/cm/cgroup_manager_unsupported.go
+index 5d77ed7a45..5654d737fd 100644
+--- a/pkg/kubelet/cm/cgroup_manager_unsupported.go
++++ b/pkg/kubelet/cm/cgroup_manager_unsupported.go
+@@ -30,8 +30,8 @@ type CgroupSubsystems struct {
+ 	MountPoints map[string]string
+ }
+ 
+-func NewCgroupManager(_ interface{}) CgroupManager {
+-	return &unsupportedCgroupManager{}
++func NewCgroupManager(_ interface{}) (CgroupManager, error) {
++	return &unsupportedCgroupManager{}, nil
+ }
+ 
+ func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
+diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
+index fac21eb28f..22387926e7 100644
+--- a/pkg/kubelet/cm/container_manager_linux.go
++++ b/pkg/kubelet/cm/container_manager_linux.go
+@@ -244,7 +244,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+ 
+ 	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
+ 	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
+-	cgroupManager := NewCgroupManager(subsystems, nodeConfig.CgroupDriver)
++	cgroupManager, err := NewCgroupManager(subsystems, nodeConfig.CgroupDriver)
++	if err != nil {
++		return nil, err
++	}
+ 	// Check if Cgroup-root actually exists on the node
+ 	if nodeConfig.CgroupsPerQOS {
+ 		// this does default to / when enabled, but this tests against regressions.
+@@ -256,7 +259,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+ 		// of note, we always use the cgroupfs driver when performing this check since
+ 		// the input is provided in that format.
+ 		// this is important because we do not want any name conversion to occur.
+-		if !cgroupManager.Exists(cgroupRoot) {
++		if !cgroupManager.Exists(cgroupRoot) && nodeConfig.CgroupDriver != noneDriver {
+ 			return nil, fmt.Errorf("invalid configuration: cgroup-root %q doesn't exist", cgroupRoot)
+ 		}
+ 		klog.Infof("container manager verified user specified cgroup-root exists: %v", cgroupRoot)
+diff --git a/pkg/kubelet/cm/pod_container_manager_linux_test.go b/pkg/kubelet/cm/pod_container_manager_linux_test.go
+index 62c9f203a0..fda4177a05 100644
+--- a/pkg/kubelet/cm/pod_container_manager_linux_test.go
++++ b/pkg/kubelet/cm/pod_container_manager_linux_test.go
+@@ -100,8 +100,12 @@ func TestIsCgroupPod(t *testing.T) {
+ 		},
+ 	}
+ 	for _, cgroupDriver := range []string{"cgroupfs", "systemd"} {
++		cm, err := NewCgroupManager(nil, cgroupDriver)
++		if err != nil {
++			t.Fatal(err)
++		}
+ 		pcm := &podContainerManagerImpl{
+-			cgroupManager:     NewCgroupManager(nil, cgroupDriver),
++			cgroupManager:     cm,
+ 			enforceCPULimits:  true,
+ 			qosContainersInfo: qosContainersInfo,
+ 		}
+diff --git a/pkg/kubelet/dockershim/docker_service.go b/pkg/kubelet/dockershim/docker_service.go
+index ba1d17a89a..3cac4e17fc 100644
+--- a/pkg/kubelet/dockershim/docker_service.go
++++ b/pkg/kubelet/dockershim/docker_service.go
+@@ -265,7 +265,8 @@ func NewDockerService(config *ClientConfig, podSandboxImage string, streamingCon
+ 	} else {
+ 		cgroupDriver = dockerInfo.CgroupDriver
+ 	}
+-	if len(kubeCgroupDriver) != 0 && kubeCgroupDriver != cgroupDriver {
++	// NOTE: As of Docker v19.03.0-beta5, rootless dockerd uses "cgroupfs" driver but it is substantially "none" driver.
++	if len(kubeCgroupDriver) != 0 && kubeCgroupDriver != "none" && kubeCgroupDriver != cgroupDriver {
+ 		return nil, fmt.Errorf("misconfiguration: kubelet cgroup driver: %q is different from docker cgroup driver: %q", kubeCgroupDriver, cgroupDriver)
+ 	}
+ 	klog.Infof("Setting cgroupDriver to %s", cgroupDriver)
+diff --git a/test/e2e_node/node_container_manager_test.go b/test/e2e_node/node_container_manager_test.go
+index 2be3d1ed6f..0b6cec8560 100644
+--- a/test/e2e_node/node_container_manager_test.go
++++ b/test/e2e_node/node_container_manager_test.go
+@@ -159,7 +159,10 @@ func runTest(f *framework.Framework) error {
+ 	}
+ 
+ 	// Create a cgroup manager object for manipulating cgroups.
+-	cgroupManager := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver)
++	cgroupManager, err := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver)
++	if err != nil {
++		return nil
++	}
+ 
+ 	defer destroyTemporaryCgroupsForReservation(cgroupManager)
+ 	defer func() {
+-- 
+2.20.1
+
