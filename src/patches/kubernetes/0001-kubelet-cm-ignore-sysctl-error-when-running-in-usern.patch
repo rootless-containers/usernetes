@@ -1,7 +1,7 @@
-From 920ceaac6fbfb6fa736d77a25e3b6a7301c3e4df Mon Sep 17 00:00:00 2001
+From ed9a36a98cea46e615d2dc14ff71919806682e66 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
-Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
+Subject: [PATCH 1/3] kubelet/cm: ignore sysctl error when running in userns
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
@@ -22,14 +22,14 @@ index 0d7f868d26..f8014c4e88 100644
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index a1f7ff1cc7..fac21eb28f 100644
+index a1f7ff1cc7..8116edcb63 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -32,6 +32,7 @@ import (
  	"github.com/opencontainers/runc/libcontainer/cgroups"
  	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
  	"github.com/opencontainers/runc/libcontainer/configs"
-+	rsystem "github.com/opencontainers/runc/libcontainer/system"
++	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/klog"
  
  	v1 "k8s.io/api/core/v1"
@@ -38,8 +38,8 @@ index a1f7ff1cc7..fac21eb28f 100644
  			err = sysctl.SetSysctl(flag, expectedValue)
  			if err != nil {
 -				errList = append(errList, err)
-+				if rsystem.RunningInUserNS() {
-+					klog.Warningf("Updating kernel flag failed: %v: %v", flag, err)
++				if libcontainersystem.RunningInUserNS() {
++					klog.Warningf("Updating kernel flag failed: %v: %v (running in UserNS)", flag, err)
 +				} else {
 +					errList = append(errList, err)
 +				}
