@@ -12,5 +12,5 @@ exec $(dirname $0)/nsenter.sh hyperkube kubelet \
 	--authorization-mode=AlwaysAllow \
 	--fail-swap-on=false \
 	--feature-gates DevicePlugins=false,SupportNoneCgroupDriver=true \
-	--cgroup-driver none \
+	--cgroup-driver=none --cgroups-per-qos=false --enforce-node-allocatable="" \
 	$@

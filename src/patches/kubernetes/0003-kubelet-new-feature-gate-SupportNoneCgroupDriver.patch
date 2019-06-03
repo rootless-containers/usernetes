@@ -1,4 +1,4 @@
-From 25792602eb2cf2d0ee62f454c6093081a6b31153 Mon Sep 17 00:00:00 2001
+From e91da6ba4070a4e427e3ac280808c759e75e0613 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -18,11 +18,11 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  pkg/kubelet/apis/config/types.go              |  2 +-
  pkg/kubelet/cm/cgroup_manager_linux.go        | 69 ++++++++++++++++++-
  pkg/kubelet/cm/cgroup_manager_unsupported.go  |  4 +-
- pkg/kubelet/cm/container_manager_linux.go     |  7 +-
+ pkg/kubelet/cm/container_manager_linux.go     | 10 ++-
  .../cm/pod_container_manager_linux_test.go    |  6 +-
  pkg/kubelet/dockershim/docker_service.go      |  3 +-
  test/e2e_node/node_container_manager_test.go  |  5 +-
- 11 files changed, 125 insertions(+), 31 deletions(-)
+ 11 files changed, 128 insertions(+), 31 deletions(-)
 
 diff --git a/cmd/kubeadm/app/phases/kubelet/flags.go b/cmd/kubeadm/app/phases/kubelet/flags.go
 index 27c2a9948c..1f602c7ca1 100644
@@ -264,10 +264,10 @@ index 5d77ed7a45..5654d737fd 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 8116edcb63..9157822e9b 100644
+index 8116edcb63..01600d8cfe 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -244,7 +244,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -244,9 +244,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  
  	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
  	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
@@ -278,8 +278,13 @@ index 8116edcb63..9157822e9b 100644
 +	}
  	// Check if Cgroup-root actually exists on the node
  	if nodeConfig.CgroupsPerQOS {
++		if nodeConfig.CgroupDriver == noneDriver {
++			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for %s cgroup driver", nodeConfig.CgroupDriver)
++		}
  		// this does default to / when enabled, but this tests against regressions.
-@@ -256,7 +259,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+ 		if nodeConfig.CgroupRoot == "" {
+ 			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
+@@ -256,7 +262,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  		// of note, we always use the cgroupfs driver when performing this check since
  		// the input is provided in that format.
  		// this is important because we do not want any name conversion to occur.
