@@ -36,7 +36,7 @@ Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kuberne
   * [X] Flannel (VXLAN)
 
 Currently, Usernetes uses our patched version of Kubernetes. See [`./src/patches`](./src/patches).
-We are proposing our pathces to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
+We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
 
 Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
 
