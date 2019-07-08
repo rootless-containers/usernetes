@@ -1,4 +1,4 @@
-From e608a7934e23101022c4da789033df7c5fb84713 Mon Sep 17 00:00:00 2001
+From bc3d8c635fd79988f036462313dbb3b62e80c6b4 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
@@ -12,10 +12,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 24 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 552a6cae68..d03442ed22 100644
+index 55a6768291..7fb0a9716c 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
-@@ -78,6 +78,7 @@ go_library(
+@@ -77,6 +77,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -23,7 +23,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:darwin": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -85,6 +86,7 @@ go_library(
+@@ -84,6 +85,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -31,7 +31,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:dragonfly": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -92,6 +94,7 @@ go_library(
+@@ -91,6 +93,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -39,7 +39,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:freebsd": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -99,6 +102,7 @@ go_library(
+@@ -98,6 +101,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -47,7 +47,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:linux": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -106,6 +110,7 @@ go_library(
+@@ -105,6 +109,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -55,7 +55,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -113,6 +118,7 @@ go_library(
+@@ -112,6 +117,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -63,7 +63,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:netbsd": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -120,6 +126,7 @@ go_library(
+@@ -119,6 +125,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -71,7 +71,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:openbsd": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -127,6 +134,7 @@ go_library(
+@@ -126,6 +133,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -79,7 +79,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:plan9": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -134,6 +142,7 @@ go_library(
+@@ -133,6 +141,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -87,7 +87,7 @@ index 552a6cae68..d03442ed22 100644
          ],
          "@io_bazel_rules_go//go/platform:solaris": [
              "//pkg/proxy/metrics:go_default_library",
-@@ -141,6 +150,7 @@ go_library(
+@@ -140,6 +149,7 @@ go_library(
              "//pkg/util/node:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
@@ -96,7 +96,7 @@ index 552a6cae68..d03442ed22 100644
          "@io_bazel_rules_go//go/platform:windows": [
              "//pkg/proxy/winkernel:go_default_library",
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 1b31497db0..32310a603a 100644
+index a86a9593cf..da58bc0f5e 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -25,6 +25,7 @@ import (
@@ -142,7 +142,7 @@ index 87e3da69e9..8f148a1470 100644
          "//vendor/k8s.io/utils/exec:go_default_library",
      ] + select({
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index ae55842b30..06d3682cb4 100644
+index ae55842b30..91d44fc13a 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
@@ -159,9 +159,9 @@ index ae55842b30..06d3682cb4 100644
  	if err != nil {
 -		return nil, fmt.Errorf("failed to set open file handler limit: %v", err)
 +		if !libcontainersystem.RunningInUserNS() {
-+			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v (running in UserNS)", err)
++			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v", err)
 +		}
-+		klog.Errorf("failed to set open file handler limit to 64000: %v", err)
++		klog.Errorf("failed to set open file handler limit to 64000: %v (running in UserNS)", err)
  	}
  
  	proxyPorts := newPortAllocator(pr)
