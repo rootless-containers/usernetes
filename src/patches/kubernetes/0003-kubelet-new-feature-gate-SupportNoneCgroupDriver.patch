@@ -1,4 +1,4 @@
-From bf89c37a54f0575805673baeff25c58a7d2e5630 Mon Sep 17 00:00:00 2001
+From 56176ade9e5b1171f6939ad63a0e9fc5dadfc318 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -38,10 +38,10 @@ index 27c2a9948c..1f602c7ca1 100644
  		}
  		if opts.pauseImage != "" {
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 3b49f837c3..5de895edda 100644
+index 712760967e..c2134dad39 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -517,7 +517,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -513,7 +513,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.SystemCgroups, "system-cgroups", c.SystemCgroups, "Optional absolute name of cgroups in which to place all non-kernel processes that are not already inside a cgroup under `/`. Empty for no container. Rolling back the flag requires a reboot.")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -51,10 +51,10 @@ index 3b49f837c3..5de895edda 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 614d9035ae..2365d23d28 100644
+index 1f357a4ad9..4ea181d0f6 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -623,26 +623,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
+@@ -605,26 +605,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
  	}
  
  	var cgroupRoots []string
@@ -103,10 +103,10 @@ index 614d9035ae..2365d23d28 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 7cd727ea2e..64db709ddb 100644
+index 258d8445b7..d115b94470 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -459,6 +459,18 @@ const (
+@@ -450,6 +450,18 @@ const (
  	//
  	// Enables ipv6 dual stack
  	IPv6DualStack featuregate.Feature = "IPv6DualStack"
@@ -125,7 +125,7 @@ index 7cd727ea2e..64db709ddb 100644
  )
  
  func init() {
-@@ -536,6 +548,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -526,6 +538,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	VolumePVCDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
  	PodOverhead:                                    {Default: false, PreRelease: featuregate.Alpha},
  	IPv6DualStack:                                  {Default: false, PreRelease: featuregate.Alpha},
@@ -260,10 +260,10 @@ index 5d77ed7a45..5654d737fd 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index dac10ae97e..d48529cfd4 100644
+index a8de98330f..66a0350583 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -244,9 +244,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -245,9 +245,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  
  	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
  	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
@@ -280,7 +280,7 @@ index dac10ae97e..d48529cfd4 100644
  		// this does default to / when enabled, but this tests against regressions.
  		if nodeConfig.CgroupRoot == "" {
  			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
-@@ -256,7 +262,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -257,7 +263,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  		// of note, we always use the cgroupfs driver when performing this check since
  		// the input is provided in that format.
  		// this is important because we do not want any name conversion to occur.
