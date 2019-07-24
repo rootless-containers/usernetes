@@ -4,33 +4,33 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-07-10T11:45:20Z
-ARG ROOTLESSKIT_COMMIT=16a3976b1e7d1c3988564b53bee6524547a749c3
-# 2019-07-11T13:14:06Z
-ARG SLIRP4NETNS_COMMIT=5c690f744649ce8b37f55ce122acfba1537cc861
+# 2019-07-21T16:46:59Z
+ARG ROOTLESSKIT_COMMIT=2cb5ec5819fddecb93aeea843ecdf29d6ecaf9af
+# 2019-07-23T12:05:26Z
+ARG SLIRP4NETNS_COMMIT=62cbdd3369dde25e3d1a952fb61072e650893899
 # 2019-06-26T16:58:14Z
 ARG RUNC_COMMIT=6cccc1760d57d9e1bc856b96eeb7ee02b7b8101d
-# 2019-07-14T04:30:34Z
-ARG MOBY_COMMIT=e6faa0269749d52cb7289d40e448eb4a97324a0a
-# 2019-07-11T20:17:53Z
-ARG CONTAINERD_COMMIT=f2b6c31d0fa7f5541f6a37d525ed461b294d785f
-# 2019-07-13T10:11:58Z
-ARG CRIO_COMMIT=d27338251360d582ecea05f8cd495c4ead95719a
-# 2019-07-10T15:04:52Z
-ARG CNI_PLUGINS_COMMIT=966bbcb8a572aa4c253ea9650888ad2306e3c8f2
-# 2019-07-13T22:37:03Z
-ARG KUBERNETES_COMMIT=b9615d5bbcd4559e216ea9bc81503e1cdb40d531
+# 2019-07-23T06:46:12Z
+ARG MOBY_COMMIT=a9dc697fd2a51c1e47a1c5404d2254d5b6318fd4
+# 2019-07-22T23:39:02Z
+ARG CONTAINERD_COMMIT=f7761411b8735d8605378e71f1ad16b759326c1b
+# 2019-07-24T06:55:21Z
+ARG CRIO_COMMIT=3732d1508ae0eb762d81039555c1ce2566acf370
+# 2019-07-18T21:12:53Z
+ARG CNI_PLUGINS_COMMIT=7ba2bcfeab482eaaa7d6e7e4ec9fbd493c54d4fa
+# 2019-07-24T09:02:15Z
+ARG KUBERNETES_COMMIT=da3daf2e8a99bbb9345f1060e8bf4fb4d5772e06
 
 ## Version definitions (cont.)
-ARG DOCKER_CLI_RELEASE=19.03.0-rc3
+ARG DOCKER_CLI_RELEASE=19.03.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.16-usernetes
-ARG BAZEL_RELEASE=0.27.0
+ARG BAZEL_RELEASE=0.28.1
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.3.13
-ARG GOTASK_RELEASE=v2.5.2
+ARG GOTASK_RELEASE=v2.6.0
 
 ARG BASEOS=ubuntu
 
@@ -111,7 +111,7 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
 ### CRI-O (crio-build)
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
 # TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
-FROM golang:1.12 AS crio-build
+FROM golang:1.12-stretch AS crio-build
 RUN apt-get update && apt-get install -y build-essential libglib2.0-dev libseccomp-dev
 RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
@@ -130,7 +130,7 @@ RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" 
   mkdir /out && mv bin /out/cni
 
 ### Kubernetes (k8s-build)
-FROM golang:1.12 AS k8s-build
+FROM golang:1.12-stretch AS k8s-build
 RUN apt-get update && apt-get install -y -q patch
 ARG BAZEL_RELEASE
 ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel

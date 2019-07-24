@@ -1,4 +1,4 @@
-From 56176ade9e5b1171f6939ad63a0e9fc5dadfc318 Mon Sep 17 00:00:00 2001
+From 0c4b71ba23db9949d7c971cd71cc2fa89046b6f3 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -25,10 +25,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  11 files changed, 126 insertions(+), 30 deletions(-)
 
 diff --git a/cmd/kubeadm/app/phases/kubelet/flags.go b/cmd/kubeadm/app/phases/kubelet/flags.go
-index 27c2a9948c..1f602c7ca1 100644
+index a6c5d1411e..dbdb95db10 100644
 --- a/cmd/kubeadm/app/phases/kubelet/flags.go
 +++ b/cmd/kubeadm/app/phases/kubelet/flags.go
-@@ -80,6 +80,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
+@@ -85,6 +85,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
  		if err != nil {
  			klog.Warningf("cannot automatically assign a '--cgroup-driver' value when starting the Kubelet: %v\n", err)
  		} else {
@@ -103,13 +103,13 @@ index 1f357a4ad9..4ea181d0f6 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 258d8445b7..d115b94470 100644
+index 7ee1c8b195..36522ff9be 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -450,6 +450,18 @@ const (
+@@ -477,6 +477,18 @@ const (
  	//
- 	// Enables ipv6 dual stack
- 	IPv6DualStack featuregate.Feature = "IPv6DualStack"
+ 	// Schedule pods evenly across available topology domains.
+ 	EvenPodsSpread featuregate.Feature = "EvenPodsSpread"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -125,10 +125,10 @@ index 258d8445b7..d115b94470 100644
  )
  
  func init() {
-@@ -526,6 +538,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	VolumePVCDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
+@@ -556,6 +568,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	PodOverhead:                                    {Default: false, PreRelease: featuregate.Alpha},
  	IPv6DualStack:                                  {Default: false, PreRelease: featuregate.Alpha},
+ 	EvenPodsSpread:                                 {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
@@ -147,10 +147,10 @@ index 7ff18c62a0..2830249f24 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index 18c792785c..eaa7494d86 100644
+index 39aad1fb38..7612bba68d 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
-@@ -45,6 +45,9 @@ const (
+@@ -46,6 +46,9 @@ const (
  	libcontainerCgroupfs libcontainerCgroupManagerType = "cgroupfs"
  	// libcontainerSystemd means use libcontainer with systemd
  	libcontainerSystemd libcontainerCgroupManagerType = "systemd"
@@ -160,7 +160,7 @@ index 18c792785c..eaa7494d86 100644
  	// systemdSuffix is the cgroup name suffix for systemd
  	systemdSuffix string = ".slice"
  )
-@@ -187,7 +190,15 @@ type cgroupManagerImpl struct {
+@@ -188,7 +191,15 @@ type cgroupManagerImpl struct {
  var _ CgroupManager = &cgroupManagerImpl{}
  
  // NewCgroupManager is a factory method that returns a CgroupManager
@@ -177,7 +177,7 @@ index 18c792785c..eaa7494d86 100644
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -195,7 +206,7 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
+@@ -196,7 +207,7 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
  	return &cgroupManagerImpl{
  		subsystems: cs,
  		adapter:    newLibcontainerAdapter(managerType),
@@ -186,7 +186,7 @@ index 18c792785c..eaa7494d86 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -587,3 +598,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -590,3 +601,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
