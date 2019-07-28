@@ -4,22 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-07-21T16:46:59Z
-ARG ROOTLESSKIT_COMMIT=2cb5ec5819fddecb93aeea843ecdf29d6ecaf9af
-# 2019-07-23T12:05:26Z
-ARG SLIRP4NETNS_COMMIT=62cbdd3369dde25e3d1a952fb61072e650893899
-# 2019-06-26T16:58:14Z
-ARG RUNC_COMMIT=6cccc1760d57d9e1bc856b96eeb7ee02b7b8101d
-# 2019-07-23T06:46:12Z
-ARG MOBY_COMMIT=a9dc697fd2a51c1e47a1c5404d2254d5b6318fd4
-# 2019-07-22T23:39:02Z
-ARG CONTAINERD_COMMIT=f7761411b8735d8605378e71f1ad16b759326c1b
-# 2019-07-24T06:55:21Z
-ARG CRIO_COMMIT=3732d1508ae0eb762d81039555c1ce2566acf370
-# 2019-07-18T21:12:53Z
-ARG CNI_PLUGINS_COMMIT=7ba2bcfeab482eaaa7d6e7e4ec9fbd493c54d4fa
-# 2019-07-24T09:02:15Z
-ARG KUBERNETES_COMMIT=da3daf2e8a99bbb9345f1060e8bf4fb4d5772e06
+# 2019-07-28T04:55:48Z
+ARG ROOTLESSKIT_COMMIT=93164c4427c9c75aa3199b8baa5005ce9adfcd69
+# 2019-07-28T04:08:29Z
+ARG SLIRP4NETNS_COMMIT=96ff33cafc1dabf1437b87133850ed2324b2c640
+# 2019-07-27T01:26:32Z
+ARG RUNC_COMMIT=9ae790178ee4535e1afd865eed70a7f7cdb655ac
+# 2019-07-26T23:09:22Z
+ARG MOBY_COMMIT=917a8b42594317e4b547c4d34a6bc733f32a9974
+# 2019-07-26T21:13:02Z
+ARG CONTAINERD_COMMIT=eabb536b1f376a259e3450a9d8f6fc7e6a18367e
+# 2019-07-25T01:24:20Z
+ARG CRIO_COMMIT=b94a84cd6d126b12c837db3650fed546376c1f58
+# 2019-07-24T15:32:15Z
+ARG CNI_PLUGINS_COMMIT=ded2f1757770e8e2aa41f65687f8fc876f83048b
+# 2019-07-27T16:25:56Z
+ARG KUBERNETES_COMMIT=23649560c060ad6cd82da8da42302f8f7e38cf1e
 
 ## Version definitions (cont.)
 ARG DOCKER_CLI_RELEASE=19.03.0
@@ -54,8 +54,8 @@ RUN mkdir /out && \
   go build -o /out/rootlesskit-docker-proxy github.com/rootless-containers/rootlesskit/cmd/rootlesskit-docker-proxy
 
 #### slirp4netns (slirp4netns-build)
-FROM alpine:3.9 AS slirp4netns-build
-RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static
+FROM alpine:3.10 AS slirp4netns-build
+RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static libcap-static libcap-dev
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT

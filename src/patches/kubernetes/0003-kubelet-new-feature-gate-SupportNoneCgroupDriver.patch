@@ -1,4 +1,4 @@
-From 0c4b71ba23db9949d7c971cd71cc2fa89046b6f3 Mon Sep 17 00:00:00 2001
+From 33b6ed4c7b6fb424c5ac5972f3a5fb15da027985 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -38,7 +38,7 @@ index a6c5d1411e..dbdb95db10 100644
  		}
  		if opts.pauseImage != "" {
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 712760967e..c2134dad39 100644
+index 1a2b3263be..c718050aff 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
 @@ -513,7 +513,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
@@ -51,7 +51,7 @@ index 712760967e..c2134dad39 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 1f357a4ad9..4ea181d0f6 100644
+index 207893d8be..e83ab11616 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -605,26 +605,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
@@ -134,7 +134,7 @@ index 7ee1c8b195..36522ff9be 100644
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 7ff18c62a0..2830249f24 100644
+index bf99db85f0..93408248c2 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -198,7 +198,7 @@ type KubeletConfiguration struct {
