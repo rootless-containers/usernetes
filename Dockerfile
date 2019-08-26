@@ -4,22 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-07-28T04:55:48Z
-ARG ROOTLESSKIT_COMMIT=93164c4427c9c75aa3199b8baa5005ce9adfcd69
-# 2019-07-28T04:08:29Z
-ARG SLIRP4NETNS_COMMIT=96ff33cafc1dabf1437b87133850ed2324b2c640
-# 2019-07-27T01:26:32Z
-ARG RUNC_COMMIT=9ae790178ee4535e1afd865eed70a7f7cdb655ac
-# 2019-07-26T23:09:22Z
-ARG MOBY_COMMIT=917a8b42594317e4b547c4d34a6bc733f32a9974
-# 2019-07-26T21:13:02Z
-ARG CONTAINERD_COMMIT=eabb536b1f376a259e3450a9d8f6fc7e6a18367e
-# 2019-07-25T01:24:20Z
-ARG CRIO_COMMIT=b94a84cd6d126b12c837db3650fed546376c1f58
-# 2019-07-24T15:32:15Z
-ARG CNI_PLUGINS_COMMIT=ded2f1757770e8e2aa41f65687f8fc876f83048b
-# 2019-07-27T16:25:56Z
-ARG KUBERNETES_COMMIT=23649560c060ad6cd82da8da42302f8f7e38cf1e
+# 2019-08-26T05:55:14Z
+ARG ROOTLESSKIT_COMMIT=229dd40047cafffbc6489b30ed9105d64bebcc42
+# 2019-08-25T17:18:54Z
+ARG SLIRP4NETNS_COMMIT=29db6bd2d7297dfc1c556ab3801e7cd079291946
+# 2019-08-25T20:15:15Z
+ARG RUNC_COMMIT=3525eddec5418b1e12118fe9f40c9a1cb41e0fb6
+# 2019-08-25T01:46:46Z
+ARG MOBY_COMMIT=cd1356d9ea6307659add38d6689a5b2ecb214c90
+# 2019-08-23T19:06:03Z
+ARG CONTAINERD_COMMIT=4a2f61c4f2b43b0c6e6636e48de89b1cb4860408
+# 2019-08-22T21:06:18Z
+ARG CRIO_COMMIT=c9764ea645d79279a72e279a36c2172c5d2a3298
+# 2019-08-14T18:26:26Z
+ARG CNI_PLUGINS_COMMIT=485be65581341430f9106a194a98f0f2412245fb
+# 2019-08-26T04:40:21Z
+ARG KUBERNETES_COMMIT=36b2914207d50abba2eb9aa5a252a94224eb5037
 
 ## Version definitions (cont.)
 ARG DOCKER_CLI_RELEASE=19.03.0
@@ -55,7 +55,7 @@ RUN mkdir /out && \
 
 #### slirp4netns (slirp4netns-build)
 FROM alpine:3.10 AS slirp4netns-build
-RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static libcap-static libcap-dev
+RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT
