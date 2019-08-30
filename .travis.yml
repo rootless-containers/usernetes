@@ -1,4 +1,4 @@
-dist: xenial
+dist: bionic
 language: generic
 before_install:
 # Install Docker 18.09+ for enabling DOCKER_BUILDKIT
