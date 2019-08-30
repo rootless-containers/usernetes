@@ -1,6 +1,12 @@
 dist: bionic
 language: generic
 before_install:
+# [WIP] attempting to run vagrant
+  - cat /proc/cpuinfo
+  - wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add - && sudo sh -c "echo deb https://download.virtualbox.org/virtualbox/debian bionic contrib >> /etc/apt/sources.list" && sudo apt-get update && sudo apt-get install build-essential gcc make linux-headers-$(uname -r) virtualbox-6.0 && sudo usermod -aG vboxusers $(whoami)
+  - wget https://releases.hashicorp.com/vagrant/2.2.5/vagrant_2.2.5_x86_64.deb && sudo dpkg -i vagrant_2.2.5_x86_64.deb
+  - vagrant init fedora/30-cloud-base && vagrant up && mkdir -p ~/.ssh && vagrant ssh-config >> ~/.ssh/config
+  - ssh default dmesg && vagrant destroy -f
 # Install Docker 18.09+ for enabling DOCKER_BUILDKIT
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
