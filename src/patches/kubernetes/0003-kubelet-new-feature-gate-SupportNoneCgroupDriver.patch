@@ -1,4 +1,4 @@
-From 22d44422cf5ea191aff6370f777dc6b8f9a0618f Mon Sep 17 00:00:00 2001
+From 3e9979688ed2edbbcea7160e090e43bf31f5ca99 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -38,7 +38,7 @@ index 14f7317be1..6bb02f6ef4 100644
  		}
  		if opts.pauseImage != "" {
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 1a2b3263be..c718050aff 100644
+index 1b60f2cea4..9cb665210e 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
 @@ -513,7 +513,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
@@ -51,10 +51,10 @@ index 1a2b3263be..c718050aff 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 46540e4760..7ac5a7d70e 100644
+index e497bdcd83..b399ffc0fc 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -605,26 +605,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
+@@ -606,26 +606,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
  	}
  
  	var cgroupRoots []string
@@ -103,13 +103,13 @@ index 46540e4760..7ac5a7d70e 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 25eb7fedb8..1f93d33ca3 100644
+index a4dfbdd879..2e3b17f4ae 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -468,6 +468,18 @@ const (
- 	//
- 	// Schedule pods evenly across available topology domains.
- 	EvenPodsSpread featuregate.Feature = "EvenPodsSpread"
+@@ -503,6 +503,18 @@ const (
+ 	// Enable the aggregated discovery timeout to ensure client responsiveness. Note this feature is present
+ 	// only for backward compatibility, it will be removed in the 1.17 release.
+ 	EnableAggregatedDiscoveryTimeout featuregate.Feature = "EnableAggregatedDiscoveryTimeout"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -125,19 +125,19 @@ index 25eb7fedb8..1f93d33ca3 100644
  )
  
  func init() {
-@@ -546,6 +558,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	PodOverhead:                                    {Default: false, PreRelease: featuregate.Alpha},
- 	IPv6DualStack:                                  {Default: false, PreRelease: featuregate.Alpha},
+@@ -584,6 +596,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	EndpointSlice:                                  {Default: false, PreRelease: featuregate.Alpha},
  	EvenPodsSpread:                                 {Default: false, PreRelease: featuregate.Alpha},
+ 	StartupProbe:                                   {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index bf99db85f0..93408248c2 100644
+index 446ad78326..f01f8f2372 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
-@@ -198,7 +198,7 @@ type KubeletConfiguration struct {
+@@ -201,7 +201,7 @@ type KubeletConfiguration struct {
  	// And all Burstable and BestEffort pods are brought up under their
  	// specific top level QoS cgroup.
  	CgroupsPerQOS bool
@@ -260,10 +260,10 @@ index 5d77ed7a45..5654d737fd 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index a6b381153e..723752bfb4 100644
+index a30f2d706d..4c21e9519e 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -240,9 +240,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -248,9 +248,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  
  	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
  	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
@@ -280,7 +280,7 @@ index a6b381153e..723752bfb4 100644
  		// this does default to / when enabled, but this tests against regressions.
  		if nodeConfig.CgroupRoot == "" {
  			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
-@@ -252,7 +258,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -260,7 +266,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  		// of note, we always use the cgroupfs driver when performing this check since
  		// the input is provided in that format.
  		// this is important because we do not want any name conversion to occur.
@@ -308,7 +308,7 @@ index 62c9f203a0..fda4177a05 100644
  			qosContainersInfo: qosContainersInfo,
  		}
 diff --git a/pkg/kubelet/dockershim/docker_service.go b/pkg/kubelet/dockershim/docker_service.go
-index ce40e9ff5b..8962d35d94 100644
+index 5d23863976..9e3acb6a6d 100644
 --- a/pkg/kubelet/dockershim/docker_service.go
 +++ b/pkg/kubelet/dockershim/docker_service.go
 @@ -267,7 +267,8 @@ func NewDockerService(config *ClientConfig, podSandboxImage string, streamingCon
