@@ -8,34 +8,35 @@
 ARG ROOTLESSKIT_COMMIT=182be5f88e62f3568b86331356d237910909b24e
 # 2019-08-30T11:19:53Z
 ARG SLIRP4NETNS_COMMIT=f9503feb2adcd33ad817f954d294f2076de80f45
-# 2019-09-11T04:03:38Z
-ARG RUNC_COMMIT=6c0555209b328d5fb3e22bf3790f50187bcaa203
-# 2019-09-12T07:40:54Z
-ARG MOBY_COMMIT=93ed57f4605bc3ac34be866ad54382ef44309fbd
-# 2019-09-12T01:05:34Z
-ARG CONTAINERD_COMMIT=1d484c28eac2e7d742d5fd5d8cd3611008a60c20
-# 2019-09-07T19:30:31Z
-ARG CRIO_COMMIT=b5f06157a872e338f971d64a3fd879ed169dd46e
-# 2019-09-11T16:11:55Z
-ARG CNI_PLUGINS_COMMIT=23d5525ec3745a5b6f937fdc7e5fd1f95ea876ae
-# 2019-09-12T07:38:28Z
-ARG KUBERNETES_COMMIT=52626339b118901cc2f674b76b6920969241e389
+# 2019-09-18T18:53:36Z
+ARG RUNC_COMMIT=7507c64ff675606c5ff96b0dd8889a60c589f14d
+# 2019-09-24T23:28:17Z
+ARG MOBY_COMMIT=ef89d70aed01d05adde6b9f3cdeba1c90d87bde8
+# 2019-09-24T15:06:18Z
+ARG CONTAINERD_COMMIT=aba201344ebf01acf2bfa12c4fcef56c342f59cb
+# 2019-09-20T19:14:38Z
+ARG CRIO_COMMIT=f8d13a9055fa836b9f624142de4a5e2f01d6fb26
+# 2019-09-18T15:12:43Z
+ARG CNI_PLUGINS_COMMIT=291ab6cc849c83882cbe5988c483b334ad1aee36
+# 2019-09-24T20:37:53Z
+ARG KUBERNETES_COMMIT=948870b5840add1ba4068e3d27d54ea353839992
 
 ## Version definitions (cont.)
+ARG CONMON_RELEASE=v2.0.1
 ARG DOCKER_CLI_RELEASE=19.03.2
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.17-usernetes
+ARG KUBE_GIT_VERSION=v1.17.0-usernetes
 ARG BAZEL_RELEASE=0.29.1
 # 01/23/2017 (v.1.7.3.2)
 ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
 ARG FLANNEL_RELEASE=v0.11.0
-ARG ETCD_RELEASE=v3.4.0
-ARG GOTASK_RELEASE=v2.6.0
+ARG ETCD_RELEASE=v3.4.1
+ARG GOTASK_RELEASE=v2.7.0
 
 ARG BASEOS=ubuntu
 
 ### Common base images (common-*)
-FROM golang:1.12-alpine AS common-golang-alpine
+FROM golang:1.13-alpine AS common-golang-alpine
 RUN apk add --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
@@ -113,14 +114,22 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
 ### CRI-O (crio-build)
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
 # TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
-FROM golang:1.12-stretch AS crio-build
+FROM golang:1.13-stretch AS crio-build
 RUN apt-get update && apt-get install -y build-essential libglib2.0-dev libseccomp-dev
 RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-RUN make BUILDTAGS="exclude_graphdriver_btrfs exclude_graphdriver_devicemapper containers_image_openpgp containers_image_ostree_stub" binaries && \
-  mkdir /out && cp bin/conmon bin/crio /out
+RUN make binaries && mkdir /out && cp bin/crio /out
+
+### conmon (conmon-build)
+FROM common-golang-alpine-heavy AS conmon-build
+RUN apk add --no-cache glib-dev glib-static
+RUN git clone https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
+WORKDIR /go/src/github.com/containers/conmon
+ARG CONMON_RELEASE
+RUN git pull && git checkout ${CONMON_RELEASE}
+RUN make static && mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
 FROM common-golang-alpine-heavy AS cniplugins-build
@@ -132,7 +141,7 @@ RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" 
   mkdir /out && mv bin /out/cni
 
 ### Kubernetes (k8s-build)
-FROM golang:1.12-stretch AS k8s-build
+FROM golang:1.13-stretch AS k8s-build
 RUN apt-get update && apt-get install -y -q patch
 ARG BAZEL_RELEASE
 ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel
@@ -191,6 +200,7 @@ COPY --from=moby-build /out/* /
 COPY --from=dockercli-build /out/* /
 COPY --from=containerd-build /out/* /
 COPY --from=crio-build /out/* /
+COPY --from=conmon-build /out/* /
 # can't use wildcard here: https://github.com/rootless-containers/usernetes/issues/78
 COPY --from=cniplugins-build /out/cni /cni
 COPY --from=k8s-build /out/* /

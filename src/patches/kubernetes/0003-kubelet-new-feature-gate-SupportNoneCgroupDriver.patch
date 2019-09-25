@@ -1,4 +1,4 @@
-From 3e9979688ed2edbbcea7160e090e43bf31f5ca99 Mon Sep 17 00:00:00 2001
+From 0a37d9de01444925844b332f424e2390fc0e8ad7 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -51,7 +51,7 @@ index 1b60f2cea4..9cb665210e 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index e497bdcd83..b399ffc0fc 100644
+index f191b9f9c0..c8fe9afe87 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -606,26 +606,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
@@ -103,13 +103,13 @@ index e497bdcd83..b399ffc0fc 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index a4dfbdd879..2e3b17f4ae 100644
+index 2a15da2263..3c09e9fbbf 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -503,6 +503,18 @@ const (
- 	// Enable the aggregated discovery timeout to ensure client responsiveness. Note this feature is present
- 	// only for backward compatibility, it will be removed in the 1.17 release.
- 	EnableAggregatedDiscoveryTimeout featuregate.Feature = "EnableAggregatedDiscoveryTimeout"
+@@ -482,6 +482,18 @@ const (
+ 	//
+ 	// Enables the startupProbe in kubelet worker.
+ 	StartupProbe featuregate.Feature = "StartupProbe"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -125,7 +125,7 @@ index a4dfbdd879..2e3b17f4ae 100644
  )
  
  func init() {
-@@ -584,6 +596,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -561,6 +573,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	EndpointSlice:                                  {Default: false, PreRelease: featuregate.Alpha},
  	EvenPodsSpread:                                 {Default: false, PreRelease: featuregate.Alpha},
  	StartupProbe:                                   {Default: false, PreRelease: featuregate.Alpha},
