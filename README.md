@@ -73,20 +73,34 @@ penguin:231072:65536
 ```
 
 ### Distribution-specific hint
+#### Ubuntu
+* No preparation is needed.
+* overlayfs is enabled by default ([Ubuntu-specific kernel patch](https://kernel.ubuntu.com/git/ubuntu/ubuntu-bionic.git/commit/fs/overlayfs?id=3b7da90f28fe1ed4b79ef2d994c81efbc58f1144)).
 
-#### Debian (excluding Ubuntu)
-* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
+#### Debian GNU/Linux
+* Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
+* To use overlayfs (recommended), run `sudo modprobe overlay permit_mounts_in_userns=1` ([Debian-specific kernel patch, introduced in Debian 10](https://salsa.debian.org/kernel-team/linux/blob/283390e7feb21b47779b48e0c8eb0cc409d2c815/debian/patches/debian/overlayfs-permit-mounts-in-userns.patch)). Put the configuration to `/etc/modprobe.d` for persistence.
 
 #### Arch Linux
-* `sudo sh -c "echo 1 > /proc/sys/kernel/unprivileged_userns_clone"` is required
+* Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
 
-#### openSUSE (and SLES(?))
+#### openSUSE
 * `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
 * `sudo prlimit --nofile=:65536 --pid $$` is required for Kubernetes
 
+#### Fedora 31 and later
+* Run `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"` and reboot.
+
+#### Fedora 30
+* No preparation is needed
+
+#### RHEL/CentOS 8
+* No preparation is needed
+
 #### RHEL/CentOS 7
-* `sudo sh -c "echo 28633 > /proc/sys/user/max_user_namespaces"` is required
-* [COPR package `vbatts/shadow-utils-newxidmap`](https://copr.fedorainfracloud.org/coprs/vbatts/shadow-utils-newxidmap/) needs to be installed
+* Add `user.max_user_namespaces=28633` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
+* RHEL/CentOS 7.6 and older releases require [COPR package `vbatts/shadow-utils-newxidmap`](https://copr.fedorainfracloud.org/coprs/vbatts/shadow-utils-newxidmap/) to be installed.
+* RHEL/CentOS 7.5 and older releases require running `sudo grubby --update-kernel=ALL --args="user_namespace.enable=1"` and reboot.
 
 ## Restrictions
 

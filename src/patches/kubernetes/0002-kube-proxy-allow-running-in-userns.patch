@@ -1,4 +1,4 @@
-From 8c33765194b173a6c6172a47071b531d96a8fce3 Mon Sep 17 00:00:00 2001
+From aedda2ab67f0eede2e963b3ebd560fd0518f10fb Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
@@ -12,7 +12,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 24 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index f3d7586bc3..099d4c2ed3 100644
+index 081ac96987..a752aefe6c 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
 @@ -78,6 +78,7 @@ go_library(
