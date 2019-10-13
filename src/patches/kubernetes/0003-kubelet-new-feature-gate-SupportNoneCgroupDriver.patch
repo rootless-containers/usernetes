@@ -1,4 +1,4 @@
-From 0a37d9de01444925844b332f424e2390fc0e8ad7 Mon Sep 17 00:00:00 2001
+From be71e370458fa9d4ebc8de3a9528d3dc3b025a27 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -51,10 +51,10 @@ index 1b60f2cea4..9cb665210e 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index f191b9f9c0..c8fe9afe87 100644
+index 7b3aafcaf9..12a86b4754 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -606,26 +606,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
+@@ -598,26 +598,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, stopCh <-chan
  	}
  
  	var cgroupRoots []string
@@ -103,10 +103,10 @@ index f191b9f9c0..c8fe9afe87 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 2a15da2263..3c09e9fbbf 100644
+index 8bb0193ca7..a542aafc84 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -482,6 +482,18 @@ const (
+@@ -484,6 +484,18 @@ const (
  	//
  	// Enables the startupProbe in kubelet worker.
  	StartupProbe featuregate.Feature = "StartupProbe"
@@ -125,7 +125,7 @@ index 2a15da2263..3c09e9fbbf 100644
  )
  
  func init() {
-@@ -561,6 +573,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -563,6 +575,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	EndpointSlice:                                  {Default: false, PreRelease: featuregate.Alpha},
  	EvenPodsSpread:                                 {Default: false, PreRelease: featuregate.Alpha},
  	StartupProbe:                                   {Default: false, PreRelease: featuregate.Alpha},
@@ -147,7 +147,7 @@ index 446ad78326..f01f8f2372 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index a653e67c79..c51ca75b79 100644
+index 2e3968f4fe..a8276d5a50 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -46,6 +46,9 @@ const (
