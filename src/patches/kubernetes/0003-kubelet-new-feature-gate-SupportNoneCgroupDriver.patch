@@ -1,4 +1,4 @@
-From be71e370458fa9d4ebc8de3a9528d3dc3b025a27 Mon Sep 17 00:00:00 2001
+From 9fc7956f63dcc64a4b3dfe9a8f116a3b3bb1a813 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -103,13 +103,13 @@ index 7b3aafcaf9..12a86b4754 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 8bb0193ca7..a542aafc84 100644
+index f5098d9bf9..15dd899e35 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -484,6 +484,18 @@ const (
+@@ -499,6 +499,18 @@ const (
  	//
- 	// Enables the startupProbe in kubelet worker.
- 	StartupProbe featuregate.Feature = "StartupProbe"
+ 	// Enable all logic related to the PodDisruptionBudget API object in policy
+ 	PodDisruptionBudget featuregate.Feature = "PodDisruptionBudget"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -125,10 +125,10 @@ index 8bb0193ca7..a542aafc84 100644
  )
  
  func init() {
-@@ -563,6 +575,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	EndpointSlice:                                  {Default: false, PreRelease: featuregate.Alpha},
- 	EvenPodsSpread:                                 {Default: false, PreRelease: featuregate.Alpha},
+@@ -580,6 +592,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	StartupProbe:                                   {Default: false, PreRelease: featuregate.Alpha},
+ 	AllowInsecureBackendProxy:                      {Default: true, PreRelease: featuregate.Beta},
+ 	PodDisruptionBudget:                            {Default: true, PreRelease: featuregate.Beta},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
@@ -308,7 +308,7 @@ index 62c9f203a0..fda4177a05 100644
  			qosContainersInfo: qosContainersInfo,
  		}
 diff --git a/pkg/kubelet/dockershim/docker_service.go b/pkg/kubelet/dockershim/docker_service.go
-index 5d23863976..9e3acb6a6d 100644
+index 0f07a4ca23..73f622dde9 100644
 --- a/pkg/kubelet/dockershim/docker_service.go
 +++ b/pkg/kubelet/dockershim/docker_service.go
 @@ -267,7 +267,8 @@ func NewDockerService(config *ClientConfig, podSandboxImage string, streamingCon

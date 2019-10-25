@@ -1,4 +1,4 @@
-# This Dockerfile can be translated to `docker/dockerfile:1-experimental` syntax for enabling cache mounts:
+# this dockerfile can be translated to `docker/dockerfile:1-experimental` syntax for enabling cache mounts:
 # $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
 
 ### Version definitions
@@ -6,31 +6,30 @@
 
 # 2019-10-12T18:30:29Z
 ARG ROOTLESSKIT_COMMIT=babe67ee6c656cf13549d934de297a492eee1fe8
-# 2019-10-02T06:11:24Z
-ARG SLIRP4NETNS_COMMIT=e8759b9bad95d6eacebae7add07907cdc430afc4
-# 2019-10-05T11:33:59Z
-ARG RUNC_COMMIT=c1485a1e88f853e9c2cd3d51eac6d410fed24df4
-# 2019-10-12T18:14:45Z
-ARG MOBY_COMMIT=d1e837d2a8d5f82c750c70b2e360b9f103f0273f
-# 2019-10-11T20:21:07Z
-ARG CONTAINERD_COMMIT=57cfc902606e2d601d4fd910291ccbd391234446
-# 2019-09-20T19:14:38Z
-ARG CRIO_COMMIT=f8d13a9055fa836b9f624142de4a5e2f01d6fb26
-# 2019-10-09T15:25:06Z
-ARG CNI_PLUGINS_COMMIT=411d060b81745df3744ad43011a61fdfae1fcf49
-# 2019-10-13T07:32:36Z
-ARG KUBERNETES_COMMIT=ceceacaa7736a3d01d672a5fad4f342d5745a900
+# 2019-10-18T15:06:03Z
+ARG SLIRP4NETNS_COMMIT=3527c9817a273af18655e943c75a0470fb37ece3
+# 2019-10-24T19:20:47Z
+ARG RUNC_COMMIT=c4d8e1688c816a8cef632a3b44a38611511b7140
+# 2019-10-24T20:58:32Z
+ARG MOBY_COMMIT=1bd184a4c291e4f60629e2cc279216f8f40495f3
+# 2019-10-25T02:52:20Z
+ARG CONTAINERD_COMMIT=0c01992f9c8cc2794b3d2b4f2ed0b55a4b91ed9e
+# 2019-10-24T12:21:16Z
+ARG CRIO_COMMIT=df667bf8f37985381b0e087d8c9d9c7a88076646
+# 2019-10-23T15:54:54Z
+ARG CNI_PLUGINS_COMMIT=a16232968de47358d64322763fe0d7ed57ec382e
+# 2019-10-25T05:56:14Z
+ARG KUBERNETES_COMMIT=a3560d3ad9a7e2deb7d8b7e9e54081e7cbbac0d1
 
-## Version definitions (cont.)
+# Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.1
-ARG DOCKER_CLI_RELEASE=19.03.3
+ARG DOCKER_CLI_RELEASE=19.03.4
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.17.0-usernetes
 ARG BAZEL_RELEASE=0.29.1
-# 01/23/2017 (v.1.7.3.2)
-ARG SOCAT_COMMIT=cef0e039a89fe3b38e36090d9fe4be000973e0be
+ARG SOCAT_RELEASE=tag-1.7.3.3
 ARG FLANNEL_RELEASE=v0.11.0
-ARG ETCD_RELEASE=v3.4.2
+ARG ETCD_RELEASE=v3.4.3
 ARG GOTASK_RELEASE=v2.7.0
 
 ARG BASEOS=ubuntu
@@ -161,12 +160,12 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/hyperkube /out
 
 ### socat (socat-build)
-FROM ubuntu:19.04 AS socat-build
+FROM ubuntu:19.10 AS socat-build
 RUN apt-get update && apt-get install -y autoconf automake libtool build-essential git yodl
 RUN git clone git://repo.or.cz/socat.git /socat
 WORKDIR /socat
-ARG SOCAT_COMMIT
-RUN git pull && git checkout ${SOCAT_COMMIT}
+ARG SOCAT_RELEASE
+RUN git pull && git checkout ${SOCAT_RELEASE}
 RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
   mkdir -p /out && cp -f socat /out
 
@@ -210,7 +209,7 @@ COPY --from=etcd-build /out/* /
 COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
-FROM ubuntu:19.04 AS test-main-ubuntu
+FROM ubuntu:19.10 AS test-main-ubuntu
 # libglib2.0: require by conmon
 RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
 
