@@ -46,6 +46,7 @@ We encourage other Kubernetes distributions to adopt Usernetes patches and tools
 
 Currently, the following distributions adopt Usernetes:
 * [k3s](https://github.com/rancher/k3s)
+* [Silverkube](https://github.com/podenv/silverkube)
 
 ## How it works
 
