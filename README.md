@@ -198,7 +198,7 @@ $ kubectl get nodes
 Or
 
 ```console
-$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) hyperkube \
+$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) \
   kubectl --kubeconfig=./config/localhost.kubeconfig get nodes
 ```
 

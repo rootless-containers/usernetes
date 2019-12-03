@@ -4,33 +4,33 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-10-12T18:30:29Z
-ARG ROOTLESSKIT_COMMIT=babe67ee6c656cf13549d934de297a492eee1fe8
-# 2019-10-18T15:06:03Z
-ARG SLIRP4NETNS_COMMIT=3527c9817a273af18655e943c75a0470fb37ece3
-# 2019-10-24T19:20:47Z
-ARG RUNC_COMMIT=c4d8e1688c816a8cef632a3b44a38611511b7140
-# 2019-10-24T20:58:32Z
-ARG MOBY_COMMIT=1bd184a4c291e4f60629e2cc279216f8f40495f3
-# 2019-10-25T02:52:20Z
-ARG CONTAINERD_COMMIT=0c01992f9c8cc2794b3d2b4f2ed0b55a4b91ed9e
-# 2019-10-24T12:21:16Z
-ARG CRIO_COMMIT=df667bf8f37985381b0e087d8c9d9c7a88076646
-# 2019-10-23T15:54:54Z
-ARG CNI_PLUGINS_COMMIT=a16232968de47358d64322763fe0d7ed57ec382e
-# 2019-10-25T05:56:14Z
-ARG KUBERNETES_COMMIT=a3560d3ad9a7e2deb7d8b7e9e54081e7cbbac0d1
+# 2019-11-29T07:08:08Z
+ARG ROOTLESSKIT_COMMIT=8cf0679be24c640267784f500c65ace2b44b0412
+# 2019-11-21T20:14:45Z
+ARG SLIRP4NETNS_COMMIT=21fdece2737dc24ffa3f01a341b8a6854f8b13b4
+# 2019-12-02T15:10:37Z
+ARG RUNC_COMMIT=c35c2c9cec6ee503ef31edbaddac9617247ec328
+# 2019-11-27T22:20:17Z
+ARG MOBY_COMMIT=3152f9436292115c97b4d8bb18c66cf97876ee75
+# 2019-12-03T02:07:39Z
+ARG CONTAINERD_COMMIT=8b12d46a395ae3eed3cd718a7bcc721405f650d7
+# 2019-11-28T12:50:09Z
+ARG CRIO_COMMIT=724513d4b7cd923881a05eb90ce62ad3af3f59b6
+# 2019-11-13T16:20:45Z
+ARG CNI_PLUGINS_COMMIT=497560f35f2cef2695f1690137b0bba98adf849b
+# 2019-12-03T06:56:57Z
+ARG KUBERNETES_COMMIT=95a3cd54cf739019b1211163add7247bd31c0ed7
 
 # Version definitions (cont.)
-ARG CONMON_RELEASE=v2.0.1
-ARG DOCKER_CLI_RELEASE=19.03.4
+ARG CONMON_RELEASE=v2.0.3
+ARG DOCKER_CLI_RELEASE=19.03.5
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.17.0-usernetes
-ARG BAZEL_RELEASE=0.29.1
+ARG KUBE_GIT_VERSION=v1.18.0-usernetes
+ARG BAZEL_RELEASE=1.2.1
 ARG SOCAT_RELEASE=tag-1.7.3.3
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.4.3
-ARG GOTASK_RELEASE=v2.7.0
+ARG GOTASK_RELEASE=v2.7.1
 
 ARG BASEOS=ubuntu
 
@@ -141,7 +141,7 @@ RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" 
 
 ### Kubernetes (k8s-build)
 FROM golang:1.13-stretch AS k8s-build
-RUN apt-get update && apt-get install -y -q patch
+RUN apt-get update && apt-get install -y -q patch rsync
 ARG BAZEL_RELEASE
 ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel
 RUN chmod +x /usr/local/bin/bazel
@@ -157,7 +157,8 @@ RUN git config user.email "nobody@example.com" && \
 ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
-RUN bazel build cmd/hyperkube && mkdir /out && cp bazel-bin/cmd/hyperkube/hyperkube /out
+RUN make kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
+  mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
 FROM ubuntu:19.10 AS socat-build
@@ -214,7 +215,7 @@ FROM ubuntu:19.10 AS test-main-ubuntu
 RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
 
 # fedora image is experimental
-FROM fedora:30 AS test-main-fedora
+FROM fedora:31 AS test-main-fedora
 # As of Jan 2019, fedora:29 has wrong permission bits on newuidmap newgidmap
 RUN chmod +s /usr/bin/newuidmap /usr/bin/newgidmap
 RUN dnf install -y git iproute iptables hostname procps-ng
