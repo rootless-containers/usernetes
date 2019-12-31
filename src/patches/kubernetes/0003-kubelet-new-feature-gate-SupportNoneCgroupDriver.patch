@@ -1,4 +1,4 @@
-From 0a932526ab754add7ff14fd419f508d43196e271 Mon Sep 17 00:00:00 2001
+From c77b971794a6998f3a59e7a67ad1f43c2ffcee30 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -103,10 +103,10 @@ index 8a705bb139a..2aa530257a4 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 1cf35280df3..b8a45fe21d9 100644
+index 309dbb29556..be6f9013c9f 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -547,6 +547,18 @@ const (
+@@ -548,6 +548,18 @@ const (
  	//
  	// Enables topology aware service routing
  	ServiceTopology featuregate.Feature = "ServiceTopology"
@@ -125,7 +125,7 @@ index 1cf35280df3..b8a45fe21d9 100644
  )
  
  func init() {
-@@ -633,6 +645,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -634,6 +646,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	AllowInsecureBackendProxy:                      {Default: true, PreRelease: featuregate.Beta},
  	PodDisruptionBudget:                            {Default: true, PreRelease: featuregate.Beta},
  	ServiceTopology:                                {Default: false, PreRelease: featuregate.Alpha},
@@ -260,10 +260,10 @@ index 5d77ed7a45f..5654d737fd6 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 3653bf7124e..50b76c5426a 100644
+index bf3e2a725d4..7b115ec91f1 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -248,9 +248,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -249,9 +249,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  
  	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
  	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
@@ -280,7 +280,7 @@ index 3653bf7124e..50b76c5426a 100644
  		// this does default to / when enabled, but this tests against regressions.
  		if nodeConfig.CgroupRoot == "" {
  			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
-@@ -260,7 +266,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -261,7 +267,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  		// of note, we always use the cgroupfs driver when performing this check since
  		// the input is provided in that format.
  		// this is important because we do not want any name conversion to occur.

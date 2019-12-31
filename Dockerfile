@@ -4,33 +4,33 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-11-29T07:08:08Z
-ARG ROOTLESSKIT_COMMIT=8cf0679be24c640267784f500c65ace2b44b0412
-# 2019-11-21T20:14:45Z
-ARG SLIRP4NETNS_COMMIT=21fdece2737dc24ffa3f01a341b8a6854f8b13b4
-# 2019-12-02T15:10:37Z
-ARG RUNC_COMMIT=c35c2c9cec6ee503ef31edbaddac9617247ec328
-# 2019-11-27T22:20:17Z
-ARG MOBY_COMMIT=3152f9436292115c97b4d8bb18c66cf97876ee75
-# 2019-12-03T02:07:39Z
-ARG CONTAINERD_COMMIT=8b12d46a395ae3eed3cd718a7bcc721405f650d7
-# 2019-11-28T12:50:09Z
-ARG CRIO_COMMIT=724513d4b7cd923881a05eb90ce62ad3af3f59b6
-# 2019-11-13T16:20:45Z
-ARG CNI_PLUGINS_COMMIT=497560f35f2cef2695f1690137b0bba98adf849b
-# 2019-12-03T06:56:57Z
-ARG KUBERNETES_COMMIT=95a3cd54cf739019b1211163add7247bd31c0ed7
+# 2019-12-31T07:27:41Z
+ARG ROOTLESSKIT_COMMIT=c065a514d0c200caf531786ebbb2846147eb3357
+# 2019-12-18T03:10:18Z
+ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
+# 2019-12-26T15:41:07Z
+ARG RUNC_COMMIT=a88592a63474e6976030b4fbded41dd445152236
+# 2019-12-31T04:43:51Z
+ARG MOBY_COMMIT=8ca8f8bd6598d44d344da407663a57584a0dc6a2
+# 2019-12-31T05:02:27Z
+ARG CONTAINERD_COMMIT=537afb149869e5ef6acbd267f9b02c648abcbef3
+# 2019-12-24T20:35:55Z
+ARG CRIO_COMMIT=2dc77fc03c522237a353ca8dfbd9a69c1319bed6
+# 2019-12-18T16:16:58Z
+ARG CNI_PLUGINS_COMMIT=ec8f6c99d030bd75337ae8bfc62fc02cdc462528
+# 2019-12-31T07:15:39Z
+ARG KUBERNETES_COMMIT=36db62cd7397d153d037bcc4eec34dce99b03fc6
 
 # Version definitions (cont.)
-ARG CONMON_RELEASE=v2.0.3
+ARG CONMON_RELEASE=v2.0.8
 ARG DOCKER_CLI_RELEASE=19.03.5
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
-ARG BAZEL_RELEASE=1.2.1
+ARG BAZEL_RELEASE=2.0.0
 ARG SOCAT_RELEASE=tag-1.7.3.3
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.4.3
-ARG GOTASK_RELEASE=v2.7.1
+ARG GOTASK_RELEASE=v2.8.0
 
 ARG BASEOS=ubuntu
 
@@ -108,7 +108,7 @@ RUN git pull && git checkout ${CONTAINERD_COMMIT}
 # workaround: https://github.com/containerd/containerd/issues/3646
 RUN ./script/setup/install-dev-tools
 RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build" && \
-  mkdir /out && cp bin/containerd bin/containerd-shim bin/containerd-shim-runc-v1 bin/ctr /out
+  mkdir /out && cp bin/containerd bin/containerd-shim bin/containerd-shim-runc-v1 bin/containerd-shim-runc-v2 bin/ctr /out
 
 ### CRI-O (crio-build)
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
@@ -119,7 +119,7 @@ RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-RUN make binaries && mkdir /out && cp bin/crio /out
+RUN make binaries && mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
 FROM common-golang-alpine-heavy AS conmon-build
