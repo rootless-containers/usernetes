@@ -4,7 +4,7 @@ source $U7S_BASE_DIR/common/common.inc.sh
 nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1
-mkdir -p $XDG_DATA_HOME/containers $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio $XDG_CONFIG_HOME/crio/runc
+mkdir -p $XDG_DATA_HOME/containers/oci/hooks.d $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio $XDG_CONFIG_HOME/crio/runc
 
 # It looks like both crio.conf["registries"] and --registry CLI flags are needed
 # https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
@@ -31,6 +31,7 @@ exec crio \
 	--cni-config-dir /etc/cni/net.d \
 	--cni-plugin-dir /opt/cni/bin \
 	--root $XDG_DATA_HOME/containers/storage \
+	--hooks-dir $XDG_DATA_HOME/containers/oci/hooks.d \
 	--cgroup-manager=cgroupfs \
 	--storage-driver vfs \
 	$@

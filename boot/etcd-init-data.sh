@@ -7,5 +7,5 @@ nsenter::main $0 $@
 if [[ $U7S_FLANNEL == 1 ]]; then
 	config=$U7S_BASE_DIR/config/flannel/etcd/coreos.com_network_config
 	set -x
-	timeout 60 sh -c "until cat $config | etcdctl set /coreos.com/network/config; do sleep 1; done"
+	timeout 60 sh -c "until cat $config | ETCDCTL_API=2 etcdctl set /coreos.com/network/config; do sleep 1; done"
 fi
