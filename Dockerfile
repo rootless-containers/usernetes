@@ -4,30 +4,29 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2019-11-29T07:08:08Z
-ARG ROOTLESSKIT_COMMIT=8cf0679be24c640267784f500c65ace2b44b0412
+# 2020-01-22T10:24:54Z
+ARG ROOTLESSKIT_COMMIT=9a00d4adebc77511aeaa7abe8fce5a5397f91eb4
 # 2019-12-18T03:10:18Z
 ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
-# 2019-12-26T15:41:07Z
-ARG RUNC_COMMIT=a88592a63474e6976030b4fbded41dd445152236
-# 2019-12-31T04:43:51Z
-ARG MOBY_COMMIT=8ca8f8bd6598d44d344da407663a57584a0dc6a2
-# 2019-12-31T05:02:27Z
-ARG CONTAINERD_COMMIT=537afb149869e5ef6acbd267f9b02c648abcbef3
-# 2019-12-24T20:35:55Z
-ARG CRIO_COMMIT=2dc77fc03c522237a353ca8dfbd9a69c1319bed6
-# 2019-12-18T16:16:58Z
-ARG CNI_PLUGINS_COMMIT=ec8f6c99d030bd75337ae8bfc62fc02cdc462528
-# 2019-12-31T07:15:39Z
-ARG KUBERNETES_COMMIT=36db62cd7397d153d037bcc4eec34dce99b03fc6
+# 2020-01-22T16:06:10Z
+ARG RUNC_COMMIT=2fc03cc11c775b7a8b2e48d7ee447cb9bef32ad0
+# 2020-01-25T19:00:13Z
+ARG MOBY_COMMIT=af72c25c754b8a5ce195aec5666be3d42f0a1b4d
+# 2020-01-25T21:41:13Z
+ARG CONTAINERD_COMMIT=a1e0303e7adaf8b6316293b605f631aba78914d5
+# 2020-01-23T10:01:19Z
+ARG CRIO_COMMIT=051e352f36073ee567e41ac44be203fad1e8ded6
+# 2020-01-26T06:41:02Z
+ARG KUBERNETES_COMMIT=e2b823fa7dd1ef61debc524e0e07f74db8ba4d91
 
 # Version definitions (cont.)
-ARG CONMON_RELEASE=v2.0.8
+ARG CONMON_RELEASE=v2.0.10
 ARG DOCKER_CLI_RELEASE=19.03.5
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG BAZEL_RELEASE=2.0.0
 ARG SOCAT_RELEASE=tag-1.7.3.3
+ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.4.3
 ARG GOTASK_RELEASE=v2.8.0
@@ -131,13 +130,10 @@ RUN git pull && git checkout ${CONMON_RELEASE}
 RUN make static && mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
-FROM common-golang-alpine-heavy AS cniplugins-build
-RUN git clone https://github.com/containernetworking/plugins.git /go/src/github.com/containernetworking/plugins
-WORKDIR /go/src/github.com/containernetworking/plugins
-ARG CNI_PLUGINS_COMMIT
-RUN git pull && git checkout ${CNI_PLUGINS_COMMIT}
-RUN ./build_linux.sh -buildmode pie -ldflags "-extldflags \"-fno-PIC -static\"" && \
-  mkdir /out && mv bin /out/cni
+FROM busybox AS cniplugins-build
+ARG CNI_PLUGINS_RELEASE
+RUN mkdir -p /out/cni && \
+ wget -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni
 
 ### Kubernetes (k8s-build)
 FROM golang:1.13-stretch AS k8s-build

@@ -1,6 +1,6 @@
 # Usernetes: Moby (aka Docker) & Kubernetes, without the root privileges
 
-Usernetes aims to provide a binary distribution of Moby (aka Docker) and Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
+Usernetes aims to provide a reference distribution of Moby (aka Docker) and Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
 
  - [Status](#status)
  - [Adoption](#adoption)
@@ -39,6 +39,8 @@ Currently, Usernetes uses our patched version of Kubernetes. See [`./src/patches
 We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
 
 Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
+
+See [Adoption](#adoption) for Usernetes-based Kubernetes distributions with TLS support.
 
 ## Adoption
 
