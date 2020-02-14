@@ -1,4 +1,4 @@
-From 18bb58f1ed26491c9c75c2e4ffe485638322c57b Mon Sep 17 00:00:00 2001
+From cf70d9119b9692f814fde987f5a26d04519cbb00 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
@@ -138,7 +138,7 @@ index 87e3ea3866c..534664a9b00 100644
  		NodeRef:                nodeRef,
  		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/BUILD b/pkg/proxy/userspace/BUILD
-index 9c76a02c01e..4e45c595023 100644
+index 79348fdb792..f492370995b 100644
 --- a/pkg/proxy/userspace/BUILD
 +++ b/pkg/proxy/userspace/BUILD
 @@ -34,6 +34,7 @@ go_library(
@@ -148,9 +148,9 @@ index 9c76a02c01e..4e45c595023 100644
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
          "//vendor/k8s.io/klog:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
-     ] + select({
+         "//vendor/k8s.io/utils/net:go_default_library",
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index 7a34529d6ff..63ec9564e3e 100644
+index 49bd24f705d..362868b28f9 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
@@ -161,7 +161,7 @@ index 7a34529d6ff..63ec9564e3e 100644
  	v1 "k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-@@ -207,7 +208,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
+@@ -209,7 +210,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
  
  	err = setRLimit(64 * 1000)
  	if err != nil {

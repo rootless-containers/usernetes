@@ -1,4 +1,4 @@
-From 9aa5a7a5e683b5eada1460809d55c85d85c781a9 Mon Sep 17 00:00:00 2001
+From e96ffd53b657d8531b7b5ec71650dda318afeb7d Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -25,10 +25,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  11 files changed, 126 insertions(+), 30 deletions(-)
 
 diff --git a/cmd/kubeadm/app/phases/kubelet/flags.go b/cmd/kubeadm/app/phases/kubelet/flags.go
-index 14f7317be12..6bb02f6ef43 100644
+index 0c370efe2ae..746602de2bc 100644
 --- a/cmd/kubeadm/app/phases/kubelet/flags.go
 +++ b/cmd/kubeadm/app/phases/kubelet/flags.go
-@@ -86,6 +86,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
+@@ -97,6 +97,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
  		if err != nil {
  			klog.Warningf("cannot automatically assign a '--cgroup-driver' value when starting the Kubelet: %v\n", err)
  		} else {
@@ -103,10 +103,10 @@ index ba32570fd2f..8207d91b1b5 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 623c2f39f13..53baeb90ebe 100644
+index b14d12663f2..490afca6438 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -529,6 +529,18 @@ const (
+@@ -539,6 +539,18 @@ const (
  	//
  	// Enables a feature to make secrets and configmaps data immutable.
  	ImmutableEphemeralVolumes featuregate.Feature = "ImmutableEphemeralVolumes"
@@ -125,7 +125,7 @@ index 623c2f39f13..53baeb90ebe 100644
  )
  
  func init() {
-@@ -613,6 +625,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -624,6 +636,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	PodDisruptionBudget:                            {Default: true, PreRelease: featuregate.Beta},
  	ServiceTopology:                                {Default: false, PreRelease: featuregate.Alpha},
  	ImmutableEphemeralVolumes:                      {Default: false, PreRelease: featuregate.Alpha},
@@ -147,7 +147,7 @@ index 0e9cedc1353..e5b3e6ffdf8 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index 1bad39979cc..3a80e730203 100644
+index 41dbed9567a..8b8a8bcb0d7 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -46,6 +46,9 @@ const (
@@ -186,7 +186,7 @@ index 1bad39979cc..3a80e730203 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -590,3 +601,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -594,3 +605,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
@@ -260,7 +260,7 @@ index 5d77ed7a45f..5654d737fd6 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index dc8326a3fa3..c819fa6d6f9 100644
+index af32383ee79..65adbb93b2a 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -249,9 +249,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
@@ -322,10 +322,10 @@ index 227bef8211a..3bb5c532fe9 100644
  	}
  	klog.Infof("Setting cgroupDriver to %s", cgroupDriver)
 diff --git a/test/e2e_node/node_container_manager_test.go b/test/e2e_node/node_container_manager_test.go
-index ca25e96afe9..4e656cb5a11 100644
+index 45cf79f73df..bb6aa07c68c 100644
 --- a/test/e2e_node/node_container_manager_test.go
 +++ b/test/e2e_node/node_container_manager_test.go
-@@ -161,7 +161,10 @@ func runTest(f *framework.Framework) error {
+@@ -162,7 +162,10 @@ func runTest(f *framework.Framework) error {
  	}
  
  	// Create a cgroup manager object for manipulating cgroups.
