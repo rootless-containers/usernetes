@@ -31,6 +31,9 @@ ARG GOTASK_RELEASE=v2.8.0
 ARG BASEOS=ubuntu
 
 ### Common base images (common-*)
+FROM alpine:3.11 AS common-alpine
+RUN apk add --no-cache git build-base autoconf automake libtool
+
 FROM golang:1.13-alpine AS common-golang-alpine
 RUN apk add --no-cache git
 
@@ -49,8 +52,8 @@ RUN mkdir /out && \
   go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
-FROM alpine:3.10 AS slirp4netns-build
-RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
+FROM common-alpine AS slirp4netns-build
+RUN apk add --no-cache linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT
@@ -127,13 +130,12 @@ RUN make kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubect
   mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
-FROM ubuntu:19.10 AS socat-build
-RUN apt-get update && apt-get install -y autoconf automake libtool build-essential git yodl
+FROM common-alpine AS socat-build
 RUN git clone git://repo.or.cz/socat.git /socat
 WORKDIR /socat
 ARG SOCAT_RELEASE
 RUN git pull && git checkout ${SOCAT_RELEASE}
-RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
+RUN autoconf && LIBS="-static" ./configure -q && make socat && strip socat && \
   mkdir -p /out && cp -f socat /out
 
 #### flannel (flannel-build)
