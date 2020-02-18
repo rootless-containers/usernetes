@@ -17,24 +17,11 @@ services:
       - 127.0.0.1:8080:8080
     networks:
       - usernetes
-  node-docker:
-    image: rootlesscontainers/usernetes
-    environment:
-      - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.101.0/24
-# 10250/tcp: kubelet, 8472/udp: reserved for flannel
-      - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
-      - U7S_KUBECONFIG=/home/user/usernetes/config/docker-compose-master.kubeconfig
-      - U7S_FLANNEL=1
-    entrypoint:
-      - /home/user/usernetes/run.sh
-      - docker-compose-node-docker+flanneld
-    privileged: true
-    networks:
-      - usernetes
   node-crio:
     image: rootlesscontainers/usernetes
     environment:
       - U7S_ROOTLESSKIT_FLAGS=--cidr=10.0.102.0/24
+# 10250/tcp: kubelet, 8472/udp: reserved for flannel
       - U7S_ROOTLESSKIT_PORTS=0.0.0.0:10250:10250/tcp 0.0.0.0:8472:8472/udp
       - U7S_KUBECONFIG=/home/user/usernetes/config/docker-compose-master.kubeconfig
       - U7S_FLANNEL=1
