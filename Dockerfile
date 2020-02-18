@@ -83,15 +83,13 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
 ### CRI-O (crio-build)
-# We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
-# TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
-FROM golang:1.13-stretch AS crio-build
-RUN apt-get update && apt-get install -y build-essential libglib2.0-dev libseccomp-dev
+FROM common-golang-alpine-heavy AS crio-build
 RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-RUN make binaries && mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
+RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
+  mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
 FROM common-golang-alpine-heavy AS conmon-build
