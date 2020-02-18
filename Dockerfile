@@ -46,8 +46,7 @@ RUN git pull && git checkout ${ROOTLESSKIT_COMMIT}
 ENV CGO_ENABLED=0
 RUN mkdir /out && \
   go build -o /out/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit && \
-  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl && \
-  go build -o /out/rootlesskit-docker-proxy github.com/rootless-containers/rootlesskit/cmd/rootlesskit-docker-proxy
+  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
 FROM alpine:3.10 AS slirp4netns-build
