@@ -1,6 +1,6 @@
-# Usernetes: Moby (aka Docker) & Kubernetes, without the root privileges
+# Usernetes: Kubernetes without the root privileges
 
-Usernetes aims to provide a reference distribution of Moby (aka Docker) and Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
+Usernetes aims to provide a reference distribution of Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
 
  - [Status](#status)
  - [Adoption](#adoption)
@@ -10,11 +10,8 @@ Usernetes aims to provide a reference distribution of Moby (aka Docker) and Kube
  - [Install from binary](#install-from-binary)
  - [Install from source](#install-from-source)
  - [Quick start](#quick-start)
-   - [Start Kubernetes with Docker](#start-kubernetes-with-docker)
    - [Start Kubernetes with CRI-O](#start-kubernetes-with-cri-o)
    - [Start Kubernetes with containerd](#start-kubernetes-with-containerd)
-   - [Start dockerd only (No Kubernetes)](#start-dockerd-only-no-kubernetes)
-   - [Use `docker`](#use-docker)
    - [Use `kubectl`](#use-kubectl)
    - [Reset to factory defaults](#reset-to-factory-defaults)
  - [Run Usernetes in Docker](#run-usernetes-in-docker)
@@ -27,11 +24,12 @@ Usernetes aims to provide a reference distribution of Moby (aka Docker) and Kube
 
 ## Status
 
-* [X] Moby (`dockerd`)
-* [X] Kubernetes
-  * [X] dockershim
+* [X] master components (etcd, kube-apiserver, ...)
+* [X] kubelet
+* [X] CRI runtimes
   * [X] CRI-O
   * [X] containerd
+* [ ] Cgroup
 * [X] Multi-node CNI
   * [X] Flannel (VXLAN)
 
@@ -41,6 +39,11 @@ We are proposing our patches to the Kubernetes upstream. See [#42](https://githu
 Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
 
 See [Adoption](#adoption) for Usernetes-based Kubernetes distributions with TLS support.
+
+> **Note**
+> [Usernetes no longer includes Docker (Moby) binaries since February 2020.](https://github.com/rootless-containers/usernetes/pull/126)
+> To install Rootless Docker, see https://get.docker.com/rootless .
+> See also https://docs.docker.com/engine/security/rootless/ for the further information.
 
 ## Adoption
 
@@ -52,7 +55,7 @@ Currently, the following distributions adopt Usernetes:
 
 ## How it works
 
-Usernetes executes Moby (aka Docker) and Kubernetes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/mount_namespaces.7.html), and [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html).
+Usernetes executes Kubernetes and CRI runtimes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/mount_namespaces.7.html), and [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html).
 
 To set up NAT across the host and the network namespace without the root privilege, Usernetes uses a usermode network stack ([slirp4netns](https://github.com/rootless-containers/slirp4netns)).
 
@@ -109,13 +112,8 @@ penguin:231072:65536
 
 Common:
 * Following features are not supported:
-  * Cgroups (including `docker top`, which depends on the cgroups device controller)
+  * Cgroups
   * Apparmor
-  * Checkpoint
-
-Moby (`dockerd`):
-* Only `vfs` storage driver is supported. However, on [Ubuntu](http://kernel.ubuntu.com/git/ubuntu/ubuntu-artful.git/commit/fs/overlayfs?h=Ubuntu-4.13.0-25.29&id=0a414bdc3d01f3b61ed86cfe3ce8b63a9240eba7) and a few distros, `overlay2` and `overlay` are also supported.
-* Swarm-mode Overlay network is not supported
 
 CRI-O:
 * Only `vfs` storage driver is supported.
@@ -145,12 +143,6 @@ Binaries are genereted under `./bin` directory.
 
 ## Quick start
 
-### Start Kubernetes with Docker
-
-```console
-$ ./run.sh
-```
-
 ### Start Kubernetes with CRI-O
 
 ```console
@@ -161,26 +153,6 @@ $ ./run.sh default-crio
 
 ```console
 $ ./run.sh default-containerd
-```
-
-
-### Start dockerd only (No Kubernetes)
-
-If you don't need Kubernetes:
-```console
-$ ./run.sh default-docker-nokube
-```
-
-### Use `docker`
-
-```console
-$ docker -H unix://$XDG_RUNTIME_DIR/docker.sock info
-```
-
-Or
-
-```console
-$ ./dockercli.sh info
 ```
 
 ### Use `kubectl`

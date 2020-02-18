@@ -28,7 +28,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	# * /etc: copy-up is required so as to prevent `/etc/resolv.conf` in the
 	#         namespace from being unexpectedly unmounted when `/etc/resolv.conf` is recreated on the host
 	#         (by either systemd-networkd or NetworkManager)
-	# * /run: copy-up is required so that we can create /run/docker (hardcoded for plugins) in our namespace
+	# * /run: copy-up is required so that we can create /run/* in our namespace
 	# * /var/lib: copy-up is required for several Kube stuff
 	# * /opt: copy-up is required for mounting /opt/cni/bin
 	rootlesskit \
@@ -44,7 +44,7 @@ else
 	echo $U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
 
 	# Remove symlinks so that the child won't be confused by the parent configuration
-	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/docker /etc/kubernetes
+	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/kubernetes
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d
@@ -58,9 +58,7 @@ else
 	mount --bind $U7S_BASE_DIR/bin/cni /opt/cni/bin
 
 	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube.
-	binds=(/var/lib/kubelet /var/lib/dockershim /var/lib/cni /var/log)
-	# /run/docker is hard-coded in Docker for plugins.
-	binds+=(/run/docker)
+	binds=(/var/lib/kubelet /var/lib/cni /var/log)
 	for f in ${binds[@]}; do
 		src=$XDG_DATA_HOME/usernetes/$(echo $f | sed -e s@/@_@g)
 		mkdir -p $src $f

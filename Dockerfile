@@ -10,8 +10,6 @@ ARG ROOTLESSKIT_COMMIT=1d2bbb25313a6f2dccc674ee96a62c4e343178ef
 ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
 # 2020-02-03T11:41:07Z
 ARG RUNC_COMMIT=e6555cc01a92b599bef90dbe8cb3b7bb74391da9
-# 2020-02-13T20:27:29Z
-ARG MOBY_COMMIT=31a86c4ab209528b77d6048f8c99c363ffd4c884
 # 2020-02-13T22:22:59Z
 ARG CONTAINERD_COMMIT=7811aa755265ba3f017683afb1ee3b5a1e0f29b4
 # 2020-02-13T12:49:01Z
@@ -23,7 +21,6 @@ ARG KUBERNETES_COMMIT=4c0871751308d93e99e58fdc0c3503a9f59555c3
 
 # Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.10
-ARG DOCKER_CLI_RELEASE=19.03.6
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG BAZEL_RELEASE=2.1.0
@@ -73,33 +70,6 @@ RUN git pull && git checkout ${RUNC_COMMIT}
 RUN make BUILDTAGS="seccomp" static && \
   mkdir /out && cp runc /out
 
-### Moby (moby-build)
-FROM common-golang-alpine-heavy AS moby-base
-RUN git clone https://github.com/moby/moby.git /go/src/github.com/docker/docker
-WORKDIR /go/src/github.com/docker/docker
-ARG MOBY_COMMIT
-RUN git pull && git checkout ${MOBY_COMMIT}
-
-FROM moby-base AS moby-build-docker-init
-RUN apk --no-cache add cmake
-RUN hack/dockerfile/install/install.sh tini
-
-FROM moby-base AS moby-build-docker-proxy
-RUN hack/dockerfile/install/install.sh proxy
-
-FROM moby-base AS moby-build
-RUN mkdir /out
-ENV DOCKER_BUILDTAGS="seccomp"
-# runopt = --mount=type=cache,id=u7s-moby-build-cache,target=/root
-RUN ./hack/make.sh .binary && cp -f bundles/.binary/dockerd-dev /out/dockerd
-COPY --from=moby-build-docker-init /usr/local/bin/docker-init /out/
-COPY --from=moby-build-docker-proxy /usr/local/bin/docker-proxy /out/
-
-#### Docker CLI (dockercli-build)
-ARG DOCKER_CLI_RELEASE
-FROM docker:$DOCKER_CLI_RELEASE AS dockercli-build
-RUN mkdir /out && cp /usr/local/bin/docker /out
-
 ### containerd (containerd-build)
 FROM common-golang-alpine-heavy AS containerd-build
 RUN git clone https://github.com/containerd/containerd.git /go/src/github.com/containerd/containerd
@@ -109,7 +79,7 @@ RUN git pull && git checkout ${CONTAINERD_COMMIT}
 # workaround: https://github.com/containerd/containerd/issues/3646
 RUN ./script/setup/install-dev-tools
 RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build" && \
-  mkdir /out && cp bin/containerd bin/containerd-shim bin/containerd-shim-runc-v1 bin/containerd-shim-runc-v2 bin/ctr /out
+  mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
 ### CRI-O (crio-build)
 # We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
@@ -194,8 +164,6 @@ FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
 COPY --from=slirp4netns-build /out/* /
 COPY --from=runc-build /out/* /
-COPY --from=moby-build /out/* /
-COPY --from=dockercli-build /out/* /
 COPY --from=containerd-build /out/* /
 COPY --from=crio-build /out/* /
 COPY --from=conmon-build /out/* /

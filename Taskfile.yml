@@ -4,12 +4,6 @@ tasks:
   rootlesskit:
     cmds:
       - ./boot/rootlesskit.sh
-  dockerd:
-    cmds:
-      - ./boot/dockerd.sh
-  kubelet-dockershim:
-    cmds:
-      - ./boot/kubelet-dockershim.sh
   crio:
     cmds:
       - ./boot/crio.sh
@@ -48,11 +42,6 @@ tasks:
   flanneld:
     cmds:
       - ./boot/flanneld.sh
-  dockerd+kubelet-dockershim+kube-proxy:
-    deps:
-      - dockerd
-      - kubelet-dockershim
-      - kube-proxy
   crio+kubelet-crio+kube-proxy:
     deps:
       - crio
@@ -69,15 +58,6 @@ tasks:
       - etcd
       - etcd-init-data
       - kube-apiserver+kube-controller-manager+kube-scheduler
-  docker-compose-node-docker:
-    deps:
-      - rootlesskit
-      - dockerd+kubelet-dockershim+kube-proxy
-# NOTE: requires $U7S_FLANNEL=1 to be set
-  docker-compose-node-docker+flanneld:
-    deps:
-      - docker-compose-node-docker
-      - flanneld
   docker-compose-node-crio:
     deps:
       - rootlesskit
@@ -94,16 +74,6 @@ tasks:
     deps:
       - docker-compose-node-containerd
       - flanneld
-  default-docker:
-    deps:
-      - rootlesskit
-      - etcd
-      - kube-apiserver+kube-controller-manager+kube-scheduler
-      - dockerd+kubelet-dockershim+kube-proxy
-  default-docker-nokube:
-     deps:
-      - rootlesskit
-      - dockerd
   default-crio:
     deps:
       - rootlesskit
@@ -118,4 +88,4 @@ tasks:
       - containerd+kubelet-containerd+kube-proxy
   default:
     deps:
-      - default-docker
+      - default-containerd
