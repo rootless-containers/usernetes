@@ -31,11 +31,14 @@ ARG GOTASK_RELEASE=v2.8.0
 ARG BASEOS=ubuntu
 
 ### Common base images (common-*)
+FROM alpine:3.11 AS common-alpine
+RUN apk add --no-cache git build-base autoconf automake libtool
+
 FROM golang:1.13-alpine AS common-golang-alpine
 RUN apk add --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
-RUN apk --no-cache add btrfs-progs-dev bash build-base linux-headers libseccomp-dev
+RUN apk --no-cache add bash build-base linux-headers libseccomp-dev
 
 ### RootlessKit (rootlesskit-build)
 FROM common-golang-alpine AS rootlesskit-build
@@ -46,12 +49,11 @@ RUN git pull && git checkout ${ROOTLESSKIT_COMMIT}
 ENV CGO_ENABLED=0
 RUN mkdir /out && \
   go build -o /out/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit && \
-  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl && \
-  go build -o /out/rootlesskit-docker-proxy github.com/rootless-containers/rootlesskit/cmd/rootlesskit-docker-proxy
+  go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
-FROM alpine:3.10 AS slirp4netns-build
-RUN apk add --no-cache git build-base autoconf automake libtool linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
+FROM common-alpine AS slirp4netns-build
+RUN apk add --no-cache linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
 RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT
@@ -76,19 +78,18 @@ ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
 # workaround: https://github.com/containerd/containerd/issues/3646
 RUN ./script/setup/install-dev-tools
-RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build" && \
+RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs" \
+  bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
 ### CRI-O (crio-build)
-# We don't use Alpine here so as to build cri-o linked with glibc rather than musl libc.
-# TODO: use Alpine again when we figure out how to build cri-o as a static binary (rootless-containers/usernetes#19)
-FROM golang:1.13-stretch AS crio-build
-RUN apt-get update && apt-get install -y build-essential libglib2.0-dev libseccomp-dev
+FROM common-golang-alpine-heavy AS crio-build
 RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-RUN make binaries && mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
+RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
+  mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
 FROM common-golang-alpine-heavy AS conmon-build
@@ -127,13 +128,12 @@ RUN make kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubect
   mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
-FROM ubuntu:19.10 AS socat-build
-RUN apt-get update && apt-get install -y autoconf automake libtool build-essential git yodl
+FROM common-alpine AS socat-build
 RUN git clone git://repo.or.cz/socat.git /socat
 WORKDIR /socat
 ARG SOCAT_RELEASE
 RUN git pull && git checkout ${SOCAT_RELEASE}
-RUN autoconf && ./configure LDFLAGS="-static" && make && strip socat && \
+RUN autoconf && LIBS="-static" ./configure -q && make socat && strip socat && \
   mkdir -p /out && cp -f socat /out
 
 #### flannel (flannel-build)
