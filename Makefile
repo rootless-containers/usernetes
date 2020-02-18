@@ -21,7 +21,6 @@ endif
 test: image _test
 
 _test:
-	./hack/smoketest.sh $(IMAGE) default-docker
 	./hack/smoketest.sh $(IMAGE) default-containerd
 	./hack/smoketest.sh $(IMAGE) default-crio
 

@@ -11,6 +11,6 @@ if [ -z $HOME ]; then
 fi
 
 # use RootlessKit for removing files owned by sub-IDs.
-./bin/rootlesskit rm -rf $XDG_RUNTIME_DIR/{usernetes,docker*,containerd,runc} $HOME/.local/share/usernetes $HOME/.local/share/docker $HOME/.local/share/containers
+./bin/rootlesskit rm -rf $XDG_RUNTIME_DIR/{usernetes,containerd,runc} $HOME/.local/share/usernetes $HOME/.local/share/containers
 
-echo "You may also want to remove manually: ~/.config/{docker,crio,usernetes} ~/.docker ~/.kube"
+echo "You may also want to remove manually: ~/.config/{crio,usernetes} ~/.kube"
