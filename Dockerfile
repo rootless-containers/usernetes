@@ -19,6 +19,7 @@ ARG KUBERNETES_COMMIT=67c6767b7da983034be04a31575261890186338a
 
 # Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.11
+ARG CRUN_RELEASE=0.13
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -58,15 +59,11 @@ RUN git pull && git checkout ${SLIRP4NETNS_COMMIT}
 RUN ./autogen.sh && ./configure -q LDFLAGS="-static" && make --quiet && \
   mkdir /out && cp slirp4netns /out
 
-### runc (runc-build)
-FROM common-golang-alpine-heavy AS runc-build
-RUN git clone -q https://github.com/opencontainers/runc.git /go/src/github.com/opencontainers/runc
-WORKDIR /go/src/github.com/opencontainers/runc
-ARG RUNC_COMMIT
-RUN git pull && git checkout ${RUNC_COMMIT}
-ENV GO111MODULE=off
-RUN make --quiet BUILDTAGS="seccomp" static && \
-  mkdir /out && cp runc /out
+### crun (crun-build)
+FROM busybox AS crun-build
+ARG CRUN_RELEASE
+ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-static-x86_64 /out/crun
+RUN chmod +x /out/crun
 
 ### containerd (containerd-build)
 FROM common-golang-alpine-heavy AS containerd-build
@@ -150,7 +147,7 @@ RUN mkdir /tmp-etcd out && \
 FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
 COPY --from=slirp4netns-build /out/* /
-COPY --from=runc-build /out/* /
+COPY --from=crun-build /out/* /
 COPY --from=containerd-build /out/* /
 COPY --from=crio-build /out/* /
 COPY --from=conmon-build /out/* /

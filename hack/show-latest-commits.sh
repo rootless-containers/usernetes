@@ -14,7 +14,6 @@ x() {
 
 x ROOTLESSKIT rootless-containers/rootlesskit
 x SLIRP4NETNS rootless-containers/slirp4netns
-x RUNC opencontainers/runc
 x CONTAINERD containerd/containerd
 x CRIO cri-o/cri-o
 x KUBERNETES kubernetes/kubernetes
