@@ -35,7 +35,7 @@ FROM golang:1.13-alpine AS common-golang-alpine
 RUN apk add --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
-RUN apk --no-cache add btrfs-progs-dev bash build-base linux-headers libseccomp-dev
+RUN apk --no-cache add bash build-base linux-headers libseccomp-dev
 
 ### RootlessKit (rootlesskit-build)
 FROM common-golang-alpine AS rootlesskit-build
@@ -75,7 +75,8 @@ ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
 # workaround: https://github.com/containerd/containerd/issues/3646
 RUN ./script/setup/install-dev-tools
-RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build" && \
+RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs" \
+  bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
 ### CRI-O (crio-build)
