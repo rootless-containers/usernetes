@@ -21,7 +21,6 @@ ARG KUBERNETES_COMMIT=4c0871751308d93e99e58fdc0c3503a9f59555c3
 ARG CONMON_RELEASE=v2.0.10
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
-ARG BAZEL_RELEASE=2.1.0
 ARG SOCAT_RELEASE=tag-1.7.3.3
 ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.11.0
@@ -107,11 +106,8 @@ RUN mkdir -p /out/cni && \
  wget -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni
 
 ### Kubernetes (k8s-build)
-FROM golang:1.13-stretch AS k8s-build
-RUN apt-get update && apt-get install -y -q patch rsync
-ARG BAZEL_RELEASE
-ADD https://github.com/bazelbuild/bazel/releases/download/${BAZEL_RELEASE}/bazel-${BAZEL_RELEASE}-linux-x86_64 /usr/local/bin/bazel
-RUN chmod +x /usr/local/bin/bazel
+FROM common-golang-alpine-heavy AS k8s-build
+RUN apk add --no-cache rsync
 RUN git clone https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
 ARG KUBERNETES_COMMIT
@@ -124,7 +120,8 @@ RUN git config user.email "nobody@example.com" && \
 ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
-RUN make kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
+RUN KUBE_STATIC_OVERRIDES=kubelet \
+  make kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
   mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
