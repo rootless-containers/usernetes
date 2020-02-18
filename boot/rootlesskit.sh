@@ -44,7 +44,13 @@ else
 	echo $U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
 
 	# Remove symlinks so that the child won't be confused by the parent configuration
-	rm -f /run/xtables.lock /run/flannel /etc/cni /etc/containerd /etc/containers /etc/crio /etc/kubernetes
+	rm -f \
+		/run/xtables.lock /run/flannel /run/netns \
+		/run/runc /run/crun \
+		/run/containerd /run/containers /run/crio \
+		/etc/cni \
+		/etc/containerd /etc/containers /etc/crio \
+		/etc/kubernetes
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d
