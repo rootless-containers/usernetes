@@ -175,8 +175,7 @@ COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
 FROM ubuntu:19.10 AS test-main-ubuntu
-# libglib2.0: require by conmon
-RUN apt-get update && apt-get install -y -q git libglib2.0-dev iproute2 iptables uidmap
+RUN apt-get update && apt-get install -y -q git iproute2 iptables uidmap
 
 # fedora image is experimental
 FROM fedora:31 AS test-main-fedora
