@@ -17,5 +17,4 @@ x SLIRP4NETNS rootless-containers/slirp4netns
 x RUNC opencontainers/runc
 x CONTAINERD containerd/containerd
 x CRIO cri-o/cri-o
-x CNI_PLUGINS containernetworking/plugins
 x KUBERNETES kubernetes/kubernetes

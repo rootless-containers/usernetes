@@ -41,8 +41,11 @@ Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](htt
 See [Adoption](#adoption) for Usernetes-based Kubernetes distributions with TLS support.
 
 > **Note**
+>
 > [Usernetes no longer includes Docker (Moby) binaries since February 2020.](https://github.com/rootless-containers/usernetes/pull/126)
+>
 > To install Rootless Docker, see https://get.docker.com/rootless .
+>
 > See also https://docs.docker.com/engine/security/rootless/ for the further information.
 
 ## Adoption
