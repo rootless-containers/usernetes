@@ -1,27 +1,32 @@
 #!/bin/bash
 set -eu -o pipefail
-if [[ $# -ne 2 ]]; then
-	echo "Usage: $0 IMAGE ARG"
+if [[ $# -lt 3 ]]; then
+	echo "Usage: $0 NAME IMAGE ARGS"
 	exit 1
 fi
 
-image=$1
-arg=$2
-
-container="$(echo $1-$2 | sed -e s@/@-@g)"
+cd $(realpath $(dirname $0)/..)
+container=$1
+image=$2
+shift 2
+args=$@
 
 set -x
-docker run -d --name $container --privileged $image $arg
+tmpdir=$(mktemp -d)
+docker run -td --name $container -p 127.0.0.1:8080:8080 --privileged rootlesscontainers/usernetes -p 0.0.0.0:8080:8080/tcp $args
 function cleanup() {
 	docker rm -f $container
+	rm -rf $tmpdir
 }
 trap cleanup EXIT
-docker exec $container ./boot/nsenter.sh echo rootlesskit ready
-timeout 60 sh -ex -c "until test \$(docker exec $container ./kubectl.sh get nodes -o name | grep ^node/ | wc -l) -gt 0; do sleep 5; done" || docker logs $container
-function k(){
-	docker exec -it $container ./kubectl.sh $@
-}
-k get nodes -o wide
-k get nodes -o yaml
-k run --rm -i --image busybox --restart=Never hello echo hello $container
-k get nodes -o wide
+
+export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
+docker cp $container:/home/user/usernetes/bin/kubectl $tmpdir/kubectl
+chmod +x $tmpdir/kubectl
+kubectl=$tmpdir/kubectl
+
+# TODO: use Dockerfile HEALTHCHECK
+sleep 30
+$kubectl get nodes -o wide
+$kubectl get nodes -o yaml
+time $kubectl run --rm -i --image busybox --restart=Never hello echo hello $container

@@ -21,8 +21,8 @@ endif
 test: image _test
 
 _test:
-	./hack/smoketest.sh $(IMAGE) default-containerd
-	./hack/smoketest.sh $(IMAGE) default-crio
+	./hack/smoketest.sh u7s-test-containerd $(IMAGE) --cri=containerd
+	./hack/smoketest.sh u7s-test-crio $(IMAGE) --cri=crio
 
 up: image
 	docker-compose up -d
