@@ -21,7 +21,7 @@ ARG KUBERNETES_COMMIT=4c0871751308d93e99e58fdc0c3503a9f59555c3
 ARG CONMON_RELEASE=v2.0.10
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
-ARG SOCAT_RELEASE=tag-1.7.3.3
+ARG SOCAT_RELEASE=1.7.3.4
 ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.4.3
@@ -123,11 +123,10 @@ RUN KUBE_STATIC_OVERRIDES=kubelet \
 
 ### socat (socat-build)
 FROM common-alpine AS socat-build
-RUN git clone git://repo.or.cz/socat.git /socat
-WORKDIR /socat
 ARG SOCAT_RELEASE
-RUN git pull && git checkout ${SOCAT_RELEASE}
-RUN autoconf && LIBS="-static" ./configure -q && make socat && strip socat && \
+RUN wget -O - http://www.dest-unreach.org/socat/download/socat-${SOCAT_RELEASE}.tar.gz | tar xz -C /
+WORKDIR /socat-${SOCAT_RELEASE}
+RUN LIBS="-static" ./configure -q && make socat && strip socat && \
   mkdir -p /out && cp -f socat /out
 
 #### flannel (flannel-build)
