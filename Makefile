@@ -31,6 +31,8 @@ up: image
 down:
 	docker-compose down
 
+artifact: image _artifact
+
 _artifact:
 	rm -rf _artifact _SHA256SUM
 	mkdir _artifact
@@ -38,16 +40,7 @@ _artifact:
 	(cd _artifact ; sha256sum * > ../_SHA256SUM; mv ../_SHA256SUM ./SHA256SUM)
 	cat _artifact/SHA256SUM
 
-_upload-artifact:
-	echo "Uploading usernetes-x86_64.tbz"
-	curl --retry 10 -F "file=@_artifact/usernetes-x86_64.tbz" https://file.io
-	echo -e "\nUploading SHA256SUM"
-	curl --retry 10 -F "file=@_artifact/SHA256SUM" https://file.io
-	echo -e "\n"
-
 clean:
 	rm -rf _artifact bin
 
-_ci: image _test _binaries _artifact _upload-artifact
-
-.PHONY: binaries _binaries image test _test up down _artifact _upload-artifact clean _ci
+.PHONY: binaries _binaries image test _test up down artifact _artifact clean

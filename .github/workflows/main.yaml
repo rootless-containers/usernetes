@@ -1,0 +1,15 @@
+name: Main
+on: [push, pull_request]
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: "Build image"
+      run: DOCKER_BUILDKIT=1 docker build -t rootlesscontainers/usernetes .
+    - name: "Prune cache (To avoid `node.kubernetes.io/disk-pressure` taint)"
+      run: docker builder prune -a -f
+    - name: "Smoke test (containerd)"
+      run: ./hack/smoketest.sh u7s-test-containerd rootlesscontainers/usernetes --cri=containerd
+    - name: "Smoke test (CRI-O)"
+      run: ./hack/smoketest.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio
