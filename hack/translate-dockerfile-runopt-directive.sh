@@ -24,6 +24,6 @@ while IFS="" read -r line || [[ -n $line ]]; do
 	fi
 	last_runopt=$(echo $line | grep -ioP '^#\s*runopt\s*=\s*\K.+')
 	if [[ -z $last_runopt && -z $printed ]]; then
-		echo $line
+		echo "$line"
 	fi
 done
