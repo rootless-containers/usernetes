@@ -2,25 +2,40 @@
 
 Usernetes aims to provide a reference distribution of Kubernetes that can be installed under a user's `$HOME` and does not require the root privileges.
 
- - [Status](#status)
- - [Adoption](#adoption)
- - [How it works](#how-it-works)
- - [Requirements](#requirements)
- - [Restrictions](#restrictions)
- - [Install from binary](#install-from-binary)
- - [Install from source](#install-from-source)
- - [Quick start](#quick-start)
-   - [Start Kubernetes with CRI-O](#start-kubernetes-with-cri-o)
-   - [Start Kubernetes with containerd](#start-kubernetes-with-containerd)
-   - [Use `kubectl`](#use-kubectl)
-   - [Reset to factory defaults](#reset-to-factory-defaults)
- - [Run Usernetes in Docker](#run-usernetes-in-docker)
-   - [Single node](#single-node)
-   - [Multi node (Docker Compose)](#multi-node-docker-compose)
- - [Advanced guide](#advanced-guide)
-   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
-   - [Routing ping packets](#routing-ping-packets)
- - [License](#license)
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [Status](#status)
+- [Adoption](#adoption)
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+  - [Distribution-specific hint](#distribution-specific-hint)
+    - [Ubuntu](#ubuntu)
+    - [Debian GNU/Linux](#debian-gnulinux)
+    - [Arch Linux](#arch-linux)
+    - [openSUSE](#opensuse)
+    - [Fedora 31 and later](#fedora-31-and-later)
+    - [Fedora 30](#fedora-30)
+    - [RHEL/CentOS 8](#rhelcentos-8)
+    - [RHEL/CentOS 7](#rhelcentos-7)
+- [Restrictions](#restrictions)
+- [Install from binary](#install-from-binary)
+- [Install from source](#install-from-source)
+- [Quick start](#quick-start)
+  - [Install](#install)
+  - [Use `kubectl`](#use-kubectl)
+  - [Reset to factory defaults](#reset-to-factory-defaults)
+  - [Uninstall](#uninstall)
+- [Run Usernetes in Docker](#run-usernetes-in-docker)
+  - [Single node](#single-node)
+  - [Multi node (Docker Compose)](#multi-node-docker-compose)
+- [Advanced guide](#advanced-guide)
+  - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
+  - [Routing ping packets](#routing-ping-packets)
+- [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Status
 
@@ -66,19 +81,21 @@ No SETUID/SETCAP binary is needed. except [`newuidmap(1)`](http://man7.org/linux
 
 ## Requirements
 
+* Recent version of systemd
+
 * `newuidmap` and `newgidmap` need to be installed on the host. These commands are provided by the `uidmap` package on most distros.
 
-* `/etc/subuid` and `/etc/subgid` should contain more than 65536 sub-IDs. e.g. `penguin:231072:65536`. These files are automatically configured on most distros.
+* `/etc/subuid` and `/etc/subgid` should contain more than 65536 sub-IDs. e.g. `exampleuser:231072:65536`. These files are automatically configured on most distros.
 
 ```console
 $ id -u
 1001
 $ whoami
-penguin
+exampleuser
 $ grep "^$(whoami):" /etc/subuid
-penguin:231072:65536
+exampleuser:231072:65536
 $ grep "^$(whoami):" /etc/subgid
-penguin:231072:65536
+exampleuser:231072:65536
 ```
 
 ### Distribution-specific hint
@@ -95,7 +112,6 @@ penguin:231072:65536
 
 #### openSUSE
 * `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
-* `sudo prlimit --nofile=:65536 --pid $$` is required for Kubernetes
 
 #### Fedora 31 and later
 * Run `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"` and reboot.
@@ -107,9 +123,7 @@ penguin:231072:65536
 * No preparation is needed
 
 #### RHEL/CentOS 7
-* Add `user.max_user_namespaces=28633` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
-* RHEL/CentOS 7.6 and older releases require [COPR package `vbatts/shadow-utils-newxidmap`](https://copr.fedorainfracloud.org/coprs/vbatts/shadow-utils-newxidmap/) to be installed.
-* RHEL/CentOS 7.5 and older releases require running `sudo grubby --update-kernel=ALL --args="user_namespace.enable=1"` and reboot.
+* Unsupported since February 2020. [Usernetes v20200126.0 (January 26, 2020)](https://github.com/rootless-containers/usernetes/tree/v20200126.0#rhelcentos-7) should work.
 
 ## Restrictions
 
@@ -146,16 +160,52 @@ Binaries are genereted under `./bin` directory.
 
 ## Quick start
 
-### Start Kubernetes with CRI-O
+### Install
 
+`install.sh` installs Usernetes systemd units to `$HOME/.config/systemd/unit`.
+
+To use containerd as the CRI runtime (default):
 ```console
-$ ./run.sh default-crio
+$ ./install.sh --cri=containerd
+[INFO] Base dir: /home/exampleuser/gopath/src/github.com/rootless-containers/usernetes
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s.target
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-rootlesskit.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-etcd.target
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-etcd.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-master.target
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-kube-apiserver.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-kube-controller-manager.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-kube-scheduler.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-node.target
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-containerd.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-kubelet-containerd.service
+[INFO] Installing /home/exampleuser/.config/systemd/user/u7s-kube-proxy.service
+[INFO] Starting u7s.target
++ systemctl --user -T enable u7s.target
+Created symlink /home/exampleuser/.config/systemd/user/multi-user.target.wants/u7s.target → /home/exampleuser/.config/systemd/user/u7s.target.
++ systemctl --user -T start u7s.target
+Enqueued anchor job 522 u7s.target/start.
+Enqueued auxiliary job 538 u7s-rootlesskit.service/start.
+Enqueued auxiliary job 542 u7s-kubelet-containerd.service/start.
+Enqueued auxiliary job 541 u7s-containerd.service/start.
+Enqueued auxiliary job 524 u7s-etcd.service/start.
+Enqueued auxiliary job 546 u7s-kube-controller-manager.service/start.
+Enqueued auxiliary job 523 u7s-etcd.target/start.
+Enqueued auxiliary job 543 u7s-master.target/start.
+Enqueued auxiliary job 544 u7s-kube-scheduler.service/start.
+Enqueued auxiliary job 545 u7s-kube-apiserver.service/start.
+Enqueued auxiliary job 539 u7s-node.target/start.
+Enqueued auxiliary job 540 u7s-kube-proxy.service/start.
++ systemctl --user --no-pager status
+● localhost
+    State: running
+...
+[INFO] Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.
 ```
 
-### Start Kubernetes with containerd
-
+To use CRI-O:
 ```console
-$ ./run.sh default-containerd
+$ ./install.sh --cri=crio
 ```
 
 ### Use `kubectl`
@@ -185,6 +235,12 @@ $ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) \
 $ ./cleanup.sh
 ```
 
+### Uninstall
+
+```console
+$ ./uninstall.sh
+```
+
 ## Run Usernetes in Docker
 
 All-in-one Docker image is available as [`rootlesscontainers/usernetes`](https://hub.docker.com/r/rootlesscontainers/usernetes) on Docker Hub.
@@ -195,13 +251,12 @@ To build the image manually:
 $ docker build -t rootlesscontainers/usernetes .
 ```
 
-The image is by default based on Ubuntu.
-To build a Fedora-based image (experimental), set `--build-arg BASEOS=fedora`.
+The image is based on Fedora.
 
 ### Single node
 
 ```console
-$ docker run -d --name usernetes-node -p 127.0.0.1:8080:8080  -e U7S_ROOTLESSKIT_PORTS=0.0.0.0:8080:8080/tcp --privileged rootlesscontainers/usernetes default-docker
+$ docker run -td --name usernetes-node -p 127.0.0.1:8080:8080 --privileged rootlesscontainers/usernetes -p 0.0.0.0:8080:8080/tcp --cri=containerd
 $ export KUBECONFIG=./config/localhost.kubeconfig
 $ kubectl run -it --rm --image busybox foo
 / #
@@ -280,4 +335,3 @@ The binary releases of Usernetes contain files that are licensed under the terms
 
 * `bin/slirp4netns`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-slirp4netns), see https://github.com/rootless-containers/slirp4netns
 * `bin/socat`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-socat), see http://www.dest-unreach.org/socat/
-* `bin/task`: [MIT License](docs/binary-release-license/LICENSE-task), see https://github.com/go-task/task

@@ -25,9 +25,6 @@ ARG SOCAT_RELEASE=tag-1.7.3.3
 ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.11.0
 ARG ETCD_RELEASE=v3.4.3
-ARG GOTASK_RELEASE=v2.8.0
-
-ARG BASEOS=ubuntu
 
 ### Common base images (common-*)
 FROM alpine:3.11 AS common-alpine
@@ -147,13 +144,6 @@ RUN mkdir /tmp-etcd out && \
   wget -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
-#### go-task (gotask-build)
-FROM busybox AS gotask-build
-ARG GOTASK_RELEASE
-RUN mkdir /tmp-task /out && \
-  wget -O - https://github.com/go-task/task/releases/download/${GOTASK_RELEASE}/task_linux_amd64.tar.gz | tar xz  -C /tmp-task && \
-  cp /tmp-task/task /out
-
 ### Binaries (bin-main)
 FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
@@ -168,28 +158,23 @@ COPY --from=k8s-build /out/* /
 COPY --from=socat-build /out/* /
 COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
-COPY --from=gotask-build /out/* /
 
 #### Test (test-main)
-FROM ubuntu:19.10 AS test-main-ubuntu
-RUN apt-get update && apt-get install -y -q git iproute2 iptables uidmap
-
-# fedora image is experimental
-FROM fedora:31 AS test-main-fedora
-# As of Jan 2019, fedora:29 has wrong permission bits on newuidmap newgidmap
-RUN chmod +s /usr/bin/newuidmap /usr/bin/newgidmap
-RUN dnf install -y git iproute iptables hostname procps-ng
-
-FROM test-main-$BASEOS AS test-main
-RUN useradd --create-home --home-dir /home/user --uid 1000 user
+FROM fedora:31 AS test-main
+ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh && \
+# As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
+  chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \
+  dnf install -y findutils git iproute iptables hostname procps-ng \
+# systemd-container: for machinectl
+  systemd-container && \
+  useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
+  mkdir -p /home/user/.local
+COPY --from=bin-main / /home/user/usernetes-bin
 COPY . /home/user/usernetes
-COPY --from=bin-main / /home/user/usernetes/bin
-RUN mkdir -p /run/user/1000 /home/user/.local && \
-  chown -R user:user /run/user/1000 /home/user
-USER user
-ENV HOME /home/user
-ENV USER user
-ENV XDG_RUNTIME_DIR=/run/user/1000
-WORKDIR /home/user/usernetes
+RUN rm -rf /home/user/usernetes/bin && \
+  mv /home/user/usernetes-bin /home/user/usernetes/bin && \
+  chown -R user:user /home/user && \
+  rm -rf /tmp/*
 VOLUME /home/user/.local
-ENTRYPOINT ["/home/user/usernetes/run.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh", "machinectl", "shell", "user@", "/home/user/usernetes/boot/docker-2ndboot.sh"]
