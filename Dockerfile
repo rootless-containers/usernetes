@@ -38,7 +38,7 @@ RUN apk --no-cache add bash build-base linux-headers libseccomp-dev
 
 ### RootlessKit (rootlesskit-build)
 FROM common-golang-alpine AS rootlesskit-build
-RUN git clone https://github.com/rootless-containers/rootlesskit.git /go/src/github.com/rootless-containers/rootlesskit
+RUN git clone --depth=1 https://github.com/rootless-containers/rootlesskit.git /go/src/github.com/rootless-containers/rootlesskit
 WORKDIR /go/src/github.com/rootless-containers/rootlesskit
 ARG ROOTLESSKIT_COMMIT
 RUN git pull && git checkout ${ROOTLESSKIT_COMMIT}
@@ -50,7 +50,7 @@ RUN mkdir /out && \
 #### slirp4netns (slirp4netns-build)
 FROM common-alpine AS slirp4netns-build
 RUN apk add --no-cache linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
-RUN git clone https://github.com/rootless-containers/slirp4netns.git /slirp4netns
+RUN git clone --depth=1 https://github.com/rootless-containers/slirp4netns.git /slirp4netns
 WORKDIR /slirp4netns
 ARG SLIRP4NETNS_COMMIT
 RUN git pull && git checkout ${SLIRP4NETNS_COMMIT}
@@ -59,7 +59,7 @@ RUN ./autogen.sh && ./configure LDFLAGS="-static" && make && \
 
 ### runc (runc-build)
 FROM common-golang-alpine-heavy AS runc-build
-RUN git clone https://github.com/opencontainers/runc.git /go/src/github.com/opencontainers/runc
+RUN git clone --depth=1 https://github.com/opencontainers/runc.git /go/src/github.com/opencontainers/runc
 WORKDIR /go/src/github.com/opencontainers/runc
 ARG RUNC_COMMIT
 RUN git pull && git checkout ${RUNC_COMMIT}
@@ -68,7 +68,7 @@ RUN make BUILDTAGS="seccomp" static && \
 
 ### containerd (containerd-build)
 FROM common-golang-alpine-heavy AS containerd-build
-RUN git clone https://github.com/containerd/containerd.git /go/src/github.com/containerd/containerd
+RUN git clone --depth=1 https://github.com/containerd/containerd.git /go/src/github.com/containerd/containerd
 WORKDIR /go/src/github.com/containerd/containerd
 ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
@@ -80,7 +80,7 @@ RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -stat
 
 ### CRI-O (crio-build)
 FROM common-golang-alpine-heavy AS crio-build
-RUN git clone https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
+RUN git clone --depth=1 https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
@@ -90,7 +90,7 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
 ### conmon (conmon-build)
 FROM common-golang-alpine-heavy AS conmon-build
 RUN apk add --no-cache glib-dev glib-static
-RUN git clone https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
+RUN git clone --depth=1 https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
 WORKDIR /go/src/github.com/containers/conmon
 ARG CONMON_RELEASE
 RUN git pull && git checkout ${CONMON_RELEASE}
@@ -105,7 +105,7 @@ RUN mkdir -p /out/cni && \
 ### Kubernetes (k8s-build)
 FROM common-golang-alpine-heavy AS k8s-build
 RUN apk add --no-cache rsync
-RUN git clone https://github.com/kubernetes/kubernetes.git /kubernetes
+RUN git clone --depth=1 https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
 ARG KUBERNETES_COMMIT
 RUN git pull && git checkout ${KUBERNETES_COMMIT}
