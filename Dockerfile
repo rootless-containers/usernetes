@@ -12,6 +12,8 @@ ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
 ARG RUNC_COMMIT=6503438fd6b0415bc146403b30b8a248b3346f52
 # 2020-03-01T05:55:11Z
 ARG CONTAINERD_COMMIT=ca66f3dd5d917694797a377b8ab9b8fb603b089b
+# 2020-02-20T08:27:20Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=bb896865146c4c0fdb06933f7fddb5603019e0ed
 # 2020-03-05T09:10:28Z
 ARG CRIO_COMMIT=d0665fd81f4a651d6b4c6a480d2b598b18c93f4f
 # 2020-03-05T10:58:50Z
@@ -20,6 +22,7 @@ ARG KUBERNETES_COMMIT=67c6767b7da983034be04a31575261890186338a
 # Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.11
 ARG CRUN_RELEASE=0.13
+ARG FUSE_OVERLAYFS_RELEASE=v0.7.6
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -59,6 +62,22 @@ RUN git pull && git checkout ${SLIRP4NETNS_COMMIT}
 RUN ./autogen.sh && ./configure -q LDFLAGS="-static" && make --quiet && \
   mkdir /out && cp slirp4netns /out
 
+### fuse-overlayfs (fuse-overlayfs-build)
+# Based on https://github.com/containers/fuse-overlayfs/blob/v0.7.6/Dockerfile.static.ubuntu .
+# We can't use Alpine here because Alpine does not provide an apk package for libfuse3.a .
+FROM debian:10 AS fuse-overlayfs-build
+RUN apt-get update && \
+  apt-get install -q --no-install-recommends -y \
+  git ca-certificates libc6-dev gcc make automake autoconf pkgconf libfuse3-dev file
+RUN git clone https://github.com/containers/fuse-overlayfs
+WORKDIR fuse-overlayfs
+ARG FUSEOVERLAYFS_RELEASE
+RUN git pull && git checkout ${FUSEOVERLAYFS_RELEASE}
+RUN  ./autogen.sh && \
+  LIBS="-ldl" LDFLAGS="-static" ./configure -q && \
+  make --quiet && mkdir /out && cp fuse-overlayfs /out && \
+  file /out/fuse-overlayfs | grep "statically linked"
+
 ### crun (crun-build)
 FROM busybox AS crun-build
 ARG CRUN_RELEASE
@@ -75,6 +94,17 @@ ENV GO111MODULE=off
 RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
+
+### containerd-fuse-overlayfs (containerd-fuse-overlayfs-build)
+FROM common-golang-alpine AS containerd-fuse-overlayfs-build
+RUN git clone -q https://github.com/AkihiroSuda/containerd-fuse-overlayfs.git /go/src/github.com/AkihiroSuda/containerd-fuse-overlayfs
+WORKDIR /go/src/github.com/AkihiroSuda/containerd-fuse-overlayfs
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT
+RUN git pull && git checkout ${CONTAINERD_FUSE_OVERLAYFS_COMMIT}
+ENV CGO_ENABLED=0
+ENV GO111MODULE=off
+RUN mkdir /out && \
+  go build -o /out/containerd-fuse-overlayfs-grpc github.com/AkihiroSuda/containerd-fuse-overlayfs/cmd/containerd-fuse-overlayfs-grpc
 
 ### CRI-O (crio-build)
 FROM common-golang-alpine-heavy AS crio-build
@@ -147,8 +177,10 @@ RUN mkdir /tmp-etcd out && \
 FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
 COPY --from=slirp4netns-build /out/* /
+COPY --from=fuse-overlayfs-build /out/* /
 COPY --from=crun-build /out/* /
 COPY --from=containerd-build /out/* /
+COPY --from=containerd-fuse-overlayfs-build /out/* /
 COPY --from=crio-build /out/* /
 COPY --from=conmon-build /out/* /
 # can't use wildcard here: https://github.com/rootless-containers/usernetes/issues/78
@@ -164,7 +196,7 @@ ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
   chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \
-  dnf install -q -y findutils git iproute iptables hostname procps-ng \
+  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \

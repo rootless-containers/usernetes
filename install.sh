@@ -39,7 +39,7 @@ function usage() {
 	echo
 	echo "  --start=UNIT        Enable and start the specified target after the installation, e.g. \"u7s.target\". Set to an empty to disable autostart. (Default: \"$start\")"
 	echo "  --cri=RUNTIME       Specify CRI runtime, \"containerd\" or \"crio\". (Default: \"$cri\")"
-	echo "  --cni=RUNTIME       Specify CNI, an empty string (none) or \"flannel\". (Default: none)"
+	echo '  --cni=RUNTIME       Specify CNI, an empty string (none) or "flannel". (Default: none)'
 	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: none)"
 	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: none)"
 	echo "  --kubeconfig=FILE   Specify kubeconfig."
@@ -54,18 +54,18 @@ function usage() {
 	echo "Examples (multi-node cluster with flannel):"
 	echo "  # Master (2379/tcp: etcd, 8080/tcp: kube-apiserver, 10251/tcp: kube-scheduler, 10252/tcp: kube-controller-manager)"
 	echo "  ${arg0} --start=u7s-master-with-etcd.target --cri=\\"
-	echo "    --cni=flannel --cidr=10.0.100.0/24\\"
+	echo '    --cni=flannel --cidr=10.0.100.0/24\'
 	echo "    -p 0.0.0.0:2379:2379/tcp -p 0.0.0.0:8080:8080/tcp -p 0.0.0.0:10251:10251/tcp -p 0.0.0.0:10252:10252/tcp"
 	echo
 	echo "  # Node  (10250/tcp: kubelet, 8472/udp: flannel)"
 	echo "  ${arg0} --start=u7s-node.target --cri=containerd\\"
-	echo "    --cni=flannel --cidr=10.0.102.0/24\\"
-	echo "    -p 0.0.0.0:10250:10250/tcp -p 0.0.0.0:8472:8472/udp\\"
+	echo '    --cni=flannel --cidr=10.0.102.0/24\'
+	echo '    -p 0.0.0.0:10250:10250/tcp -p 0.0.0.0:8472:8472/udp\'
 	echo "    --kubeconfig=config/docker-compose-master.kubeconfig"
 	echo
-	echo "Use \`uninstall.sh\` for uninstallation."
+	echo 'Use `uninstall.sh` for uninstallation.'
 	echo
-	echo "Hint: \`sudo loginctl enable-linger\` to start user services automatically on the system start up."
+	echo 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
 }
 
 set +e
@@ -293,8 +293,8 @@ if [ -n "$cri" ]; then
 	cat <<EOF | x u7s-node.target
 [Unit]
 Description=Usernetes target for Kubernetes node components (${cri})
-Requires=u7s-${cri}.service u7s-kubelet-${cri}.service u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
-After=u7s-${cri}.service u7s-kubelet-${cri}.service u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
+Requires=u7s-${cri}.service $([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kubelet-${cri}.service u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
+After=u7s-${cri}.service u7s-kubelet-${cri}.service $([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
 PartOf=u7s.target
 
 [Install]
@@ -312,6 +312,21 @@ PartOf=u7s-node.target
 ExecStart=${base}/boot/${cri}.sh
 ${service_common}
 EOF
+
+	if [ "$cri" = "containerd" ]; then
+		cat <<EOF | x u7s-containerd-fuse-overlayfs-grpc.service
+[Unit]
+Description=Usernetes containerd-fuse-overlayfs-grpc service
+BindsTo=u7s-rootlesskit.service
+PartOf=u7s-node.target
+Before=u7s-containerd.service
+
+[Service]
+ExecStart=${base}/boot/containerd-fuse-overlayfs-grpc.sh
+${service_common}
+EOF
+
+	fi
 
 	cat <<EOF | x u7s-kubelet-${cri}.service
 [Unit]

@@ -77,13 +77,17 @@ Usernetes executes Kubernetes and CRI runtimes without the root privileges by us
 
 To set up NAT across the host and the network namespace without the root privilege, Usernetes uses a usermode network stack ([slirp4netns](https://github.com/rootless-containers/slirp4netns)).
 
-No SETUID/SETCAP binary is needed. except [`newuidmap(1)`](http://man7.org/linux/man-pages/man1/newuidmap.1.html) and [`newgidmap(1)`](http://man7.org/linux/man-pages/man1/newgidmap.1.html), which are used for setting up [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html) with multiple sub-UIDs and sub-GIDs.
+No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux/man-pages/man1/newuidmap.1.html) and [`newgidmap(1)`](http://man7.org/linux/man-pages/man1/newgidmap.1.html), which are used for setting up [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html) with multiple sub-UIDs and sub-GIDs.
 
 ## Requirements
 
-* Recent version of systemd
+* Kernel >= 4.18.
 
-* `newuidmap` and `newgidmap` need to be installed on the host. These commands are provided by the `uidmap` package on most distros.
+* Recent version of systemd. Known to work with systemd >= 242.
+
+* `mount.fuse3` binary. Provided by `fuse3` package on most distros.
+
+* `newuidmap` and `newgidmap` binaries. Provided by `uidmap` package on most distros.
 
 * `/etc/subuid` and `/etc/subgid` should contain more than 65536 sub-IDs. e.g. `exampleuser:231072:65536`. These files are automatically configured on most distros.
 
@@ -101,11 +105,9 @@ exampleuser:231072:65536
 ### Distribution-specific hint
 #### Ubuntu
 * No preparation is needed.
-* overlayfs is enabled by default ([Ubuntu-specific kernel patch](https://kernel.ubuntu.com/git/ubuntu/ubuntu-bionic.git/commit/fs/overlayfs?id=3b7da90f28fe1ed4b79ef2d994c81efbc58f1144)).
 
 #### Debian GNU/Linux
 * Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
-* To use overlayfs (recommended), run `sudo modprobe overlay permit_mounts_in_userns=1` ([Debian-specific kernel patch, introduced in Debian 10](https://salsa.debian.org/kernel-team/linux/blob/283390e7feb21b47779b48e0c8eb0cc409d2c815/debian/patches/debian/overlayfs-permit-mounts-in-userns.patch)). Put the configuration to `/etc/modprobe.d` for persistence.
 
 #### Arch Linux
 * Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
@@ -127,16 +129,11 @@ exampleuser:231072:65536
 
 ## Restrictions
 
-Common:
+* [slirp4netns](https://github.com/rootless-containers/slirp4netns) is used instead of [vEth](http://man7.org/linux/man-pages/man4/veth.4.html) pairs.
+* [fuse-overlayfs](https://github.com/containers/fuse-overlayfs) is used instead of overlayfs.
 * Following features are not supported:
   * Cgroups
   * Apparmor
-
-CRI-O:
-* Only `vfs` storage driver is supported.
-
-containerd:
-* Only `native` storage driver is supported. However, on Ubuntu and a few distros, `overlayfs` is also supported.
 
 ## Install from binary
 
@@ -333,5 +330,7 @@ Usernetes is licensed under the terms of  [Apache License Version 2.0](LICENSE).
 
 The binary releases of Usernetes contain files that are licensed under the terms of different licenses:
 
+* `bin/crun`:  [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-crun), see https://github.com/containers/crun
+* `bin/fuse-overlayfs`:  [GNU GENERAL PUBLIC LICENSE Version 3](docs/binary-release-license/LICENSE-fuse-overlayfs), see https://github.com/containers/fuse-overlayfs
 * `bin/slirp4netns`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-slirp4netns), see https://github.com/rootless-containers/slirp4netns
 * `bin/socat`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-socat), see http://www.dest-unreach.org/socat/

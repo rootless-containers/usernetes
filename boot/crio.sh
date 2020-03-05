@@ -15,7 +15,10 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
   runroot = "$XDG_RUNTIME_DIR/usernetes/containers/storage"
   root = "$XDG_DATA_HOME/usernetes/containers/storage"
   version_file = "$XDG_RUNTIME_DIR/usernetes/crio/version"
-  storage_driver = "vfs"
+  storage_driver = "overlay"
+  storage_option = [
+    "overlay.mount_program=$U7S_BASE_DIR/bin/fuse-overlayfs" 
+  ]
   [crio.api]
     listen = "$XDG_RUNTIME_DIR/usernetes/crio/crio.sock"
   [crio.image]

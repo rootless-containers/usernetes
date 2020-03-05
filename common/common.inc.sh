@@ -90,13 +90,6 @@ function nsenter::_nsenter() {
 	nsenter -U --preserve-credential -n -m -p -t $(cat $pidfile) --wd=$PWD -- $@
 }
 
-## overlayfs utilities
-function overlayfs::supported() {
-	rc=0
-	(uname -v | grep Ubuntu >/dev/null) || rc=$?
-	return $rc
-}
-
 # entrypoint begins
 if debug::enabled; then
 	log::warning "Running in debug mode (\$U7S_DEBUG)"
