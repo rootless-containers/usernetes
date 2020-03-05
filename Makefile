@@ -31,7 +31,7 @@ up: image
 down:
 	docker-compose down
 
-artifact: image _artifact
+artifact: binaries _artifact
 
 _artifact:
 	rm -rf _artifact _SHA256SUM
