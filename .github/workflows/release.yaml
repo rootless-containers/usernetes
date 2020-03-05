@@ -26,6 +26,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: _artifact/usernetes-x86_64.tbz
+        asset_name: usernetes-x86_64.tbz
         asset_content_type: application/octet-stream
     - name: "Upload SHA256SUM"
       uses: actions/upload-release-asset@v1.0.2
