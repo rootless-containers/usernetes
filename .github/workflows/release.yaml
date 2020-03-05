@@ -19,10 +19,25 @@ jobs:
         tag_name: ${{ github.ref }}
         release_name: ${{ github.ref }}
         draft: true
-    - uses: actions/upload-release-asset@v1.0.1
+    - name: "Upload usernetes-x86_64.tbz"
+      uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: _artifact/usernetes-x86_64.tbz
         asset_content_type: application/octet-stream
+    - name: "Upload SHA256SUM"
+      uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: _artifact/SHA256SUM
+        asset_name: SHA256SUM
+        asset_content_type: application/octet-stream
+    - name: "Upload SHA256SUM (artifact)"
+      uses: actions/upload-artifact@v1
+      with:
+        name: SHA256SUM
+        path: _artifact/SHA256SUM
