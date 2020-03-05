@@ -28,5 +28,8 @@ kubectl=$tmpdir/kubectl
 # TODO: use Dockerfile HEALTHCHECK
 sleep 30
 $kubectl get nodes -o wide
-$kubectl get nodes -o yaml
-time $kubectl run --rm -i --image busybox --restart=Never hello echo hello $container
+if ! timeout 60 time $kubectl run --rm -i --image busybox --restart=Never hello echo hello $container; then
+	$kubectl get pods -o yaml
+	$kubectl get nodes -o yaml
+	exit 1
+fi
