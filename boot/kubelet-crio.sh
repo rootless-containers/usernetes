@@ -2,4 +2,4 @@
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
 
-exec $(dirname $0)/kubelet.sh --container-runtime remote --container-runtime-endpoint unix:///run/crio/crio.sock $@
+exec $(dirname $0)/kubelet.sh --container-runtime remote --container-runtime-endpoint unix://$XDG_RUNTIME_DIR/usernetes/crio/crio.sock $@
