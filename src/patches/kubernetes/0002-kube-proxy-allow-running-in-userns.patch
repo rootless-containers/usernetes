@@ -1,4 +1,4 @@
-From cf70d9119b9692f814fde987f5a26d04519cbb00 Mon Sep 17 00:00:00 2001
+From 42fc1b9bf3af83146deaf1e1648f67fdb907e02c Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
@@ -12,10 +12,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 25 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 6cfc9fe681d..4500164ab73 100644
+index db32ed09245..07c467f4201 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
-@@ -83,6 +83,7 @@ go_library(
+@@ -84,6 +84,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -23,7 +23,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:darwin": [
-@@ -91,6 +92,7 @@ go_library(
+@@ -93,6 +94,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -31,7 +31,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:dragonfly": [
-@@ -99,6 +101,7 @@ go_library(
+@@ -102,6 +104,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -39,7 +39,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:freebsd": [
-@@ -107,6 +110,7 @@ go_library(
+@@ -111,6 +114,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -47,7 +47,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:ios": [
-@@ -115,6 +119,7 @@ go_library(
+@@ -120,6 +124,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -55,7 +55,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:linux": [
-@@ -123,6 +128,7 @@ go_library(
+@@ -129,6 +134,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -63,7 +63,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:nacl": [
-@@ -131,6 +137,7 @@ go_library(
+@@ -138,6 +144,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -71,7 +71,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:netbsd": [
-@@ -139,6 +146,7 @@ go_library(
+@@ -147,6 +154,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -79,7 +79,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:openbsd": [
-@@ -147,6 +155,7 @@ go_library(
+@@ -156,6 +164,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -87,7 +87,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:plan9": [
-@@ -155,6 +164,7 @@ go_library(
+@@ -165,6 +174,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -95,7 +95,7 @@ index 6cfc9fe681d..4500164ab73 100644
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
          "@io_bazel_rules_go//go/platform:solaris": [
-@@ -163,6 +173,7 @@ go_library(
+@@ -174,6 +184,7 @@ go_library(
              "//staging/src/k8s.io/apimachinery/pkg/types:go_default_library",
              "//staging/src/k8s.io/apimachinery/pkg/util/net:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -104,7 +104,7 @@ index 6cfc9fe681d..4500164ab73 100644
          ],
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 87e3ea3866c..534664a9b00 100644
+index 15d3a1ae178..db1a5a24bd3 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -26,6 +26,7 @@ import (
@@ -115,7 +115,7 @@ index 87e3ea3866c..534664a9b00 100644
  	v1 "k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilnet "k8s.io/apimachinery/pkg/util/net"
-@@ -294,6 +295,12 @@ func newProxyServer(
+@@ -332,6 +333,12 @@ func newProxyServer(
  		}
  	}
  
@@ -128,7 +128,7 @@ index 87e3ea3866c..534664a9b00 100644
  	return &ProxyServer{
  		Client:                 client,
  		EventClient:            eventClient,
-@@ -305,7 +312,7 @@ func newProxyServer(
+@@ -343,7 +350,7 @@ func newProxyServer(
  		Broadcaster:            eventBroadcaster,
  		Recorder:               recorder,
  		ConntrackConfiguration: config.Conntrack,
