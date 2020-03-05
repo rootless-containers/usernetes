@@ -4,6 +4,8 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
+    - name: "System info"
+      run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
     - uses: actions/checkout@v1
     - name: "Build image"
       run: DOCKER_BUILDKIT=1 docker build -t rootlesscontainers/usernetes .
