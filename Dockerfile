@@ -4,27 +4,27 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-01-26T12:41:45Z
-ARG ROOTLESSKIT_COMMIT=1d2bbb25313a6f2dccc674ee96a62c4e343178ef
+# 2020-03-05T09:59:12Z
+ARG ROOTLESSKIT_COMMIT=b4d749c9884d3264cb350fcde2f5bc4ab96af871
 # 2019-12-18T03:10:18Z
 ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
-# 2020-02-03T11:41:07Z
-ARG RUNC_COMMIT=e6555cc01a92b599bef90dbe8cb3b7bb74391da9
-# 2020-02-13T22:22:59Z
-ARG CONTAINERD_COMMIT=7811aa755265ba3f017683afb1ee3b5a1e0f29b4
-# 2020-02-13T12:49:01Z
-ARG CRIO_COMMIT=ba4a8cdc9470a099563b78686a12ab92eb5f0fd1
-# 2020-02-14T03:48:26Z
-ARG KUBERNETES_COMMIT=4c0871751308d93e99e58fdc0c3503a9f59555c3
+# 2020-03-05T00:32:45Z
+ARG RUNC_COMMIT=6503438fd6b0415bc146403b30b8a248b3346f52
+# 2020-03-01T05:55:11Z
+ARG CONTAINERD_COMMIT=ca66f3dd5d917694797a377b8ab9b8fb603b089b
+# 2020-03-05T09:10:28Z
+ARG CRIO_COMMIT=d0665fd81f4a651d6b4c6a480d2b598b18c93f4f
+# 2020-03-05T10:58:50Z
+ARG KUBERNETES_COMMIT=67c6767b7da983034be04a31575261890186338a
 
 # Version definitions (cont.)
-ARG CONMON_RELEASE=v2.0.10
+ARG CONMON_RELEASE=v2.0.11
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
 ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.11.0
-ARG ETCD_RELEASE=v3.4.3
+ARG ETCD_RELEASE=v3.4.4
 
 ### Common base images (common-*)
 FROM alpine:3.11 AS common-alpine
@@ -74,7 +74,7 @@ ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
 # workaround: https://github.com/containerd/containerd/issues/3646
 RUN ./script/setup/install-dev-tools
-RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs" \
+RUN make EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 

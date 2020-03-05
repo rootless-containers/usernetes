@@ -1,4 +1,4 @@
-From e96ffd53b657d8531b7b5ec71650dda318afeb7d Mon Sep 17 00:00:00 2001
+From 11de38c6fcbdc164ae7a6e84f22a65a8c18c1af2 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -11,7 +11,6 @@ because nested containers might not always get support for cgroup2 (via systemd)
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- cmd/kubeadm/app/phases/kubelet/flags.go       |  2 +
  cmd/kubelet/app/options/options.go            |  2 +-
  cmd/kubelet/app/server.go                     | 40 ++++++-----
  pkg/features/kube_features.go                 | 13 ++++
@@ -20,23 +19,9 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  pkg/kubelet/cm/cgroup_manager_unsupported.go  |  4 +-
  pkg/kubelet/cm/container_manager_linux.go     | 10 ++-
  .../cm/pod_container_manager_linux_test.go    |  6 +-
- pkg/kubelet/dockershim/docker_service.go      |  3 +-
  test/e2e_node/node_container_manager_test.go  |  5 +-
- 11 files changed, 126 insertions(+), 30 deletions(-)
+ 9 files changed, 122 insertions(+), 29 deletions(-)
 
-diff --git a/cmd/kubeadm/app/phases/kubelet/flags.go b/cmd/kubeadm/app/phases/kubelet/flags.go
-index 0c370efe2ae..746602de2bc 100644
---- a/cmd/kubeadm/app/phases/kubelet/flags.go
-+++ b/cmd/kubeadm/app/phases/kubelet/flags.go
-@@ -97,6 +97,8 @@ func buildKubeletArgMap(opts kubeletFlagsOpts) map[string]string {
- 		if err != nil {
- 			klog.Warningf("cannot automatically assign a '--cgroup-driver' value when starting the Kubelet: %v\n", err)
- 		} else {
-+			// NOTE: As of Docker v19.03.0-beta5, rootless dockerd uses "cgroupfs" driver but it is substantially "none" driver.
-+			// User would need to override the kubelet configuration manually.
- 			kubeletFlags["cgroup-driver"] = driver
- 		}
- 		if opts.pauseImage != "" {
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
 index effd6190094..3e1b43141aa 100644
 --- a/cmd/kubelet/app/options/options.go
@@ -51,10 +36,10 @@ index effd6190094..3e1b43141aa 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to `NodeStatusUpdateFrequency`")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index ba32570fd2f..8207d91b1b5 100644
+index 7f21273774a..e50250da883 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -603,26 +603,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
+@@ -608,26 +608,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
  	}
  
  	var cgroupRoots []string
@@ -103,13 +88,13 @@ index ba32570fd2f..8207d91b1b5 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index b14d12663f2..490afca6438 100644
+index ff761f44c77..7685c81b2ff 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -539,6 +539,18 @@ const (
+@@ -570,6 +570,18 @@ const (
  	//
- 	// Enables a feature to make secrets and configmaps data immutable.
- 	ImmutableEphemeralVolumes featuregate.Feature = "ImmutableEphemeralVolumes"
+ 	// Enables usage of any object for volume data source in PVCs
+ 	AnyVolumeDataSource featuregate.Feature = "AnyVolumeDataSource"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -125,16 +110,16 @@ index b14d12663f2..490afca6438 100644
  )
  
  func init() {
-@@ -624,6 +636,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	PodDisruptionBudget:                            {Default: true, PreRelease: featuregate.Beta},
- 	ServiceTopology:                                {Default: false, PreRelease: featuregate.Alpha},
- 	ImmutableEphemeralVolumes:                      {Default: false, PreRelease: featuregate.Alpha},
+@@ -659,6 +671,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	DefaultIngressClass:                            {Default: true, PreRelease: featuregate.Beta},
+ 	HugePageStorageMediumSize:                      {Default: false, PreRelease: featuregate.Alpha},
+ 	AnyVolumeDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 0e9cedc1353..e5b3e6ffdf8 100644
+index 818a089465d..cf7fd978d96 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -201,7 +201,7 @@ type KubeletConfiguration struct {
@@ -260,7 +245,7 @@ index 5d77ed7a45f..5654d737fd6 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index af32383ee79..65adbb93b2a 100644
+index fe9ac7dacf5..305911530ef 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -249,9 +249,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
@@ -307,20 +292,6 @@ index 62c9f203a00..fda4177a05b 100644
  			enforceCPULimits:  true,
  			qosContainersInfo: qosContainersInfo,
  		}
-diff --git a/pkg/kubelet/dockershim/docker_service.go b/pkg/kubelet/dockershim/docker_service.go
-index 227bef8211a..3bb5c532fe9 100644
---- a/pkg/kubelet/dockershim/docker_service.go
-+++ b/pkg/kubelet/dockershim/docker_service.go
-@@ -265,7 +265,8 @@ func NewDockerService(config *ClientConfig, podSandboxImage string, streamingCon
- 	} else {
- 		cgroupDriver = dockerInfo.CgroupDriver
- 	}
--	if len(kubeCgroupDriver) != 0 && kubeCgroupDriver != cgroupDriver {
-+	// NOTE: As of Docker v19.03.0-beta5, rootless dockerd uses "cgroupfs" driver but it is substantially "none" driver.
-+	if len(kubeCgroupDriver) != 0 && kubeCgroupDriver != "none" && kubeCgroupDriver != cgroupDriver {
- 		return nil, fmt.Errorf("misconfiguration: kubelet cgroup driver: %q is different from docker cgroup driver: %q", kubeCgroupDriver, cgroupDriver)
- 	}
- 	klog.Infof("Setting cgroupDriver to %s", cgroupDriver)
 diff --git a/test/e2e_node/node_container_manager_test.go b/test/e2e_node/node_container_manager_test.go
 index 45cf79f73df..bb6aa07c68c 100644
 --- a/test/e2e_node/node_container_manager_test.go
