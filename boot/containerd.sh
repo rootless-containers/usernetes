@@ -5,20 +5,25 @@ nsenter::main $0 $@
 
 mkdir -p $XDG_RUNTIME_DIR/usernetes
 cat >$XDG_RUNTIME_DIR/usernetes/containerd.toml <<EOF
+version = 2
 root = "$XDG_DATA_HOME/containerd"
 state = "$XDG_RUNTIME_DIR/containerd"
 [grpc]
   address = "$XDG_RUNTIME_DIR/containerd/containerd.sock"
 [plugins]
-  [plugins.linux]
-    runtime_root = "$XDG_RUNTIME_DIR/containerd/runc"
-  [plugins.cri]
+  [plugins."io.containerd.grpc.v1.cri"]
     disable_cgroup = true
     disable_apparmor = true
     restrict_oom_score_adj = true
-    [plugins.cri.containerd]
+    [plugins."io.containerd.grpc.v1.cri".containerd]
       snapshotter = "$(overlayfs::supported && echo overlayfs || echo native)"
-    [plugins.cri.cni]
+      default_runtime_name = "crun"
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
+            BinaryName = "crun"
+    [plugins."io.containerd.grpc.v1.cri".cni]
       bin_dir = "/opt/cni/bin"
       conf_dir = "/etc/cni/net.d"
 EOF

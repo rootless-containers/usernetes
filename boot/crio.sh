@@ -11,6 +11,15 @@ mkdir -p $XDG_DATA_HOME/containers/oci/hooks.d $XDG_CONFIG_HOME/containers $XDG_
 if [[ ! -f $XDG_CONFIG_HOME/crio/crio.conf ]]; then
 	cat >$XDG_CONFIG_HOME/crio/crio.conf <<EOF
 registries = ['registry.access.redhat.com', 'registry.fedoraproject.org', 'docker.io']
+[crio.runtime]
+  default_runtime = "crun"
+  [crio.runtime.runtimes]
+    [crio.runtime.runtimes.crun]
+      runtime_path = "$U7S_BASE_DIR/bin/crun"
+      runtime_root = "$XDG_RUNTIME_DIR/crio/crun"
+# Dummy runc handler, as a workaround of https://github.com/cri-o/cri-o/issues/3360
+    [crio.runtime.runtimes.runc]
+      runtime_path = "/bin/false"
 EOF
 fi
 
@@ -27,7 +36,6 @@ exec crio \
 	--registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
 	--conmon $U7S_BASE_DIR/bin/conmon \
 	--runroot $XDG_RUNTIME_DIR/crio \
-	--runtimes runc:$U7S_BASE_DIR/bin/runc:$XDG_RUNTIME_DIR/crio/runc \
 	--cni-config-dir /etc/cni/net.d \
 	--cni-plugin-dir /opt/cni/bin \
 	--root $XDG_DATA_HOME/containers/storage \

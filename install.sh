@@ -46,7 +46,7 @@ function usage() {
 	echo
 	echo "Examples:"
 	echo "  # The default options"
-	echo "  ${arg0}
+	echo "  ${arg0}"
 	echo
 	echo "  # Use CRI-O as the CRI runtime"
 	echo "  ${arg0} --cri=crio"
