@@ -4,42 +4,41 @@ source $U7S_BASE_DIR/common/common.inc.sh
 nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1
-mkdir -p $XDG_DATA_HOME/containers/oci/hooks.d $XDG_CONFIG_HOME/containers $XDG_CONFIG_HOME/crio $XDG_CONFIG_HOME/crio/runc
+mkdir -p $XDG_CONFIG_HOME/usernetes/crio $XDG_CONFIG_HOME/usernetes/containers/oci/hooks.d
 
-# It looks like both crio.conf["registries"] and --registry CLI flags are needed
-# https://trello.com/c/kmdF350I/521-8-registry-patch-in-cri-o
-if [[ ! -f $XDG_CONFIG_HOME/crio/crio.conf ]]; then
-	cat >$XDG_CONFIG_HOME/crio/crio.conf <<EOF
-registries = ['registry.access.redhat.com', 'registry.fedoraproject.org', 'docker.io']
-[crio.runtime]
-  default_runtime = "crun"
-  [crio.runtime.runtimes]
-    [crio.runtime.runtimes.crun]
-      runtime_path = "$U7S_BASE_DIR/bin/crun"
-      runtime_root = "$XDG_RUNTIME_DIR/crio/crun"
-# Dummy runc handler, as a workaround of https://github.com/cri-o/cri-o/issues/3360
-    [crio.runtime.runtimes.runc]
-      runtime_path = "/bin/false"
-EOF
-fi
-
-# workaround: https://github.com/rootless-containers/usernetes/issues/30
-if [[ ! -f $XDG_CONFIG_HOME/containers/policy.json ]]; then
-	cat >$XDG_CONFIG_HOME/containers/policy.json <<EOF
+cat >$XDG_CONFIG_HOME/usernetes/containers/policy.json <<EOF
 {"default": [{"type": "insecureAcceptAnything"}]}
 EOF
-fi
 
-exec crio \
-	--signature-policy $XDG_CONFIG_HOME/containers/policy.json \
-	--config $XDG_CONFIG_HOME/crio/crio.conf \
-	--registry registry.access.redhat.com --registry registry.fedoraproject.org --registry docker.io \
-	--conmon $U7S_BASE_DIR/bin/conmon \
-	--runroot $XDG_RUNTIME_DIR/crio \
-	--cni-config-dir /etc/cni/net.d \
-	--cni-plugin-dir /opt/cni/bin \
-	--root $XDG_DATA_HOME/containers/storage \
-	--hooks-dir $XDG_DATA_HOME/containers/oci/hooks.d \
-	--cgroup-manager=cgroupfs \
-	--storage-driver vfs \
-	$@
+cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
+[crio]
+  runroot = "$XDG_RUNTIME_DIR/usernetes/containers/storage"
+  root = "$XDG_DATA_HOME/usernetes/containers/storage"
+  version_file = "$XDG_RUNTIME_DIR/usernetes/crio/version"
+  storage_driver = "vfs"
+  [crio.api]
+    listen = "$XDG_RUNTIME_DIR/usernetes/crio/crio.sock"
+  [crio.image]
+    signature_policy = "$XDG_CONFIG_HOME/usernetes/containers/policy.json"
+    registries = ["docker.io"]
+  [crio.runtime]
+    conmon = "$U7S_BASE_DIR/bin/conmon"
+    hooks_dir = ["$XDG_DATA_HOME/usernetes/containers/oci/hooks.d"]
+    container_exits_dir = "$XDG_RUNTIME_DIR/usernetes/crio/exits"
+    container_attach_socket_dir = "$XDG_RUNTIME_DIR/usernetes/crio"
+    namespaces_dir = "$XDG_RUNTIME_DIR/usernetes/crio/ns"
+    cgroup_manager = "cgroupfs"
+    default_runtime = "crun"
+    [crio.runtime.runtimes]
+      [crio.runtime.runtimes.crun]
+        runtime_path = "$U7S_BASE_DIR/bin/crun"
+        runtime_root = "$XDG_RUNTIME_DIR/crio/crun"
+# Dummy runc handler, as a workaround of https://github.com/cri-o/cri-o/issues/3360
+      [crio.runtime.runtimes.runc]
+        runtime_path = "/bin/false"
+  [crio.network]
+    network_dir = "/etc/cni/net.d/"
+    plugin_dirs = ["/opt/cni/bin/"]
+EOF
+
+exec crio --config $XDG_CONFIG_HOME/usernetes/crio/crio.conf $@

@@ -6,10 +6,10 @@ nsenter::main $0 $@
 mkdir -p $XDG_RUNTIME_DIR/usernetes
 cat >$XDG_RUNTIME_DIR/usernetes/containerd.toml <<EOF
 version = 2
-root = "$XDG_DATA_HOME/containerd"
-state = "$XDG_RUNTIME_DIR/containerd"
+root = "$XDG_DATA_HOME/usernetes/containerd"
+state = "$XDG_RUNTIME_DIR/usernetes/containerd"
 [grpc]
-  address = "$XDG_RUNTIME_DIR/containerd/containerd.sock"
+  address = "$XDG_RUNTIME_DIR/usernetes/containerd/containerd.sock"
 [plugins]
   [plugins."io.containerd.grpc.v1.cri"]
     disable_cgroup = true
