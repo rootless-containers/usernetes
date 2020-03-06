@@ -196,7 +196,7 @@ ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
   chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \
-  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng \
+  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng which \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
@@ -205,5 +205,8 @@ RUN chmod +x /docker-entrypoint.sh && \
   rm -rf /tmp/*
 COPY --chown=user:user . /home/user/usernetes
 COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
+RUN ln -sf /home/user/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo
 VOLUME /home/user/.local
-ENTRYPOINT ["/docker-entrypoint.sh", "machinectl", "shell", "user@", "/home/user/usernetes/boot/docker-2ndboot.sh"]
+HEALTHCHECK --interval=15s --timeout=10s --start-period=60s --retries=5 \
+  CMD ["unsudo", "systemctl", "--user", "is-system-running"]
+ENTRYPOINT ["/docker-entrypoint.sh", "unsudo", "/home/user/usernetes/boot/docker-2ndboot.sh"]
