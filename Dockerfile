@@ -200,12 +200,10 @@ RUN chmod +x /docker-entrypoint.sh && \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
-  mkdir -p /home/user/.local
-COPY --from=bin-main / /home/user/usernetes-bin
-COPY . /home/user/usernetes
-RUN rm -rf /home/user/usernetes/bin && \
-  mv /home/user/usernetes-bin /home/user/usernetes/bin && \
+  mkdir -p /home/user/.local && \
   chown -R user:user /home/user && \
   rm -rf /tmp/*
+COPY --chown=user:user . /home/user/usernetes
+COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
 VOLUME /home/user/.local
 ENTRYPOINT ["/docker-entrypoint.sh", "machinectl", "shell", "user@", "/home/user/usernetes/boot/docker-2ndboot.sh"]
