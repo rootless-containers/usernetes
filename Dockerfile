@@ -22,7 +22,7 @@ ARG KUBERNETES_COMMIT=67c6767b7da983034be04a31575261890186338a
 # Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.11
 ARG CRUN_RELEASE=0.13
-ARG FUSE_OVERLAYFS_RELEASE=v0.7.6
+ARG FUSE_OVERLAYFS_RELEASE=v0.7.7
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -71,8 +71,8 @@ RUN apt-get update && \
   git ca-certificates libc6-dev gcc make automake autoconf pkgconf libfuse3-dev file
 RUN git clone https://github.com/containers/fuse-overlayfs
 WORKDIR fuse-overlayfs
-ARG FUSEOVERLAYFS_RELEASE
-RUN git pull && git checkout ${FUSEOVERLAYFS_RELEASE}
+ARG FUSE_OVERLAYFS_RELEASE
+RUN git pull && git checkout ${FUSE_OVERLAYFS_RELEASE}
 RUN  ./autogen.sh && \
   LIBS="-ldl" LDFLAGS="-static" ./configure -q && \
   make --quiet && mkdir /out && cp fuse-overlayfs /out && \
