@@ -22,7 +22,7 @@ ARG KUBERNETES_COMMIT=67c6767b7da983034be04a31575261890186338a
 # Version definitions (cont.)
 ARG CONMON_RELEASE=v2.0.11
 ARG CRUN_RELEASE=0.13
-ARG FUSE_OVERLAYFS_RELEASE=v0.7.6
+ARG FUSE_OVERLAYFS_RELEASE=v0.7.7
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.18.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -71,8 +71,8 @@ RUN apt-get update && \
   git ca-certificates libc6-dev gcc make automake autoconf pkgconf libfuse3-dev file
 RUN git clone https://github.com/containers/fuse-overlayfs
 WORKDIR fuse-overlayfs
-ARG FUSEOVERLAYFS_RELEASE
-RUN git pull && git checkout ${FUSEOVERLAYFS_RELEASE}
+ARG FUSE_OVERLAYFS_RELEASE
+RUN git pull && git checkout ${FUSE_OVERLAYFS_RELEASE}
 RUN  ./autogen.sh && \
   LIBS="-ldl" LDFLAGS="-static" ./configure -q && \
   make --quiet && mkdir /out && cp fuse-overlayfs /out && \
@@ -196,16 +196,17 @@ ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
   chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \
-  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng \
+  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng which \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
-  mkdir -p /home/user/.local
-COPY --from=bin-main / /home/user/usernetes-bin
-COPY . /home/user/usernetes
-RUN rm -rf /home/user/usernetes/bin && \
-  mv /home/user/usernetes-bin /home/user/usernetes/bin && \
+  mkdir -p /home/user/.local && \
   chown -R user:user /home/user && \
   rm -rf /tmp/*
+COPY --chown=user:user . /home/user/usernetes
+COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
+RUN ln -sf /home/user/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo
 VOLUME /home/user/.local
-ENTRYPOINT ["/docker-entrypoint.sh", "machinectl", "shell", "user@", "/home/user/usernetes/boot/docker-2ndboot.sh"]
+HEALTHCHECK --interval=15s --timeout=10s --start-period=60s --retries=5 \
+  CMD ["unsudo", "systemctl", "--user", "is-system-running"]
+ENTRYPOINT ["/docker-entrypoint.sh", "unsudo", "/home/user/usernetes/boot/docker-2ndboot.sh"]
