@@ -36,9 +36,6 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
       [crio.runtime.runtimes.crun]
         runtime_path = "$U7S_BASE_DIR/bin/crun"
         runtime_root = "$XDG_RUNTIME_DIR/crio/crun"
-# Dummy runc handler, as a workaround of https://github.com/cri-o/cri-o/issues/3360
-      [crio.runtime.runtimes.runc]
-        runtime_path = "/bin/false"
   [crio.network]
     network_dir = "/etc/cni/net.d/"
     plugin_dirs = ["/opt/cni/bin/"]
