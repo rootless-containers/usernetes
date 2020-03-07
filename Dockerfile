@@ -127,7 +127,8 @@ RUN make static && mkdir /out && cp bin/conmon /out
 FROM busybox AS cniplugins-build
 ARG CNI_PLUGINS_RELEASE
 RUN mkdir -p /out/cni && \
- wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni
+ wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
+ cd /out/cni && ls | egrep -vx "(host-local|loopback|bridge|flannel|portmap)" | xargs rm -f
 
 ### Kubernetes (k8s-build)
 FROM common-golang-alpine-heavy AS k8s-build
