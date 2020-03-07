@@ -25,10 +25,14 @@ docker cp $container:/home/user/usernetes/bin/kubectl $tmpdir/kubectl
 chmod +x $tmpdir/kubectl
 kubectl=$tmpdir/kubectl
 
-timeout 60 sh -exc "until [ \$(docker inspect -f '{{.State.Health.Status}}' $container) = \"healthy\" ]; do sleep 10; done"
+if ! timeout 60 sh -exc "until [ \$(docker inspect -f '{{.State.Health.Status}}' $container) = \"healthy\" ]; do sleep 10; done"; then
+	docker logs $container
+	exit 1
+fi
 $kubectl get nodes -o wide
 if ! timeout 60 time $kubectl run --rm -i --image busybox --restart=Never hello echo hello $container; then
 	$kubectl get pods -o yaml
 	$kubectl get nodes -o yaml
+	docker logs $container
 	exit 1
 fi
