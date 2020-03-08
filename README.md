@@ -153,7 +153,7 @@ Docker 18.09+ with `DOCKER_BUILDKIT=1` is recommended.
 $ make
 ```
 
-Binaries are genereted under `./bin` directory.
+Binaries are generated under `./bin` directory.
 
 ## Quick start
 
