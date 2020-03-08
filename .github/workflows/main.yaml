@@ -12,8 +12,8 @@ jobs:
     - name: "Prune cache (To avoid `node.kubernetes.io/disk-pressure` taint)"
       run: docker builder prune -a -f
     - name: "Smoke test (containerd)"
-      run: ./hack/smoketest.sh u7s-test-containerd rootlesscontainers/usernetes --cri=containerd
+      run: ./hack/smoketest-docker.sh u7s-test-containerd rootlesscontainers/usernetes --cri=containerd
     - name: "Smoke test (CRI-O)"
-      run: ./hack/smoketest.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio
+      run: ./hack/smoketest-docker.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio
     - name: "Smoke test (multi-node cluster with Flannel)"
       run: ./hack/smoketest-docker-compose.sh

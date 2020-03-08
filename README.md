@@ -87,6 +87,8 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 
 * `mount.fuse3` binary. Provided by `fuse3` package on most distros.
 
+* `iptables` binary. Provided by `iptables` package on most distros.
+
 * `newuidmap` and `newgidmap` binaries. Provided by `uidmap` package on most distros.
 
 * `/etc/subuid` and `/etc/subgid` should contain more than 65536 sub-IDs. e.g. `exampleuser:231072:65536`. These files are automatically configured on most distros.
@@ -115,14 +117,12 @@ exampleuser:231072:65536
 #### openSUSE
 * `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
 
-#### Fedora 31 and later
-* Run `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"` and reboot.
-
-#### Fedora 30
-* No preparation is needed
+#### Fedora
+* Run `sudo dnf install -y iptables`.
+* If doesn't work on Fedora >= 31, try `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"` and reboot.
 
 #### RHEL/CentOS 8
-* No preparation is needed
+* Run `sudo dnf install -y iptables`.
 
 #### RHEL/CentOS 7
 * Unsupported since February 2020. [Usernetes v20200126.0 (January 26, 2020)](https://github.com/rootless-containers/usernetes/tree/v20200126.0#rhelcentos-7) should work.
