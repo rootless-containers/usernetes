@@ -308,7 +308,7 @@ BindsTo=u7s-rootlesskit.service
 PartOf=u7s-node.target
 
 [Service]
-# containerd doesn't support NOTIFY_SOCKET yet (containerd#4043)
+# TODO: enable Type=Notify (with NotifyAccess=all) when CRI runtimes support cgroup
 ExecStart=${base}/boot/${cri}.sh
 ${service_common}
 EOF
@@ -322,6 +322,8 @@ PartOf=u7s-node.target
 Before=u7s-containerd.service
 
 [Service]
+Type=notify
+NotifyAccess=all
 ExecStart=${base}/boot/containerd-fuse-overlayfs-grpc.sh
 ${service_common}
 EOF
