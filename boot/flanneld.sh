@@ -12,4 +12,4 @@ fi
 parent_ip=$(cat $XDG_RUNTIME_DIR/usernetes/parent_ip)
 
 # FIXME: etcd URL is hard-coded for docker-compose
-exec flanneld --ip-masq --etcd-endpoints http://master:2379 --public-ip $parent_ip $@
+exec flanneld --iface tap0 --ip-masq --etcd-endpoints http://master:2379 --public-ip $parent_ip $@
