@@ -4,29 +4,28 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-03-15T02:58:02Z
-ARG ROOTLESSKIT_COMMIT=18143e8660646214bff613f6814400a22fafbfda
-# 2019-12-18T03:10:18Z
-ARG SLIRP4NETNS_COMMIT=a8414d1d1629f6f7a93b60b55e183a93d10d9a1c
-# 2020-03-14T22:19:48Z
-ARG CONTAINERD_COMMIT=2532bdf43f4973758bf1b4c22c1f6dbe5933ffdd
+# 2020-03-17T05:24:36Z
+ARG ROOTLESSKIT_COMMIT=c53ae22db16dd8963cc5ade4c91e2b2fc3fddf1e
+# 2020-03-27T19:45:22Z
+ARG CONTAINERD_COMMIT=1c1a08e71a54d7c82d05f47c3b6297a6e4c766e9
 # 2020-03-09T08:58:15Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=86d17da27d9d344ab1681245176cc31190076d5d
-# 2020-03-13T22:11:26Z
-ARG CRIO_COMMIT=21d7d5a1003ef1a8474923d07b55fbfe767997a5
-# 2020-03-14T19:38:35Z
-ARG KUBERNETES_COMMIT=0b6bed95774d741c64e0ea1c1af24ce060d3346d
+# 2020-03-27T18:15:32Z
+ARG CRIO_COMMIT=473e35b2cd4c2be8d3866fef4f6a1da284300a2c
+# 2020-03-28T09:44:09Z
+ARG KUBERNETES_COMMIT=b4c82622ec9d1e58ae2c9f901e51353f0661cf20
 
 # Version definitions (cont.)
-ARG CONMON_RELEASE=v2.0.11
+ARG SLIRP4NETNS_RELEASE=v1.0.0-beta.0
+ARG CONMON_RELEASE=v2.0.14
 ARG CRUN_RELEASE=0.13
-ARG FUSE_OVERLAYFS_RELEASE=v0.7.7
+ARG FUSE_OVERLAYFS_RELEASE=v0.7.8
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.19.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
 ARG CNI_PLUGINS_RELEASE=v0.8.5
 ARG FLANNEL_RELEASE=v0.12.0
-ARG ETCD_RELEASE=v3.4.4
+ARG ETCD_RELEASE=v3.4.5
 
 ### Common base images (common-*)
 FROM alpine:3.11 AS common-alpine
@@ -51,14 +50,10 @@ RUN mkdir /out && \
   go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
-FROM common-alpine AS slirp4netns-build
-RUN apk add -q --no-cache linux-headers glib-dev glib-static libcap-static libcap-dev libseccomp-dev
-RUN git clone -q https://github.com/rootless-containers/slirp4netns.git /slirp4netns
-WORKDIR /slirp4netns
-ARG SLIRP4NETNS_COMMIT
-RUN git pull && git checkout ${SLIRP4NETNS_COMMIT}
-RUN ./autogen.sh && ./configure -q LDFLAGS="-static" && make --quiet && \
-  mkdir /out && cp slirp4netns /out
+FROM busybox AS slirp4netns-build
+ARG SLIRP4NETNS_RELEASE
+ADD https://github.com/rootless-containers/slirp4netns/releases/download/${SLIRP4NETNS_RELEASE}/slirp4netns-x86_64 /out/slirp4netns
+RUN chmod +x /out/slirp4netns
 
 ### fuse-overlayfs (fuse-overlayfs-build)
 # Based on https://github.com/containers/fuse-overlayfs/blob/v0.7.6/Dockerfile.static.ubuntu .
