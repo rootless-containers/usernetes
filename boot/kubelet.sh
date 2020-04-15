@@ -12,5 +12,9 @@ exec $(dirname $0)/nsenter.sh kubelet \
 	--authorization-mode=AlwaysAllow \
 	--fail-swap-on=false \
 	--feature-gates DevicePlugins=false,SupportNoneCgroupDriver=true \
+	--eviction-hard "nodefs.available<3%" \
 	--cgroup-driver=none --cgroups-per-qos=false --enforce-node-allocatable="" \
 	$@
+
+# Notes
+# --evictrion-hard: Relax disk pressure taint for CI

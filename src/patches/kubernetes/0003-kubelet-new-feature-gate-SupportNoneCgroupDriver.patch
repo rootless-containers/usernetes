@@ -1,4 +1,4 @@
-From 91cb4c00b44af405d86027027d8fa2cf0fe869e4 Mon Sep 17 00:00:00 2001
+From aff2f8e10e015cfa61206c261da25a2e85b3a8fa Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -20,13 +20,13 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  pkg/kubelet/cm/container_manager_linux.go     | 10 ++-
  .../cm/pod_container_manager_linux_test.go    |  6 +-
  test/e2e_node/node_container_manager_test.go  |  5 +-
- 9 files changed, 122 insertions(+), 29 deletions(-)
+ 9 files changed, 123 insertions(+), 28 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 643dad913b4..2a0ac0236ce 100644
+index ade1e2811f2..df57824c9ec 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -514,7 +514,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -510,7 +510,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.SystemCgroups, "system-cgroups", c.SystemCgroups, "Optional absolute name of cgroups in which to place all non-kernel processes that are not already inside a cgroup under '/'. Empty for no container. Rolling back the flag requires a reboot.")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -36,17 +36,26 @@ index 643dad913b4..2a0ac0236ce 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 8d1b4e815e3..72e0bf081a7 100644
+index 648214bbc34..4e2dd82839c 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -608,26 +608,28 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
+@@ -608,26 +608,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
  	}
  
  	var cgroupRoots []string
+-	nodeAllocatableRoot := cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupsPerQOS, s.CgroupDriver)
+-	cgroupRoots = append(cgroupRoots, nodeAllocatableRoot)
+-	kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
+-	if err != nil {
+-		klog.Warningf("failed to get the kubelet's cgroup: %v.  Kubelet system container metrics may be missing.", err)
+-	} else if kubeletCgroup != "" {
+-		cgroupRoots = append(cgroupRoots, kubeletCgroup)
+-	}
 +	if s.CgroupDriver == "none" {
 +		cgroupRoots = []string{"/"}
 +	} else {
-+		cgroupRoots = append(cgroupRoots, cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupDriver))
++		nodeAllocatableRoot := cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupsPerQOS, s.CgroupDriver)
++		cgroupRoots = append(cgroupRoots, nodeAllocatableRoot)
 +		kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
 +		if err != nil {
 +			klog.Warningf("failed to get the kubelet's cgroup: %v.  Kubelet system container metrics may be missing.", err)
@@ -54,14 +63,6 @@ index 8d1b4e815e3..72e0bf081a7 100644
 +			cgroupRoots = append(cgroupRoots, kubeletCgroup)
 +		}
  
--	cgroupRoots = append(cgroupRoots, cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupDriver))
--	kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
--	if err != nil {
--		klog.Warningf("failed to get the kubelet's cgroup: %v.  Kubelet system container metrics may be missing.", err)
--	} else if kubeletCgroup != "" {
--		cgroupRoots = append(cgroupRoots, kubeletCgroup)
--	}
--
 -	runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
 -	if err != nil {
 -		klog.Warningf("failed to get the container runtime's cgroup: %v. Runtime system container metrics may be missing.", err)
@@ -69,10 +70,6 @@ index 8d1b4e815e3..72e0bf081a7 100644
 -		// RuntimeCgroups is optional, so ignore if it isn't specified
 -		cgroupRoots = append(cgroupRoots, runtimeCgroup)
 -	}
--
--	if s.SystemCgroups != "" {
--		// SystemCgroups is optional, so ignore if it isn't specified
--		cgroupRoots = append(cgroupRoots, s.SystemCgroups)
 +		runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
 +		if err != nil {
 +			klog.Warningf("failed to get the container runtime's cgroup: %v. Runtime system container metrics may be missing.", err)
@@ -80,6 +77,10 @@ index 8d1b4e815e3..72e0bf081a7 100644
 +			// RuntimeCgroups is optional, so ignore if it isn't specified
 +			cgroupRoots = append(cgroupRoots, runtimeCgroup)
 +		}
+ 
+-	if s.SystemCgroups != "" {
+-		// SystemCgroups is optional, so ignore if it isn't specified
+-		cgroupRoots = append(cgroupRoots, s.SystemCgroups)
 +		if s.SystemCgroups != "" {
 +			// SystemCgroups is optional, so ignore if it isn't specified
 +			cgroupRoots = append(cgroupRoots, s.SystemCgroups)
@@ -88,10 +89,10 @@ index 8d1b4e815e3..72e0bf081a7 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index da3286011ef..e7d0a1498d7 100644
+index b4e0daec681..a2803355461 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -586,6 +586,18 @@ const (
+@@ -570,6 +570,18 @@ const (
  	//
  	// Enables usage of any object for volume data source in PVCs
  	AnyVolumeDataSource featuregate.Feature = "AnyVolumeDataSource"
@@ -110,7 +111,7 @@ index da3286011ef..e7d0a1498d7 100644
  )
  
  func init() {
-@@ -677,6 +689,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -659,6 +671,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	HugePageStorageMediumSize:                      {Default: false, PreRelease: featuregate.Alpha},
  	ExternalPolicyForExternalIP:                    {Default: false, PreRelease: featuregate.GA}, // remove in 1.19
  	AnyVolumeDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
@@ -119,10 +120,10 @@ index da3286011ef..e7d0a1498d7 100644
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 818a089465d..cf7fd978d96 100644
+index 0aa2ba993cb..2ef2cd7443f 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
-@@ -201,7 +201,7 @@ type KubeletConfiguration struct {
+@@ -204,7 +204,7 @@ type KubeletConfiguration struct {
  	// And all Burstable and BestEffort pods are brought up under their
  	// specific top level QoS cgroup.
  	CgroupsPerQOS bool
@@ -132,7 +133,7 @@ index 818a089465d..cf7fd978d96 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index b13006e1539..d6b4a309070 100644
+index 4d8b26e5eb0..b49cb378c6b 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -47,6 +47,9 @@ const (
@@ -171,7 +172,7 @@ index b13006e1539..d6b4a309070 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -614,3 +625,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -626,3 +637,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
@@ -245,7 +246,7 @@ index 5d77ed7a45f..5654d737fd6 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index bf34ae160d1..502c7bb6dc0 100644
+index dfa5c919499..773835c8533 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -253,9 +253,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
