@@ -8,7 +8,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - run: DOCKER_BUILDKIT=1 make artifact
     - run: cat _artifact/SHA256SUM
     - uses: actions/create-release@v1
