@@ -4,22 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-03-30T21:16:24Z
-ARG ROOTLESSKIT_COMMIT=c65f05b40ad56da15d9c274a0d0a99995d3b37d3
-# 2020-04-15T00:40:25Z
-ARG CONTAINERD_COMMIT=9441507fd29704bf14e0f38cea2129a4c0430171
+# 2020-04-27T04:00:32Z
+ARG ROOTLESSKIT_COMMIT=3b1290add414a9d97fb9120fb76b432027e26103
+# 2020-04-27T14:57:56Z
+ARG CONTAINERD_COMMIT=3f95bc5f18a7d9dceb1e7502d2fc6120900c5bfb
 # 2020-03-09T08:58:15Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=86d17da27d9d344ab1681245176cc31190076d5d
-# 2020-04-14T15:41:17Z
-ARG CRIO_COMMIT=f0aef34b8dc8924175b2d7461004089ec6ea43f8
-# 2020-04-15T00:32:04Z
-ARG KUBERNETES_COMMIT=d0183703cbe715c879cb42db375c7373b7f2b6a1
+# 2020-04-28T20:40:00Z
+ARG CRIO_COMMIT=324422bb1c2c2d82592e5689eae16f31d5496d5b
+# 2020-04-28T22:58:24Z
+ARG KUBERNETES_COMMIT=961a5ed144cf0f2f4e2d858beb8cc0cfdd822c1b
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.0.0
+ARG SLIRP4NETNS_RELEASE=v1.0.1
 ARG CONMON_RELEASE=v2.0.15
 ARG CRUN_RELEASE=0.13
-ARG FUSE_OVERLAYFS_RELEASE=v0.7.8
+ARG FUSE_OVERLAYFS_RELEASE=v1.0.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.19.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -185,7 +185,7 @@ COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
 
 #### Test (test-main)
-FROM fedora:31 AS test-main
+FROM fedora:32 AS test-main
 ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
