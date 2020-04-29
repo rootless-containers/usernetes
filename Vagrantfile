@@ -2,6 +2,7 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
+# TODO: update to Fedora 32 (https://github.com/rootless-containers/usernetes/pull/156#issuecomment-620981700)
   config.vm.box = "fedora/31-cloud-base"
   config.vm.provider :virtualbox do |v|
     v.memory = 2048
