@@ -15,5 +15,6 @@ install:
 - sudo DOCKER_BUILDKIT=1 DOCKER_BUILD_FLAGS="--progress=plain" make binaries
 script:
 - sudo vagrant up && sudo mkdir -p /root/.ssh && sudo sh -c "vagrant ssh-config >> /root/.ssh/config"
+- sudo ssh default sh -c "uname -a ; df -T"
 - sudo ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
 - sudo ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
