@@ -1,4 +1,4 @@
-From c161fb705f9f91ddba3c37dba40eab0cdcf281f9 Mon Sep 17 00:00:00 2001
+From 50517c0621dd085163a2214f4f9ceb5b30c4ad1a Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -23,10 +23,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  9 files changed, 123 insertions(+), 28 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index b34c693e5f9..9df7d6c67ac 100644
+index 3ce0b652884..6a6f08281ce 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -502,7 +502,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -503,7 +503,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.SystemCgroups, "system-cgroups", c.SystemCgroups, "Optional absolute name of cgroups in which to place all non-kernel processes that are not already inside a cgroup under '/'. Empty for no container. Rolling back the flag requires a reboot.")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -36,10 +36,10 @@ index b34c693e5f9..9df7d6c67ac 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 2368bd15299..9edc4479648 100644
+index 3639ce18b1f..67c5dfddd84 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -607,26 +607,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
+@@ -600,26 +600,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
  	}
  
  	var cgroupRoots []string
@@ -89,7 +89,7 @@ index 2368bd15299..9edc4479648 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index bc03cbc2f67..73be09c7361 100644
+index 4a8f6a5d05d..03957fbb884 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
 @@ -574,6 +574,18 @@ const (
@@ -120,7 +120,7 @@ index bc03cbc2f67..73be09c7361 100644
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index fa27e5f6398..3073af528dc 100644
+index 1fb797d07da..87f1f583c77 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -204,7 +204,7 @@ type KubeletConfiguration struct {
@@ -133,7 +133,7 @@ index fa27e5f6398..3073af528dc 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index a9177d94e75..da2149816ca 100644
+index 23830a09e74..9ab6454fd96 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -51,6 +51,9 @@ const (
@@ -246,7 +246,7 @@ index 5d77ed7a45f..5654d737fd6 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index b672791bd6f..585612a8f4f 100644
+index da74a0fb6d6..8a20dd79a40 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -254,9 +254,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
