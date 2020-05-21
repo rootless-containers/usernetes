@@ -1,4 +1,4 @@
-# Fedora 31 (cgroup v2) on Vagrant
+# Fedora (cgroup v2) on Vagrant
 dist: bionic
 language: generic
 cache:
@@ -6,7 +6,7 @@ cache:
   - /home/travis/.vagrant.d/boxes
 env:
   global:
-  - VAGRANT_VERSION=2.2.7
+  - VAGRANT_VERSION=2.2.9
 install:
 - sudo apt-get remove -q -y 'docker*' && sudo rm -rf /etc/docker && curl -fsSL https://get.docker.com | sh
 # https://github.com/alvistack/ansible-role-virtualbox/blob/6887b020b0ca5c59ddb6620d73f053ffb84f4126/.travis.yml#L30

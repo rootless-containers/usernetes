@@ -1,4 +1,4 @@
-From f8fd3dce67a5c010a41690cfd27bf3fa4c8ffc61 Mon Sep 17 00:00:00 2001
+From 9f8c9f5140b41b9a4f52b63273aa720376e4775f Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
@@ -12,7 +12,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 25 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 0c88dd2cd8d..9ef541d7b1d 100644
+index 7f519212c3e..62d8a05a1ae 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
 @@ -87,6 +87,7 @@ go_library(
@@ -104,7 +104,7 @@ index 0c88dd2cd8d..9ef541d7b1d 100644
          ],
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 38cd4c14deb..101719414b8 100644
+index 2692a64c211..7d9d7bb1fe1 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -35,6 +35,7 @@ import (
@@ -138,7 +138,7 @@ index 38cd4c14deb..101719414b8 100644
  		NodeRef:                nodeRef,
  		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/BUILD b/pkg/proxy/userspace/BUILD
-index 79348fdb792..f492370995b 100644
+index 4f292e73399..1c75026b5e6 100644
 --- a/pkg/proxy/userspace/BUILD
 +++ b/pkg/proxy/userspace/BUILD
 @@ -34,6 +34,7 @@ go_library(
@@ -146,11 +146,11 @@ index 79348fdb792..f492370995b 100644
          "//staging/src/k8s.io/apimachinery/pkg/util/wait:go_default_library",
          "//staging/src/k8s.io/cloud-provider/service/helpers:go_default_library",
 +        "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
-         "//vendor/k8s.io/klog:go_default_library",
+         "//vendor/k8s.io/klog/v2:go_default_library",
          "//vendor/k8s.io/utils/exec:go_default_library",
          "//vendor/k8s.io/utils/net:go_default_library",
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index a2f6090b815..9bb3f328c3b 100644
+index 6b4f5ce451d..ac54510d36b 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
