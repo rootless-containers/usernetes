@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: DOCKER_BUILDKIT=1 make artifact
-    - run: cat _artifact/SHA256SUM
+    - run: cat _artifact/SHA256SUMS
     - uses: actions/create-release@v1
       id: create_release
       env:
@@ -28,17 +28,17 @@ jobs:
         asset_path: _artifact/usernetes-x86_64.tbz
         asset_name: usernetes-x86_64.tbz
         asset_content_type: application/octet-stream
-    - name: "Upload SHA256SUM"
+    - name: "Upload SHA256SUMS"
       uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: _artifact/SHA256SUM
-        asset_name: SHA256SUM
+        asset_path: _artifact/SHA256SUMS
+        asset_name: SHA256SUMS
         asset_content_type: application/octet-stream
-    - name: "Upload SHA256SUM (artifact)"
+    - name: "Upload SHA256SUMS (artifact)"
       uses: actions/upload-artifact@v1
       with:
-        name: SHA256SUM
-        path: _artifact/SHA256SUM
+        name: SHA256SUMS
+        path: _artifact/SHA256SUMS
