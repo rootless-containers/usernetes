@@ -47,6 +47,8 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 * [ ] Cgroup
 * [X] Multi-node CNI
   * [X] Flannel (VXLAN)
+* [ ] CoreDNS [#73](https://github.com/rootless-containers/usernetes/issues/73)
+* [ ] TLS [#76](https://github.com/rootless-containers/usernetes/issues/76)
 
 Currently, Usernetes uses our patched version of Kubernetes. See [`./src/patches`](./src/patches).
 We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
