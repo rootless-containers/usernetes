@@ -141,7 +141,7 @@ ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 ENV GO111MODULE=off
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
-RUN KUBE_STATIC_OVERRIDES=kubelet \
+RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
   make --quiet kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
   mkdir /out && cp _output/bin/kube* /out
 
