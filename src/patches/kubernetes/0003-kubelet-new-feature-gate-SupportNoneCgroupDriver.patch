@@ -1,4 +1,4 @@
-From 50517c0621dd085163a2214f4f9ceb5b30c4ad1a Mon Sep 17 00:00:00 2001
+From cbfb2ac4548cd42bc06a55c2fdb412d1fa1215a0 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -23,11 +23,11 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  9 files changed, 123 insertions(+), 28 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 3ce0b652884..6a6f08281ce 100644
+index d5473fed69a..5cb299a5c1b 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -503,7 +503,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
- 	fs.StringVar(&c.SystemCgroups, "system-cgroups", c.SystemCgroups, "Optional absolute name of cgroups in which to place all non-kernel processes that are not already inside a cgroup under '/'. Empty for no container. Rolling back the flag requires a reboot.")
+@@ -491,7 +491,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+ 	fs.StringVar(&c.ProviderID, "provider-id", c.ProviderID, "Unique identifier for identifying the node in a machine database, i.e cloudprovider")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
 -	fs.StringVar(&c.CgroupDriver, "cgroup-driver", c.CgroupDriver, "Driver that the kubelet uses to manipulate cgroups on the host.  Possible values: 'cgroupfs', 'systemd'")
@@ -36,10 +36,10 @@ index 3ce0b652884..6a6f08281ce 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 3639ce18b1f..67c5dfddd84 100644
+index ebd220c44e8..842a05b1c1c 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -600,26 +600,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
+@@ -598,26 +598,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
  	}
  
  	var cgroupRoots []string
@@ -89,10 +89,10 @@ index 3639ce18b1f..67c5dfddd84 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 4a8f6a5d05d..03957fbb884 100644
+index df5630d553d..ebb1956ba39 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -574,6 +574,18 @@ const (
+@@ -571,6 +571,18 @@ const (
  	//
  	// Enables usage of any object for volume data source in PVCs
  	AnyVolumeDataSource featuregate.Feature = "AnyVolumeDataSource"
@@ -111,7 +111,7 @@ index 4a8f6a5d05d..03957fbb884 100644
  )
  
  func init() {
-@@ -663,6 +675,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -659,6 +671,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	HugePageStorageMediumSize:                      {Default: false, PreRelease: featuregate.Alpha},
  	ExternalPolicyForExternalIP:                    {Default: true, PreRelease: featuregate.GA}, // remove in 1.20
  	AnyVolumeDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
@@ -120,10 +120,10 @@ index 4a8f6a5d05d..03957fbb884 100644
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 1fb797d07da..87f1f583c77 100644
+index bcafb460b50..017d071ff06 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
-@@ -204,7 +204,7 @@ type KubeletConfiguration struct {
+@@ -210,7 +210,7 @@ type KubeletConfiguration struct {
  	// And all Burstable and BestEffort pods are brought up under their
  	// specific top level QoS cgroup.
  	CgroupsPerQOS bool

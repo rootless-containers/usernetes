@@ -4,31 +4,32 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-05-11T01:17:05Z
-ARG ROOTLESSKIT_COMMIT=748ea095d9b18f9ea9e8a3487a2e43dce534ca8c
-# 2020-05-20T19:46:50Z
-ARG CONTAINERD_COMMIT=1c58c5d440f424e2d192f35f02306c5dc1a1e8c9
-# 2020-05-12T01:55:15Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=32086ef23a5a20250f4282426bae855d42ff45b3
+# 2020-06-05T19:03:47Z
+ARG ROOTLESSKIT_COMMIT=d41d6063cf995c4b2bb8743101d6d14f0ba5287c
+# 2020-06-09T00:25:06Z
+ARG CONTAINERD_COMMIT=834665d9db028c8733479b5063e4fd477e549364
+# 2020-06-05T05:32:24Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=570bea340bec6061d9f689151f89539908525807
 # 2020-05-20T14:14:21Z
 ARG CRIO_COMMIT=ad83d2a35a30b8a336b16a0ea5f7afc6aebfb9b7
-# 2020-05-21T10:30:36Z
-ARG KUBERNETES_COMMIT=bded41a817a84cd7e51fa535ad6def319a892a3c
+# 2020-06-09T04:44:54Z
+ARG KUBE_NODE_COMMIT=2446c3d7e96008c1da59d79e1518659028b04267
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.1.0-beta.1
-ARG CONMON_RELEASE=v2.0.16
+ARG SLIRP4NETNS_RELEASE=v1.1.1
+ARG CONMON_RELEASE=v2.0.17
 ARG CRUN_RELEASE=0.13
 ARG FUSE_OVERLAYFS_RELEASE=v1.0.0
+ARG KUBE_MASTER_RELEASE=v1.19.0-beta.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.19.0-usernetes
+ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
 ARG CNI_PLUGINS_RELEASE=v0.8.6
 ARG FLANNEL_RELEASE=v0.12.0
-ARG ETCD_RELEASE=v3.4.8
+ARG ETCD_RELEASE=v3.4.9
 
 ### Common base images (common-*)
-FROM alpine:3.11 AS common-alpine
+FROM alpine:3.12 AS common-alpine
 RUN apk add -q --no-cache git build-base autoconf automake libtool
 
 FROM golang:1.13-alpine AS common-golang-alpine
@@ -125,13 +126,21 @@ RUN mkdir -p /out/cni && \
  wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
  cd /out/cni && ls | egrep -vx "(host-local|loopback|bridge|flannel|portmap)" | xargs rm -f
 
-### Kubernetes (k8s-build)
-FROM common-golang-alpine-heavy AS k8s-build
+### Kubernetes master (kube-master-build)
+FROM busybox AS kube-master-build
+ARG KUBE_MASTER_RELEASE
+RUN mkdir /out && \
+  wget -q -O - https://dl.k8s.io/${KUBE_MASTER_RELEASE}/kubernetes-server-linux-amd64.tar.gz | tar xz -C / && \
+  cd /kubernetes/server/bin && \
+  cp kube-apiserver kube-controller-manager kube-scheduler kubectl /out
+
+### Kubernetes node (kube-node-build)
+FROM common-golang-alpine-heavy AS kube-node-build
 RUN apk add -q --no-cache rsync
 RUN git clone -q https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
-ARG KUBERNETES_COMMIT
-RUN git pull && git checkout ${KUBERNETES_COMMIT}
+ARG KUBE_NODE_COMMIT
+RUN git pull && git checkout ${KUBE_NODE_COMMIT}
 COPY ./src/patches/kubernetes /patches
 # `git am` requires user info to be set
 RUN git config user.email "nobody@example.com" && \
@@ -141,8 +150,8 @@ ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 ENV GO111MODULE=off
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
-RUN KUBE_STATIC_OVERRIDES=kubelet \
-  make --quiet kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
+RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
+  make --quiet kube-proxy kubelet && \
   mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
@@ -163,7 +172,7 @@ RUN mkdir -p /out && \
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
-RUN mkdir /tmp-etcd out && \
+RUN mkdir /tmp-etcd /out && \
   wget -q -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
@@ -179,7 +188,8 @@ COPY --from=crio-build /out/* /
 COPY --from=conmon-build /out/* /
 # can't use wildcard here: https://github.com/rootless-containers/usernetes/issues/78
 COPY --from=cniplugins-build /out/cni /cni
-COPY --from=k8s-build /out/* /
+COPY --from=kube-master-build /out/* /
+COPY --from=kube-node-build /out/* /
 COPY --from=socat-build /out/* /
 COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
