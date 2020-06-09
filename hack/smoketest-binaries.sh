@@ -2,16 +2,16 @@
 source $(realpath $(dirname $0))/smoketest-common.inc.sh
 cd $(realpath $(dirname $0)/..)
 function cleanup() {
+	$(pwd)/show-status.sh
 	$(pwd)/uninstall.sh || true
-	$(pwd)/cleanup.sh || true
+	eval $($(pwd)/show-cleanup-command.sh) || true
 }
 trap cleanup EXIT
 
 set -x
 ./install.sh $@
 
-./rootlessctl.sh add-ports 127.0.0.1:8080:8080/tcp
-export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
+export KUBECONFIG=$HOME/.config/usernetes/master/admin-localhost.kubeconfig
 export PATH=$(pwd)/bin:$PATH
 
 if ! timeout 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready" | grep -v "NotReady" | wc -l) = "1" ]; do sleep 10; done'; then

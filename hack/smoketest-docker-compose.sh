@@ -4,17 +4,17 @@ cd $(realpath $(dirname $0)/..)
 tmpdir=$(mktemp -d)
 function cleanup() {
 	set -x
-	docker-compose down -t 0
+	make down
 	rm -rf $tmpdir
 }
 trap cleanup EXIT
 
 INFO "Creating the cluster"
-docker-compose up -d
+make _up
 master="usernetes_master_1"
 nodes="2"
 
-export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
+export KUBECONFIG="$HOME/.config/usernetes/docker-compose.kubeconfig"
 docker cp $master:/home/user/usernetes/bin/kubectl $tmpdir/kubectl
 chmod +x $tmpdir/kubectl
 export PATH=$tmpdir:$PATH
@@ -28,7 +28,7 @@ if ! timeout 60 sh -exc "until [ \$(docker inspect -f '{{.State.Health.Status}}'
 fi
 
 INFO "Waiting for $nodes nodes to be ready."
-if ! timeout 60 sh -exc "until [ \$(kubectl get nodes | grep \"Ready\" | grep -v \"NotReady\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
+if ! timeout 120 sh -exc "until [ \$(kubectl get nodes | grep \"Ready\" | grep -v \"NotReady\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
 	ERROR "Nodes are not ready."
 	set -x
 	kubectl get nodes -o wide

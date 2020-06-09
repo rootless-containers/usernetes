@@ -31,8 +31,10 @@ start="u7s.target"
 cri="containerd"
 cni=""
 publish=""
+publish_default="0.0.0.0:6443:6443/tcp"
 cidr=""
-kubeconfig=""
+delay=""
+wait_init_certs=""
 function usage() {
 	echo "Usage: ${arg0} [OPTION]..."
 	echo "Install Usernetes systemd units to ${config_dir}/systemd/unit ."
@@ -40,9 +42,8 @@ function usage() {
 	echo "  --start=UNIT        Enable and start the specified target after the installation, e.g. \"u7s.target\". Set to an empty to disable autostart. (Default: \"$start\")"
 	echo "  --cri=RUNTIME       Specify CRI runtime, \"containerd\" or \"crio\". (Default: \"$cri\")"
 	echo '  --cni=RUNTIME       Specify CNI, an empty string (none) or "flannel". (Default: none)'
-	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: none)"
+	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: \"${publish_default}\")"
 	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: none)"
-	echo "  --kubeconfig=FILE   Specify kubeconfig."
 	echo
 	echo "Examples:"
 	echo "  # The default options"
@@ -51,25 +52,14 @@ function usage() {
 	echo "  # Use CRI-O as the CRI runtime"
 	echo "  ${arg0} --cri=crio"
 	echo
-	echo "Examples (multi-node cluster with flannel):"
-	echo "  # Master (2379/tcp: etcd, 8080/tcp: kube-apiserver, 10251/tcp: kube-scheduler, 10252/tcp: kube-controller-manager)"
-	echo "  ${arg0} --start=u7s-master-with-etcd.target --cri=\\"
-	echo '    --cni=flannel --cidr=10.0.100.0/24\'
-	echo "    -p 0.0.0.0:2379:2379/tcp -p 0.0.0.0:8080:8080/tcp -p 0.0.0.0:10251:10251/tcp -p 0.0.0.0:10252:10252/tcp"
-	echo
-	echo "  # Node  (10250/tcp: kubelet, 8472/udp: flannel)"
-	echo "  ${arg0} --start=u7s-node.target --cri=containerd\\"
-	echo '    --cni=flannel --cidr=10.0.102.0/24\'
-	echo '    -p 0.0.0.0:10250:10250/tcp -p 0.0.0.0:8472:8472/udp\'
-	echo "    --kubeconfig=config/docker-compose-master.kubeconfig"
-	echo
 	echo 'Use `uninstall.sh` for uninstallation.'
+	echo 'For an example of multi-node cluster with flannel, see docker-compose.yaml'
 	echo
 	echo 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
 }
 
 set +e
-args=$(getopt -o hp: --long help,publish:,start:,cri:,cni:,cidr:,kubeconfig: -n $arg0 -- "$@")
+args=$(getopt -o hp: --long help,publish:,start:,cri:,cni:,cidr:,,delay:,wait-init-certs -n $arg0 -- "$@")
 getopt_status=$?
 set -e
 if [ $getopt_status != 0 ]; then
@@ -120,12 +110,15 @@ while true; do
 		cidr="$2"
 		shift 2
 		;;
-	--kubeconfig)
-		kubeconfig="$2"
-		if [ -n "$kubeconfig" ]; then
-			kubeconfig=$(realpath $kubeconfig)
-		fi
+	--delay)
+		# HIDDEN FLAG. DO NO SPECIFY MANUALLY.
+		delay="$2"
 		shift 2
+		;;
+	--wait-init-certs)
+		# HIDDEN FLAG FOR DOCKER COMPOSE. DO NO SPECIFY MANUALLY.
+		wait_init_certs=1
+		shift 1
 		;;
 	--)
 		shift
@@ -136,6 +129,17 @@ while true; do
 		;;
 	esac
 done
+
+# set default --publish if none was specified
+if [[ -z "$publish" ]]; then
+	publish=$publish_default
+fi
+
+# Delay for debugging
+if [[ -n "$delay" ]]; then
+	INFO "Delay: $delay seconds..."
+	sleep "$delay"
+fi
 
 ### Create EnvironmentFile (~/.config/usernetes/env)
 mkdir -p ${config_dir}/usernetes
@@ -153,10 +157,29 @@ if [ -n "$cidr" ]; then
 U7S_ROOTLESSKIT_FLAGS=--cidr=${cidr}
 EOF
 fi
-if [ -n "$kubeconfig" ]; then
-	cat <<EOF >>${config_dir}/usernetes/env
-U7S_KUBECONFIG=${kubeconfig}
-EOF
+
+if [[ -n "$wait_init_certs" ]]; then
+	max_trial=300
+	INFO "Waiting for certs to be created.":
+	for ((i = 0; i < max_trial; i++)); do
+		if [[ -f ${config_dir}/usernetes/node/done || -f ${config_dir}/usernetes/master/done ]]; then
+			echo "OK"
+			break
+		fi
+		echo -n .
+		sleep 5
+	done
+elif [[ ! -d ${config_dir}/usernetes/master ]]; then
+	### If the keys are not generated yet, generate them for the single-node cluster
+	INFO "Generating single-node cluster TLS keys (${config_dir}/usernetes/{master,node})"
+	cfssldir=$(mktemp -d /tmp/cfssl.XXXXXXXXX)
+	master=127.0.0.1
+	node=$(hostname)
+	${base}/common/cfssl.sh --dir=${cfssldir} --master=$master --node=$node,127.0.0.1
+	rm -rf ${config_dir}/usernetes/{master,node}
+	cp -r "${cfssldir}/master" ${config_dir}/usernetes/master
+	cp -r "${cfssldir}/nodes.$node" ${config_dir}/usernetes/node
+	rm -rf "${cfssldir}"
 fi
 
 ### Begin installation
@@ -204,7 +227,6 @@ Description=Usernetes RootlessKit service
 PartOf=u7s.target
 
 [Service]
-ExecStartPre=/bin/bash -xec "cd \$XDG_RUNTIME_DIR; ${base}/bin/rootlesskit rm -rf usernetes containerd crio runc"
 ExecStart=${base}/boot/rootlesskit.sh
 ${service_common}
 EOF
@@ -385,3 +407,6 @@ time systemctl --user -T start $start
 systemctl --user --all --no-pager list-units 'u7s-*'
 set +x
 INFO 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
+if [[ -f ${config_dir}/usernetes/master/admin-localhost.kubeconfig ]]; then
+	INFO "Hint: KUBECONFIG=${config_dir}/usernetes/master/admin-localhost.kubeconfig"
+fi

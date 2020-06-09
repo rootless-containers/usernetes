@@ -6,7 +6,6 @@
 # * $U7S_DEBUG: enable debug mode if set to "1"
 
 # Environment variables set by this script:
-# * $U7S_KUBECONFIG: set to $U7S_BASE_DIR/config/localhost.kubeconfig if not set
 # * $PATH: $U7S_BASE_DIR/bin:/sbin:/usr/sbin are prepended
 # * $XDG_DATA_HOME: $HOME/.local/share if not set
 # * $XDG_CONFIG_HOME: $HOME/.config if not set
@@ -117,10 +116,6 @@ if ! [[ -d $U7S_BASE_DIR ]]; then
 	return 1
 fi
 
-# export U7S_KUBECONFIG
-: ${U7S_KUBECONFIG=$U7S_BASE_DIR/config/localhost.kubeconfig}
-export U7S_KUBECONFIG
-
 # export PATH
 PATH=$U7S_BASE_DIR/bin:/sbin:/usr/sbin:$PATH
 export PATH
@@ -130,4 +125,3 @@ export PATH
 : ${XDG_CONFIG_HOME=$HOME/.config}
 : ${XDG_CACHE_HOME=$HOME/.cache}
 export XDG_DATA_HOME XDG_CONFIG_HOME XDG_CACHE_HOME
-

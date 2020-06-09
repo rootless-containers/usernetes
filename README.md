@@ -25,7 +25,6 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 - [Quick start](#quick-start)
   - [Install](#install)
   - [Use `kubectl`](#use-kubectl)
-  - [Reset to factory defaults](#reset-to-factory-defaults)
   - [Uninstall](#uninstall)
 - [Run Usernetes in Docker](#run-usernetes-in-docker)
   - [Single node](#single-node)
@@ -51,9 +50,9 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 Currently, Usernetes uses our patched version of Kubernetes. See [`./src/patches`](./src/patches).
 We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
 
-Deployment shell scripts are in POC status. (It even lacks TLS setup - [#76](https://github.com/rootless-containers/usernetes/issues/76))
+Deployment shell scripts are in POC status.
 
-See [Adoption](#adoption) for Usernetes-based Kubernetes distributions with TLS support.
+See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
 
 > **Note**
 >
@@ -208,34 +207,20 @@ $ ./install.sh --cri=crio
 ### Use `kubectl`
 
 ```console
-$ ./kubectl.sh get nodes
-```
-
-Or 
-
-```console
-$ ./rootlessctl.sh add-ports 127.0.0.1:8080:8080/tcp
-$ export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
-$ kubectl get nodes
-```
-
-Or
-
-```console
-$ nsenter -U -n -t $(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid) \
-  kubectl --kubeconfig=./config/localhost.kubeconfig get nodes
-```
-
-### Reset to factory defaults
-
-```console
-$ ./cleanup.sh
+$ export KUBECONFIG="$HOME/.config/usernetes/master/admin-localhost.kubeconfig"
+$ kubectl get nodes -o wide
 ```
 
 ### Uninstall
 
 ```console
 $ ./uninstall.sh
+```
+
+To remove data files:
+```console
+$ ./show-cleanup-command.sh
+$ eval $(./show-cleanup-command.sh)
 ```
 
 ## Run Usernetes in Docker
@@ -253,8 +238,14 @@ The image is based on Fedora.
 ### Single node
 
 ```console
-$ docker run -td --name usernetes-node -p 127.0.0.1:8080:8080 --privileged rootlesscontainers/usernetes -p 0.0.0.0:8080:8080/tcp --cri=containerd
-$ export KUBECONFIG=./config/localhost.kubeconfig
+$ docker run -td --name usernetes-node -p 127.0.0.1:6443:6443 --privileged rootlesscontainers/usernetes --cri=containerd
+```
+
+Wait until `docker ps` shows "healty" as the status of `usernetes-node` container.
+
+```console
+$ docker cp usernetes-node:/home/user/.config/usernetes/master/admin-localhost.kubeconfig docker.kubeconfig
+$ export KUBECONFIG=./docker.kubeconfig
 $ kubectl run -it --rm --image busybox foo
 / #
 ```
@@ -262,8 +253,8 @@ $ kubectl run -it --rm --image busybox foo
 ### Multi node (Docker Compose)
 
 ```console
-$ docker-compose up -d
-$ export KUBECONFIG=./config/localhost.kubeconfig
+$ make up
+$ export KUBECONFIG=$HOME/.config/usernetes/docker-compose.kubeconfig
 ```
 
 Flannel VXLAN `10.5.0.0/16` is configured by default.

@@ -3,13 +3,15 @@ on:
   push:
     tags:
     - 'v*'
-
+env:
+  DOCKER_BUILDKIT: 1
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
     - uses: actions/checkout@v2
-    - run: DOCKER_BUILDKIT=1 make artifact
+    - run: make artifact
     - run: cat _artifact/SHA256SUMS
     - uses: actions/create-release@v1
       id: create_release

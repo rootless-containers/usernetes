@@ -24,12 +24,17 @@ _test:
 	./hack/smoketest-docker.sh u7s-test-containerd $(IMAGE) --cri=containerd
 	./hack/smoketest-docker.sh u7s-test-crio $(IMAGE) --cri=crio
 
-up: image
+up: image _up
+
+_up:
 	docker-compose up -d
-	echo "To use kubectl: export KUBECONFIG=$(shell pwd)/config/localhost.kubeconfig"
+	mkdir -p $(HOME)/.config/usernetes
+	docker run --rm -v usernetes_tls-master:/a busybox sh -c "until test -f /a/done; do sleep 1; done; cat /a/admin-localhost.kubeconfig" > $(HOME)/.config/usernetes/docker-compose.kubeconfig
+	echo "To use kubectl: export KUBECONFIG=$(HOME)/.config/usernetes/docker-compose.kubeconfig"
 
 down:
-	docker-compose down
+	docker-compose down -v -t 0
+	rm -f $(HOME)/.config/usernetes/docker-compose.kubeconfig
 
 artifact: binaries _artifact
 
@@ -43,4 +48,4 @@ _artifact:
 clean:
 	rm -rf _artifact bin
 
-.PHONY: binaries _binaries image test _test up down artifact _artifact clean
+.PHONY: binaries _binaries image test _test up _up down artifact _artifact clean
