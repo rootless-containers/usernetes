@@ -13,13 +13,14 @@ ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=570bea340bec6061d9f689151f89539908525807
 # 2020-06-08T19:14:19Z
 ARG CRIO_COMMIT=ed409ae3fb4591164d763d88cba1409c4c94c6d8
 # 2020-06-09T04:44:54Z
-ARG KUBERNETES_COMMIT=2446c3d7e96008c1da59d79e1518659028b04267
+ARG KUBE_NODE_COMMIT=2446c3d7e96008c1da59d79e1518659028b04267
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.1
 ARG CONMON_RELEASE=v2.0.17
 ARG CRUN_RELEASE=0.13
 ARG FUSE_OVERLAYFS_RELEASE=v1.0.0
+ARG KUBE_MASTER_RELEASE=v1.19.0-beta.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG SOCAT_RELEASE=1.7.3.4
@@ -125,13 +126,21 @@ RUN mkdir -p /out/cni && \
  wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
  cd /out/cni && ls | egrep -vx "(host-local|loopback|bridge|flannel|portmap)" | xargs rm -f
 
-### Kubernetes (k8s-build)
-FROM common-golang-alpine-heavy AS k8s-build
+### Kubernetes master (kube-master-build)
+FROM busybox AS kube-master-build
+ARG KUBE_MASTER_RELEASE
+RUN mkdir /out && \
+  wget -q -O - https://dl.k8s.io/${KUBE_MASTER_RELEASE}/kubernetes-server-linux-amd64.tar.gz | tar xz -C / && \
+  cd /kubernetes/server/bin && \
+  cp kube-apiserver kube-controller-manager kube-scheduler kubectl /out
+
+### Kubernetes node (kube-node-build)
+FROM common-golang-alpine-heavy AS kube-node-build
 RUN apk add -q --no-cache rsync
 RUN git clone -q https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
-ARG KUBERNETES_COMMIT
-RUN git pull && git checkout ${KUBERNETES_COMMIT}
+ARG KUBE_NODE_COMMIT
+RUN git pull && git checkout ${KUBE_NODE_COMMIT}
 COPY ./src/patches/kubernetes /patches
 # `git am` requires user info to be set
 RUN git config user.email "nobody@example.com" && \
@@ -142,7 +151,7 @@ ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 ENV GO111MODULE=off
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
-  make --quiet kube-apiserver kube-controller-manager kube-proxy kube-scheduler kubectl kubelet && \
+  make --quiet kube-proxy kubelet && \
   mkdir /out && cp _output/bin/kube* /out
 
 ### socat (socat-build)
@@ -163,7 +172,7 @@ RUN mkdir -p /out && \
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
 ARG ETCD_RELEASE
-RUN mkdir /tmp-etcd out && \
+RUN mkdir /tmp-etcd /out && \
   wget -q -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
@@ -179,7 +188,8 @@ COPY --from=crio-build /out/* /
 COPY --from=conmon-build /out/* /
 # can't use wildcard here: https://github.com/rootless-containers/usernetes/issues/78
 COPY --from=cniplugins-build /out/cni /cni
-COPY --from=k8s-build /out/* /
+COPY --from=kube-master-build /out/* /
+COPY --from=kube-node-build /out/* /
 COPY --from=socat-build /out/* /
 COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /

@@ -16,4 +16,5 @@ x ROOTLESSKIT rootless-containers/rootlesskit
 x CONTAINERD containerd/containerd
 x CONTAINERD_FUSE_OVERLAYFS AkihiroSuda/containerd-fuse-overlayfs
 x CRIO cri-o/cri-o
-x KUBERNETES kubernetes/kubernetes
+# Only Kube node needs patching. For Kube master, we download pre-built binaries.
+x KUBE_NODE kubernetes/kubernetes
