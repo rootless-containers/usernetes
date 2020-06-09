@@ -333,4 +333,3 @@ The binary releases of Usernetes contain files that are licensed under the terms
 * `bin/crun`:  [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-crun), see https://github.com/containers/crun
 * `bin/fuse-overlayfs`:  [GNU GENERAL PUBLIC LICENSE Version 3](docs/binary-release-license/LICENSE-fuse-overlayfs), see https://github.com/containers/fuse-overlayfs
 * `bin/slirp4netns`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-slirp4netns), see https://github.com/rootless-containers/slirp4netns
-* `bin/socat`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-socat), see http://www.dest-unreach.org/socat/

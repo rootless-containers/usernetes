@@ -23,7 +23,6 @@ ARG FUSE_OVERLAYFS_RELEASE=v1.0.0
 ARG KUBE_MASTER_RELEASE=v1.19.0-beta.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
-ARG SOCAT_RELEASE=1.7.3.4
 ARG CNI_PLUGINS_RELEASE=v0.8.6
 ARG FLANNEL_RELEASE=v0.12.0
 ARG ETCD_RELEASE=v3.4.9
@@ -154,14 +153,6 @@ RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
   make --quiet kube-proxy kubelet && \
   mkdir /out && cp _output/bin/kube* /out
 
-### socat (socat-build)
-FROM common-alpine AS socat-build
-ARG SOCAT_RELEASE
-RUN wget -q -O - http://www.dest-unreach.org/socat/download/socat-${SOCAT_RELEASE}.tar.gz | tar xz -C /
-WORKDIR /socat-${SOCAT_RELEASE}
-RUN LIBS="-static" ./configure -q && make --quiet socat && strip socat && \
-  mkdir -p /out && cp -f socat /out
-
 #### flannel (flannel-build)
 FROM busybox AS flannel-build
 ARG FLANNEL_RELEASE
@@ -190,7 +181,6 @@ COPY --from=conmon-build /out/* /
 COPY --from=cniplugins-build /out/cni /cni
 COPY --from=kube-master-build /out/* /
 COPY --from=kube-node-build /out/* /
-COPY --from=socat-build /out/* /
 COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
 
