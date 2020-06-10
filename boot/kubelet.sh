@@ -2,20 +2,38 @@
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
 
+mkdir -p $XDG_RUNTIME_DIR/usernetes
+cat >$XDG_RUNTIME_DIR/usernetes/kubelet-config.yaml <<EOF
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+volumePluginDir: $XDG_DATA_HOME/usernetes/kubelet-plugins-exec
+authentication:
+  anonymous: 
+    enabled: false
+  x509:
+    clientCAFile: "$XDG_CONFIG_HOME/usernetes/node/ca.pem"
+tlsCertFile: "$XDG_CONFIG_HOME/usernetes/node/node.pem"
+tlsPrivateKeyFile: "$XDG_CONFIG_HOME/usernetes/node/node-key.pem"
+failSwapOn: false
+featureGates:
+  DevicePlugins: false
+  SupportNoneCgroupDriver: true
+  LocalStorageCapacityIsolation: false
+evictionHard:
+  nodefs.available: "3%"
+cgroupDriver: none
+cgroupsPerQOS: false
+enforceNodeAllocatable: []
+EOF
+
 exec $(dirname $0)/nsenter.sh kubelet \
 	--cert-dir $XDG_CONFIG_HOME/usernetes/pki \
 	--root-dir $XDG_DATA_HOME/usernetes/kubelet \
 	--log-dir $XDG_DATA_HOME/usernetes/kubelet-log \
-	--volume-plugin-dir $XDG_DATA_HOME/usernetes/kubelet-plugins-exec \
-	--kubeconfig $U7S_KUBECONFIG \
-	--anonymous-auth=true \
-	--authorization-mode=AlwaysAllow \
-	--fail-swap-on=false \
-	--feature-gates DevicePlugins=false,SupportNoneCgroupDriver=true,LocalStorageCapacityIsolation=false \
-	--eviction-hard "nodefs.available<3%" \
-	--cgroup-driver=none --cgroups-per-qos=false --enforce-node-allocatable="" \
+	--kubeconfig $XDG_CONFIG_HOME/usernetes/node/node.kubeconfig \
+	--config $XDG_RUNTIME_DIR/usernetes/kubelet-config.yaml \
 	$@
 
 # Notes
-# --evictrion-hard: Relax disk pressure taint for CI
+# evictrionHard: Relax disk pressure taint for CI
 # LocalStorageCapacityIsolation=false: workaround for "Failed to start ContainerManager failed to get rootfs info" error on Fedora 32: https://github.com/rootless-containers/usernetes/pull/157#issuecomment-621008594

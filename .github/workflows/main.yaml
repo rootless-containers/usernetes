@@ -1,14 +1,17 @@
 name: Main
 on: [push, pull_request]
+env:
+  DOCKER_BUILDKIT: 1
 jobs:
   main:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
     - name: "System info"
       run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
     - uses: actions/checkout@v2
     - name: "Build image"
-      run: DOCKER_BUILDKIT=1 docker build -t rootlesscontainers/usernetes .
+      run: docker build -t rootlesscontainers/usernetes .
     - name: "Prune cache (To avoid `node.kubernetes.io/disk-pressure` taint)"
       run: docker builder prune -a -f
     - name: "Smoke test (containerd)"

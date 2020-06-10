@@ -26,6 +26,7 @@ ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.6
 ARG FLANNEL_RELEASE=v0.12.0
 ARG ETCD_RELEASE=v3.4.9
+ARG CFSSL_RELEASE=1.4.1
 
 ### Common base images (common-*)
 FROM alpine:3.12 AS common-alpine
@@ -167,6 +168,15 @@ RUN mkdir /tmp-etcd /out && \
   wget -q -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
+#### cfssl (cfssl-build)
+FROM busybox AS cfssl-build
+ARG CFSSL_RELEASE
+RUN mkdir -p /out && \
+  wget -q -O /out/cfssl https://github.com/cloudflare/cfssl/releases/download/v${CFSSL_RELEASE}/cfssl_${CFSSL_RELEASE}_linux_amd64 && \
+  chmod +x /out/cfssl && \
+  wget -q -O /out/cfssljson https://github.com/cloudflare/cfssl/releases/download/v${CFSSL_RELEASE}/cfssljson_${CFSSL_RELEASE}_linux_amd64 && \
+  chmod +x /out/cfssljson
+
 ### Binaries (bin-main)
 FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
@@ -183,6 +193,7 @@ COPY --from=kube-master-build /out/* /
 COPY --from=kube-node-build /out/* /
 COPY --from=flannel-build /out/* /
 COPY --from=etcd-build /out/* /
+COPY --from=cfssl-build /out/* /
 
 #### Test (test-main)
 FROM fedora:32 AS test-main
@@ -194,7 +205,7 @@ RUN chmod +x /docker-entrypoint.sh && \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
-  mkdir -p /home/user/.local && \
+  mkdir -p /home/user/.local /home/user/.config/usernetes && \
   chown -R user:user /home/user && \
   rm -rf /tmp/*
 COPY --chown=user:user . /home/user/usernetes

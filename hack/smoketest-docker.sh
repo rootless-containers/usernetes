@@ -13,26 +13,30 @@ args=$@
 
 set -x
 tmpdir=$(mktemp -d)
-docker run -td --name $container -p 127.0.0.1:8080:8080 --privileged rootlesscontainers/usernetes -p 0.0.0.0:8080:8080/tcp $args
+docker run -td --name $container -p 127.0.0.1:6443:6443 --privileged rootlesscontainers/usernetes $args
 function cleanup() {
 	docker rm -f $container
 	rm -rf $tmpdir
 }
 trap cleanup EXIT
 
-export KUBECONFIG=$(pwd)/config/localhost.kubeconfig
-docker cp $container:/home/user/usernetes/bin/kubectl $tmpdir/kubectl
-chmod +x $tmpdir/kubectl
-kubectl=$tmpdir/kubectl
-
 if ! timeout 60 sh -exc "until [ \$(docker inspect -f '{{.State.Health.Status}}' $container) = \"healthy\" ]; do sleep 10; done"; then
 	docker logs $container
 	exit 1
 fi
-$kubectl get nodes -o wide
-if ! timeout 60 time $kubectl run --rm -i --image busybox --restart=Never hello echo hello $container; then
-	$kubectl get pods -o yaml
-	$kubectl get nodes -o yaml
+
+docker cp $container:/home/user/.config/usernetes/master/admin-localhost.kubeconfig $tmpdir/admin-localhost.kubeconfig
+export KUBECONFIG=$tmpdir/admin-localhost.kubeconfig
+
+mkdir -p $tmpdir/bin
+docker cp $container:/home/user/usernetes/bin/kubectl $tmpdir/bin/kubectl
+chmod +x $tmpdir/bin/kubectl
+export PATH=$tmpdir/bin:$PATH
+
+kubectl get nodes -o wide
+if ! timeout 60 time kubectl run --rm -i --image busybox --restart=Never hello echo hello $container; then
+	kubectl get pods -o yaml
+	kubectl get nodes -o yaml
 	docker logs $container
 	exit 1
 fi

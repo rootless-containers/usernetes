@@ -13,10 +13,11 @@ set -u
 set +e
 set -x
 systemctl --user -T -f stop u7s.target
+systemctl --user -T -f stop 'u7s-*'
 systemctl --user -T disable u7s.target
 rm -rf ${config_dir}/systemd/user/u7s*
 systemctl --user -T daemon-reload
-systemctl --user --no-pager status
-systemctl --user --all --no-pager list-units 'u7s-*'
-set -x
-echo "Hint: \`systemctl --user reset-failed\` to reset failed services."
+systemctl --user reset-failed 'u7s-*'
+systemctl --user reset-failed 'u7s-*'
+systemctl --user reset-failed 'u7s-*'
+rm -rf "$XDG_RUNTIME_DIR/usernetes"
