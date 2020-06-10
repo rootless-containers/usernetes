@@ -26,6 +26,7 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
     registries = ["docker.io"]
   [crio.runtime]
     conmon = "$U7S_BASE_DIR/bin/conmon"
+    conmon_cgroup = "pod"
     hooks_dir = ["$XDG_DATA_HOME/usernetes/containers/oci/hooks.d"]
     container_exits_dir = "$XDG_RUNTIME_DIR/usernetes/crio/exits"
     container_attach_socket_dir = "$XDG_RUNTIME_DIR/usernetes/crio"
