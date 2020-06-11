@@ -13,6 +13,12 @@ function ERROR() {
 cd $(dirname $0)
 base=$(realpath $(pwd))
 
+### Detect bin dir, fail early if not found
+if [ ! -d "$base/bin" ]; then
+	ERROR "Usernetes binaries not found. Run \`make\` to build binaries. If you are looking for binary distribution of Usernetes, see https://github.com/rootless-containers/usernetes/releases ."
+	exit 1
+fi
+
 ### Detect config dir
 set +u
 if [ -z "$HOME" ]; then
