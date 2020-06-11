@@ -141,11 +141,12 @@ else
 	log::info "Creating ${master_d}/{kubernetes.pem,kubernetes-key.pem}"
 	k_hostnames="kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster,kubernetes.svc.cluster.local"
 	ip_addrs=$(hostname -I | sed -e 's/ /,/g' -e 's/,$//g')
+	k_cluster_ip="10.0.0.1"
 	cfssl gencert -loglevel="$loglevel" \
 		-ca="${master_d}/ca.pem" \
 		-ca-key="${master_d}/ca-key.pem" \
 		-config="$cc/ca-config.json" \
-		-hostname=${master},$(hostname),${ip_addrs},localhost,127.0.0.1,${k_hostnames} \
+		-hostname=${master},$(hostname),${ip_addrs},localhost,127.0.0.1,${k_hostnames},${k_cluster_ip} \
 		-profile=kubernetes \
 		"$cc/kubernetes-csr.json" | cfssljson -bare "${master_d}/kubernetes"
 fi
