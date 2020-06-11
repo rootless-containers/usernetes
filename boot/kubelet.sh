@@ -14,6 +14,9 @@ authentication:
     clientCAFile: "$XDG_CONFIG_HOME/usernetes/node/ca.pem"
 tlsCertFile: "$XDG_CONFIG_HOME/usernetes/node/node.pem"
 tlsPrivateKeyFile: "$XDG_CONFIG_HOME/usernetes/node/node-key.pem"
+clusterDomain: "cluster.local"
+clusterDNS:
+  - "10.0.0.53"
 failSwapOn: false
 featureGates:
   DevicePlugins: false

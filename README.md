@@ -46,6 +46,7 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   * CRI-O
 * Multi-node CNI
   * Flannel (VXLAN)
+* CoreDNS
 
 Currently, Usernetes uses our patched version of `kubelet` and `kube-proxy`. We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
 
@@ -198,6 +199,20 @@ Enqueued auxiliary job 540 u7s-kube-proxy.service/start.
     State: running
 ...
 [INFO] Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.
+[INFO] Hint: To enable addons including CoreDNS, run: kubectl apply -f /home/exampleuser/gopath/src/github.com/rootless-containers/usernetes/manifests/*.yaml
+[INFO] Hint: KUBECONFIG=/home/exampleuser/.config/usernetes/master/admin-localhost.kubeconfig
+```
+
+To enable CoreDNS:
+```console
+$ export KUBECONFIG="$HOME/.config/usernetes/master/admin-localhost.kubeconfig"
+$ kubectl apply -f manifests/*.yaml
+serviceaccount/coredns created
+clusterrole.rbac.authorization.k8s.io/system:coredns created
+clusterrolebinding.rbac.authorization.k8s.io/system:coredns created
+configmap/coredns created
+deployment.apps/coredns created
+service/kube-dns created
 ```
 
 To use CRI-O:
@@ -247,6 +262,7 @@ Wait until `docker ps` shows "healty" as the status of `usernetes-node` containe
 ```console
 $ docker cp usernetes-node:/home/user/.config/usernetes/master/admin-localhost.kubeconfig docker.kubeconfig
 $ export KUBECONFIG=./docker.kubeconfig
+$ kubectl apply -f manifests/*.yaml
 $ kubectl run -it --rm --image busybox foo
 / #
 ```
@@ -256,6 +272,7 @@ $ kubectl run -it --rm --image busybox foo
 ```console
 $ make up
 $ export KUBECONFIG=$HOME/.config/usernetes/docker-compose.kubeconfig
+$ kubectl apply -f manifests/*.yaml
 ```
 
 Flannel VXLAN `10.5.0.0/16` is configured by default.
