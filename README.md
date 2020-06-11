@@ -6,20 +6,19 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Status](#status)
+- [Included components](#included-components)
 - [Adoption](#adoption)
 - [How it works](#how-it-works)
+- [Restrictions](#restrictions)
 - [Requirements](#requirements)
   - [Distribution-specific hint](#distribution-specific-hint)
     - [Ubuntu](#ubuntu)
     - [Debian GNU/Linux](#debian-gnulinux)
     - [Arch Linux](#arch-linux)
     - [openSUSE](#opensuse)
-    - [Fedora 31 and later](#fedora-31-and-later)
-    - [Fedora 30](#fedora-30)
+    - [Fedora](#fedora)
     - [RHEL/CentOS 8](#rhelcentos-8)
     - [RHEL/CentOS 7](#rhelcentos-7)
-- [Restrictions](#restrictions)
 - [Install from binary](#install-from-binary)
 - [Install from source](#install-from-source)
 - [Quick start](#quick-start)
@@ -36,21 +35,21 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Status
+## Included components
 
-* [X] master components (etcd, kube-apiserver, ...)
-* [X] kubelet
-* [X] CRI runtimes
-  * [X] CRI-O
-  * [X] containerd
-* [ ] Cgroup
-* [X] Multi-node CNI
-  * [X] Flannel (VXLAN)
+* Installer scripts
+* Rootless Containers infrastructure ([RootlessKit](https://github.com/rootless-containers/rootlesskit), [slirp4netns](https://github.com/rootless-containers/slirp4netns), and [fuse-overlayfs](https://github.com/containers/fuse-overlayfs))
+* Master components (`etcd`, `kube-apiserver`, ...)
+* Node components (`kubelet` and `kube-proxy`)
+* CRI runtimes
+  * containerd (default)
+  * CRI-O
+* Multi-node CNI
+  * Flannel (VXLAN)
 
-Currently, Usernetes uses our patched version of Kubernetes. See [`./src/patches`](./src/patches).
-We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
+Currently, Usernetes uses our patched version of `kubelet` and `kube-proxy`. We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
 
-Deployment shell scripts are in POC status.
+Installer scripts are in POC status.
 
 See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
 
@@ -67,7 +66,7 @@ See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
 We encourage other Kubernetes distributions to adopt Usernetes patches and tools.
 
 Currently, the following distributions adopt Usernetes:
-* [k3s](https://github.com/rancher/k3s)
+* [k3s](https://github.com/rancher/k3s) (Recommended version: [v1.17.0+k3s1](https://github.com/rancher/k3s/releases/tag/v1.17.0%2Bk3s.1), newer version may have a bug: [rancher/k3s#1709](https://github.com/rancher/k3s/issues/1709))
 * [Silverkube](https://github.com/podenv/silverkube)
 
 ## How it works
@@ -77,6 +76,17 @@ Usernetes executes Kubernetes and CRI runtimes without the root privileges by us
 To set up NAT across the host and the network namespace without the root privilege, Usernetes uses a usermode network stack ([slirp4netns](https://github.com/rootless-containers/slirp4netns)).
 
 No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux/man-pages/man1/newuidmap.1.html) and [`newgidmap(1)`](http://man7.org/linux/man-pages/man1/newgidmap.1.html), which are used for setting up [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html) with multiple sub-UIDs and sub-GIDs.
+
+## Restrictions
+
+* Usermode networking called [slirp4netns](https://github.com/rootless-containers/slirp4netns) is used instead of kernel-mode [vEth](http://man7.org/linux/man-pages/man4/veth.4.html) pairs.
+* [fuse-overlayfs](https://github.com/containers/fuse-overlayfs) is used instead of kernel-mode overlayfs.
+* Node ports are network-namespaced
+* Following features are not supported:
+  * Cgroups
+  * Apparmor
+
+Support for cgroups (v2 only) is being experimented in [https://github.com/AkihiroSuda/critest-rootless-cgroup2](https://github.com/AkihiroSuda/critest-rootless-cgroup2).
 
 ## Requirements
 
@@ -118,21 +128,12 @@ exampleuser:231072:65536
 
 #### Fedora
 * Run `sudo dnf install -y iptables`.
-* If doesn't work on Fedora >= 31, try `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0"` and reboot.
 
 #### RHEL/CentOS 8
 * Run `sudo dnf install -y iptables`.
 
 #### RHEL/CentOS 7
 * Unsupported since February 2020. [Usernetes v20200126.0 (January 26, 2020)](https://github.com/rootless-containers/usernetes/tree/v20200126.0#rhelcentos-7) should work.
-
-## Restrictions
-
-* [slirp4netns](https://github.com/rootless-containers/slirp4netns) is used instead of [vEth](http://man7.org/linux/man-pages/man4/veth.4.html) pairs.
-* [fuse-overlayfs](https://github.com/containers/fuse-overlayfs) is used instead of overlayfs.
-* Following features are not supported:
-  * Cgroups
-  * Apparmor
 
 ## Install from binary
 
@@ -297,19 +298,19 @@ you can't expose container ports to the host by just running `kubectl expose --t
 In addition, you need to expose Usernetes netns ports to the host:
 
 ```console
-$ ./rootlessctl.sh add-ports 0.0.0.0:8080:80/tcp
+$ ./rootlessctl.sh add-ports 0.0.0.0:30080:30080/tcp
 ```
 
 You can also manually expose Usernetes netns ports manually with `socat`:
 
 ```console
 $ pid=$(cat $XDG_RUNTIME_DIR/usernetes/rootlesskit/child_pid)
-$ socat -t -- TCP-LISTEN:8080,reuseaddr,fork EXEC:"nsenter -U -n -t $pid socat -t -- STDIN TCP4\:127.0.0.1\:80"
+$ socat -t -- TCP-LISTEN:30080,reuseaddr,fork EXEC:"nsenter -U -n -t $pid socat -t -- STDIN TCP4\:127.0.0.1\:30080"
 ```
 
 ### Routing ping packets
 
-To route ping packets, you need to set up `net.ipv4.ping_group_range` properly as the root.
+To route ping packets, you may need to set up `net.ipv4.ping_group_range` properly as the root.
 
 ```console
 $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
@@ -324,3 +325,4 @@ The binary releases of Usernetes contain files that are licensed under the terms
 * `bin/crun`:  [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-crun), see https://github.com/containers/crun
 * `bin/fuse-overlayfs`:  [GNU GENERAL PUBLIC LICENSE Version 3](docs/binary-release-license/LICENSE-fuse-overlayfs), see https://github.com/containers/fuse-overlayfs
 * `bin/slirp4netns`: [GNU GENERAL PUBLIC LICENSE Version 2](docs/binary-release-license/LICENSE-slirp4netns), see https://github.com/rootless-containers/slirp4netns
+* `bin/{cfssl,cfssljson}`: [2-Clause BSD License](docs/binary-release-license/LICENSE-cfssl), see https://github.com/cloudflare/cfssl
