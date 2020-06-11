@@ -35,3 +35,5 @@ if ! timeout 60 kubectl run --rm -i --image busybox --restart=Never hello echo h
 	journalctl -xe --no-pager
 	exit 1
 fi
+
+smoketest_dns

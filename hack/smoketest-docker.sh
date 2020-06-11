@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu -o pipefail
+source $(realpath $(dirname $0))/smoketest-common.inc.sh
 if [[ $# -lt 3 ]]; then
 	echo "Usage: $0 NAME IMAGE ARGS"
 	exit 1
@@ -40,3 +41,5 @@ if ! timeout 60 time kubectl run --rm -i --image busybox --restart=Never hello e
 	docker logs $container
 	exit 1
 fi
+
+smoketest_dns

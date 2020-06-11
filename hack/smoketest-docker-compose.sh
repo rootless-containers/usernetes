@@ -77,4 +77,6 @@ for ip in $(kubectl get pods -o json -l app=$app | jq -r ".items[].status.podIP"
 	kubectl exec shell -- wget -O- $ip
 done
 
+smoketest_dns
+
 INFO "PASS"
