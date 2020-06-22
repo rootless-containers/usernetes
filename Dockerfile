@@ -6,21 +6,21 @@
 
 # 2020-06-05T19:03:47Z
 ARG ROOTLESSKIT_COMMIT=d41d6063cf995c4b2bb8743101d6d14f0ba5287c
-# 2020-06-09T00:25:06Z
-ARG CONTAINERD_COMMIT=834665d9db028c8733479b5063e4fd477e549364
-# 2020-06-05T05:32:24Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=570bea340bec6061d9f689151f89539908525807
-# 2020-06-10T02:53:27Z
-ARG CRIO_COMMIT=145d8effc48418359ade4f9bc5445fc3ebc9d632
-# 2020-06-09T04:44:54Z
-ARG KUBE_NODE_COMMIT=2446c3d7e96008c1da59d79e1518659028b04267
+# 2020-06-17T15:14:24Z
+ARG CONTAINERD_COMMIT=bf672cccee2a0baf4720ec534a738f6003c0e5a7
+# 2020-06-19T04:12:04Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=c6894139ef45a47794b53a21bdf5502b626bc4c7
+# 2020-06-20T09:38:11Z
+ARG CRIO_COMMIT=9c36d9b38d18c7f5c9094bd7cdbe802d6c0f965a
+# 2020-06-21T22:28:39Z
+ARG KUBE_NODE_COMMIT=d140769e4d26f3a175d8a59782ea63595a9f4899
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.1
-ARG CONMON_RELEASE=v2.0.17
+ARG CONMON_RELEASE=v2.0.18
 ARG CRUN_RELEASE=0.13
-ARG FUSE_OVERLAYFS_RELEASE=v1.0.0
-ARG KUBE_MASTER_RELEASE=v1.19.0-beta.1
+ARG FUSE_OVERLAYFS_RELEASE=v1.1.1
+ARG KUBE_MASTER_RELEASE=v1.19.0-beta.2
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.6
@@ -57,20 +57,10 @@ ADD https://github.com/rootless-containers/slirp4netns/releases/download/${SLIRP
 RUN chmod +x /out/slirp4netns
 
 ### fuse-overlayfs (fuse-overlayfs-build)
-# Based on https://github.com/containers/fuse-overlayfs/blob/v0.7.6/Dockerfile.static.ubuntu .
-# We can't use Alpine here because Alpine does not provide an apk package for libfuse3.a .
-FROM debian:10 AS fuse-overlayfs-build
-RUN apt-get update && \
-  apt-get install -q --no-install-recommends -y \
-  git ca-certificates libc6-dev gcc make automake autoconf pkgconf libfuse3-dev file
-RUN git clone https://github.com/containers/fuse-overlayfs
-WORKDIR fuse-overlayfs
+FROM busybox AS fuse-overlayfs-build
 ARG FUSE_OVERLAYFS_RELEASE
-RUN git pull && git checkout ${FUSE_OVERLAYFS_RELEASE}
-RUN  ./autogen.sh && \
-  LIBS="-ldl" LDFLAGS="-static" ./configure -q && \
-  make --quiet && mkdir /out && cp fuse-overlayfs /out && \
-  file /out/fuse-overlayfs | grep "statically linked"
+ADD https://github.com/containers/fuse-overlayfs/releases/download/${FUSE_OVERLAYFS_RELEASE}/fuse-overlayfs-x86_64 /out/fuse-overlayfs
+RUN chmod +x /out/fuse-overlayfs
 
 ### crun (crun-build)
 FROM busybox AS crun-build
