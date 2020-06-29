@@ -1,0 +1,138 @@
+From 62a4c184c8537c7657084e4eaea3fb9ab69ae063 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+Date: Wed, 1 Jul 2020 18:27:50 +0900
+Subject: [PATCH] [DIRTY VENDOR] cri: allow disabling hugepages
+
+This helps with running rootless mode + cgroup v2 + systemd without hugetlb delegation.
+Systemd does not support hugetlb delegation as of systemd v245.
+
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+---
+ .../containerd/cri/pkg/config/config.go       |  4 +++
+ .../containerd/cri/pkg/config/config_unix.go  |  1 +
+ .../cri/pkg/containerd/opts/spec_unix.go      | 28 ++++++++++---------
+ .../cri/pkg/server/container_create_unix.go   |  2 +-
+ .../server/container_update_resources_unix.go |  6 ++--
+ 5 files changed, 24 insertions(+), 17 deletions(-)
+
+diff --git a/vendor/github.com/containerd/cri/pkg/config/config.go b/vendor/github.com/containerd/cri/pkg/config/config.go
+index 9c8d2e30..417b3fb3 100644
+--- a/vendor/github.com/containerd/cri/pkg/config/config.go
++++ b/vendor/github.com/containerd/cri/pkg/config/config.go
+@@ -236,6 +236,10 @@ type PluginConfig struct {
+ 	// container requests with huge page limits if the cgroup controller for hugepages is not present.
+ 	// This helps with supporting Kubernetes <=1.18 out of the box. (default is `true`)
+ 	TolerateMissingHugePagesCgroupController bool `toml:"tolerate_missing_hugepages_controller" json:"tolerateMissingHugePagesCgroupController"`
++	// DisableHugePagesCgroupController indicates to disable the hugetlb controller even when it is
++	// present in /sys/fs/cgroup/cgroup.controllers.
++	// This helps with running rootless mode + cgroup v2 + systemd but without hugetlb delegation.
++	DisableHugePagesCgroupController bool `toml:"disable_hugepages_cgroup_controller" json:"disableHugePagesCgroupController"`
+ 	// IgnoreImageDefinedVolumes ignores volumes defined by the image. Useful for better resource
+ 	// isolation, security and early detection of issues in the mount configuration when using
+ 	// ReadOnlyRootFilesystem since containers won't silently mount a temporary volume.
+diff --git a/vendor/github.com/containerd/cri/pkg/config/config_unix.go b/vendor/github.com/containerd/cri/pkg/config/config_unix.go
+index ce441c61..ec2125db 100644
+--- a/vendor/github.com/containerd/cri/pkg/config/config_unix.go
++++ b/vendor/github.com/containerd/cri/pkg/config/config_unix.go
+@@ -66,6 +66,7 @@ func DefaultConfig() PluginConfig {
+ 		MaxConcurrentDownloads:                   3,
+ 		DisableProcMount:                         false,
+ 		TolerateMissingHugePagesCgroupController: true,
++		DisableHugePagesCgroupController:         false,
+ 		IgnoreImageDefinedVolumes:                false,
+ 	}
+ }
+diff --git a/vendor/github.com/containerd/cri/pkg/containerd/opts/spec_unix.go b/vendor/github.com/containerd/cri/pkg/containerd/opts/spec_unix.go
+index d72d8156..7ced77f3 100644
+--- a/vendor/github.com/containerd/cri/pkg/containerd/opts/spec_unix.go
++++ b/vendor/github.com/containerd/cri/pkg/containerd/opts/spec_unix.go
+@@ -408,7 +408,7 @@ func WithSelinuxLabels(process, mount string) oci.SpecOpts {
+ }
+ 
+ // WithResources sets the provided resource restrictions
+-func WithResources(resources *runtime.LinuxContainerResources, tolerateMissingHugePagesCgroupController bool) oci.SpecOpts {
++func WithResources(resources *runtime.LinuxContainerResources, tolerateMissingHugePagesCgroupController, disableHugePages bool) oci.SpecOpts {
+ 	return func(ctx context.Context, client oci.Client, c *containers.Container, s *runtimespec.Spec) (err error) {
+ 		if resources == nil {
+ 			return nil
+@@ -451,19 +451,21 @@ func WithResources(resources *runtime.LinuxContainerResources, tolerateMissingHu
+ 		if limit != 0 {
+ 			s.Linux.Resources.Memory.Limit = &limit
+ 		}
+-		if isHugePagesControllerPresent() {
+-			for _, limit := range hugepages {
+-				s.Linux.Resources.HugepageLimits = append(s.Linux.Resources.HugepageLimits, runtimespec.LinuxHugepageLimit{
+-					Pagesize: limit.PageSize,
+-					Limit:    limit.Limit,
+-				})
+-			}
+-		} else {
+-			if !tolerateMissingHugePagesCgroupController {
+-				return errors.Errorf("huge pages limits are specified but hugetlb cgroup controller is missing. " +
+-					"Please set tolerate_missing_hugepages_controller to `true` to ignore this error")
++		if !disableHugePages {
++			if isHugePagesControllerPresent() {
++				for _, limit := range hugepages {
++					s.Linux.Resources.HugepageLimits = append(s.Linux.Resources.HugepageLimits, runtimespec.LinuxHugepageLimit{
++						Pagesize: limit.PageSize,
++						Limit:    limit.Limit,
++					})
++				}
++			} else {
++				if !tolerateMissingHugePagesCgroupController {
++					return errors.Errorf("huge pages limits are specified but hugetlb cgroup controller is missing. " +
++						"Please set tolerate_missing_hugepages_controller to `true` to ignore this error")
++				}
++				logrus.Warn("hugetlb cgroup controller is absent. skipping huge pages limits")
+ 			}
+-			logrus.Warn("hugetlb cgroup controller is absent. skipping huge pages limits")
+ 		}
+ 		return nil
+ 	}
+diff --git a/vendor/github.com/containerd/cri/pkg/server/container_create_unix.go b/vendor/github.com/containerd/cri/pkg/server/container_create_unix.go
+index 99f4183c..50484374 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/container_create_unix.go
++++ b/vendor/github.com/containerd/cri/pkg/server/container_create_unix.go
+@@ -225,7 +225,7 @@ func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint3
+ 	if c.config.DisableCgroup {
+ 		specOpts = append(specOpts, customopts.WithDisabledCgroups)
+ 	} else {
+-		specOpts = append(specOpts, customopts.WithResources(config.GetLinux().GetResources(), c.config.TolerateMissingHugePagesCgroupController))
++		specOpts = append(specOpts, customopts.WithResources(config.GetLinux().GetResources(), c.config.TolerateMissingHugePagesCgroupController, c.config.DisableHugePagesCgroupController))
+ 		if sandboxConfig.GetLinux().GetCgroupParent() != "" {
+ 			cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id)
+ 			specOpts = append(specOpts, oci.WithCgroup(cgroupsPath))
+diff --git a/vendor/github.com/containerd/cri/pkg/server/container_update_resources_unix.go b/vendor/github.com/containerd/cri/pkg/server/container_update_resources_unix.go
+index 5fa63d50..152d9692 100644
+--- a/vendor/github.com/containerd/cri/pkg/server/container_update_resources_unix.go
++++ b/vendor/github.com/containerd/cri/pkg/server/container_update_resources_unix.go
+@@ -73,7 +73,7 @@ func (c *criService) updateContainerResources(ctx context.Context,
+ 		return errors.Wrap(err, "failed to get container spec")
+ 	}
+ 	newSpec, err := updateOCILinuxResource(ctx, oldSpec, resources,
+-		c.config.TolerateMissingHugePagesCgroupController)
++		c.config.TolerateMissingHugePagesCgroupController, c.config.DisableHugePagesCgroupController)
+ 	if err != nil {
+ 		return errors.Wrap(err, "failed to update resource in spec")
+ 	}
+@@ -134,7 +134,7 @@ func updateContainerSpec(ctx context.Context, cntr containerd.Container, spec *r
+ 
+ // updateOCILinuxResource updates container resource limit.
+ func updateOCILinuxResource(ctx context.Context, spec *runtimespec.Spec, new *runtime.LinuxContainerResources,
+-	tolerateMissingHugePagesCgroupController bool) (*runtimespec.Spec, error) {
++	tolerateMissingHugePagesCgroupController, disableHugePages bool) (*runtimespec.Spec, error) {
+ 	// Copy to make sure old spec is not changed.
+ 	var cloned runtimespec.Spec
+ 	if err := util.DeepCopy(&cloned, spec); err != nil {
+@@ -143,7 +143,7 @@ func updateOCILinuxResource(ctx context.Context, spec *runtimespec.Spec, new *ru
+ 	if cloned.Linux == nil {
+ 		cloned.Linux = &runtimespec.Linux{}
+ 	}
+-	if err := opts.WithResources(new, tolerateMissingHugePagesCgroupController)(ctx, nil, nil, &cloned); err != nil {
++	if err := opts.WithResources(new, tolerateMissingHugePagesCgroupController, disableHugePages)(ctx, nil, nil, &cloned); err != nil {
+ 		return nil, errors.Wrap(err, "unable to set linux container resources")
+ 	}
+ 	return &cloned, nil
+-- 
+2.25.1
+

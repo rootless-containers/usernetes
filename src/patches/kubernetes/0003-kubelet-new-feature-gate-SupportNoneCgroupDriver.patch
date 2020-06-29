@@ -1,7 +1,7 @@
 From b48434350157e3bd319d2f651654d1db3ce568a9 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
-Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
+Subject: [PATCH 3/4] kubelet: new feature gate: SupportNoneCgroupDriver
 
 The "none" driver is expected to be used in "rootless" mode until OCI/CRI runtime
 get support for cgroup2 (unified) mode with nsdelegate.

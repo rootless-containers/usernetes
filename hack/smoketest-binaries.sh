@@ -37,3 +37,7 @@ if ! timeout 60 kubectl run --rm -i --image busybox --restart=Never hello echo h
 fi
 
 smoketest_dns
+
+if grep -q 'U7S_CGROUP_MANAGER=.*systemd.*' ~/.config/usernetes/env; then
+	smoketest_limits
+fi

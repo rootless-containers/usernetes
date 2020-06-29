@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-limits
+spec:
+  containers:
+  - name: test-limits
+    image: alpine
+    command: ["top"]
+    resources:
+      limits:
+        cpu: 420m
+        memory: 42Mi
