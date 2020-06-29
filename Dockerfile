@@ -6,14 +6,14 @@
 
 # 2020-06-05T19:03:47Z
 ARG ROOTLESSKIT_COMMIT=d41d6063cf995c4b2bb8743101d6d14f0ba5287c
-# 2020-06-17T15:14:24Z
-ARG CONTAINERD_COMMIT=bf672cccee2a0baf4720ec534a738f6003c0e5a7
-# 2020-06-19T04:12:04Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=c6894139ef45a47794b53a21bdf5502b626bc4c7
-# 2020-06-20T09:38:11Z
-ARG CRIO_COMMIT=9c36d9b38d18c7f5c9094bd7cdbe802d6c0f965a
-# 2020-06-21T22:28:39Z
-ARG KUBE_NODE_COMMIT=d140769e4d26f3a175d8a59782ea63595a9f4899
+# 2020-06-26T17:42:48Z
+ARG CONTAINERD_COMMIT=01a53c24b383b4ad991825616a03395b76443434
+# 2020-06-29T04:43:00Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=1f0c34271bdd9f9e6d4181edb71ecac9497e71be
+# 2020-06-25T18:33:13Z
+ARG CRIO_COMMIT=d0dc0d3076367f6a26c46fb6e72d1e582b552599
+# 2020-06-28T11:50:13Z
+ARG KUBE_NODE_COMMIT=aadaa5d6a917fcb354bce80a0bd1830c95cfbcc3
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.1
@@ -32,7 +32,8 @@ ARG CFSSL_RELEASE=1.4.1
 FROM alpine:3.12 AS common-alpine
 RUN apk add -q --no-cache git build-base autoconf automake libtool
 
-FROM golang:1.13-alpine AS common-golang-alpine
+# Kubernetes requires Go 1.14: https://github.com/kubernetes/kubernetes/pull/92438
+FROM golang:1.14-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy

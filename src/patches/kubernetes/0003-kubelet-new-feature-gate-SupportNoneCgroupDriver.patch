@@ -1,4 +1,4 @@
-From d2e9e0e8a4f9c977d23e3a82420028b66a692ad4 Mon Sep 17 00:00:00 2001
+From b48434350157e3bd319d2f651654d1db3ce568a9 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -23,10 +23,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  9 files changed, 123 insertions(+), 28 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 2f83831b240..48830cc8034 100644
+index c09d3b63358..8b32ed14575 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -492,7 +492,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -487,7 +487,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.ProviderID, "provider-id", c.ProviderID, "Unique identifier for identifying the node in a machine database, i.e cloudprovider")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -36,7 +36,7 @@ index 2f83831b240..48830cc8034 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index d226b251ded..223db20d7f4 100644
+index 7993ec8e800..55e15c533d7 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -597,26 +597,30 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
@@ -120,7 +120,7 @@ index b43393288f5..0a14541b08d 100644
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 19c739eada6..966b8547b76 100644
+index 6fa4370ca37..d6a7f07c8b5 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -209,7 +209,7 @@ type KubeletConfiguration struct {
@@ -133,10 +133,10 @@ index 19c739eada6..966b8547b76 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index 4d759f98a93..2d4719a3d38 100644
+index c7c7026da40..be33ee358c4 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
-@@ -51,6 +51,9 @@ const (
+@@ -50,6 +50,9 @@ const (
  	libcontainerCgroupfs libcontainerCgroupManagerType = "cgroupfs"
  	// libcontainerSystemd means use libcontainer with systemd
  	libcontainerSystemd libcontainerCgroupManagerType = "systemd"
@@ -146,7 +146,7 @@ index 4d759f98a93..2d4719a3d38 100644
  	// systemdSuffix is the cgroup name suffix for systemd
  	systemdSuffix string = ".slice"
  )
-@@ -191,7 +194,15 @@ type cgroupManagerImpl struct {
+@@ -189,7 +192,15 @@ type cgroupManagerImpl struct {
  var _ CgroupManager = &cgroupManagerImpl{}
  
  // NewCgroupManager is a factory method that returns a CgroupManager
@@ -163,7 +163,7 @@ index 4d759f98a93..2d4719a3d38 100644
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -199,7 +210,7 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
+@@ -197,7 +208,7 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
  	return &cgroupManagerImpl{
  		subsystems: cs,
  		adapter:    newLibcontainerAdapter(managerType),
@@ -172,7 +172,7 @@ index 4d759f98a93..2d4719a3d38 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -774,3 +785,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -781,3 +792,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
@@ -246,10 +246,10 @@ index e8aaf2d2ba4..91e4d5a2a64 100644
  
  func (m *unsupportedCgroupManager) Name(_ CgroupName) string {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index da74a0fb6d6..8a20dd79a40 100644
+index 43a2e463c5a..d165aa5ceed 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -254,9 +254,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -259,9 +259,15 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  
  	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
  	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
@@ -266,7 +266,7 @@ index da74a0fb6d6..8a20dd79a40 100644
  		// this does default to / when enabled, but this tests against regressions.
  		if nodeConfig.CgroupRoot == "" {
  			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
-@@ -266,7 +272,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -271,7 +277,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  		// of note, we always use the cgroupfs driver when performing this check since
  		// the input is provided in that format.
  		// this is important because we do not want any name conversion to occur.
