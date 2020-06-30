@@ -41,7 +41,7 @@ artifact: binaries _artifact
 _artifact:
 	rm -rf _artifact _SHA256SUMS
 	mkdir _artifact
-	tar --transform 's@^\.@usernetes@' --exclude-vcs --exclude=./_artifact -cjvf ./_artifact/usernetes-x86_64.tbz .
+	( cd .. && tar --exclude=usernetes/.git --exclude=usernetes/_artifact -cjvf ./usernetes/_artifact/usernetes-x86_64.tbz usernetes )
 	(cd _artifact ; sha256sum * > ../_SHA256SUMS; mv ../_SHA256SUMS ./SHA256SUMS)
 	cat _artifact/SHA256SUMS
 
