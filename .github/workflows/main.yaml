@@ -4,19 +4,50 @@ env:
   DOCKER_BUILDKIT: 1
 jobs:
   main:
+    name: "Main"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
     - name: "System info"
       run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
     - uses: actions/checkout@v2
-    - name: "Build image"
-      run: docker build -t rootlesscontainers/usernetes .
-    - name: "Prune cache (To avoid `node.kubernetes.io/disk-pressure` taint)"
-      run: docker builder prune -a -f
+    - name: "Make"
+      run: make image artifact
+    - name: "Upload usernetes-x86_64.tbz"
+      uses: actions/upload-artifact@v2
+      with:
+        name: usernetes-x86_64.tbz
+        path: _artifact/usernetes-x86_64.tbz
+    - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
+      run: |
+        make clean
+        docker builder prune -a -f
     - name: "Smoke test (containerd)"
       run: ./hack/smoketest-docker.sh u7s-test-containerd rootlesscontainers/usernetes --cri=containerd
     - name: "Smoke test (CRI-O)"
       run: ./hack/smoketest-docker.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio
     - name: "Smoke test (multi-node cluster with Flannel)"
       run: ./hack/smoketest-docker-compose.sh
+  fedora:
+    name: "Fedora (for cgroup v2)"
+    needs: main
+    # nested virtualization is only available on macOS hosts
+    runs-on: macos-10.15
+    timeout-minutes: 40
+    steps:
+    - name: "Download usernetes-x86_64.tbz"
+      uses: actions/download-artifact@v2
+      with:
+        name: usernetes-x86_64.tbz
+    - name: "Extract usernetes-x86_64.tbz"
+      run: tar xjvf usernetes-x86_64.tbz
+    - name: "Boot VM"
+      working-directory: usernetes
+      run: |
+        vagrant up
+        mkdir -p ~/.ssh
+        vagrant ssh-config >> ~/.ssh/config
+    - name: "Smoke test (containerd)"
+      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
+    - name: "Smoke test (CRI-O)"
+      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
