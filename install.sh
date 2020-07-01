@@ -38,7 +38,7 @@ cri="containerd"
 cni=""
 publish=""
 publish_default="0.0.0.0:6443:6443/tcp"
-cidr=""
+cidr="10.0.42.0/24"
 delay=""
 wait_init_certs=""
 function usage() {
@@ -49,7 +49,7 @@ function usage() {
 	echo "  --cri=RUNTIME       Specify CRI runtime, \"containerd\" or \"crio\". (Default: \"$cri\")"
 	echo '  --cni=RUNTIME       Specify CNI, an empty string (none) or "flannel". (Default: none)'
 	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: \"${publish_default}\")"
-	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: none)"
+	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: \"$cidr\")"
 	echo
 	echo "Examples:"
 	echo "  # The default options"

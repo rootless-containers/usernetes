@@ -62,8 +62,11 @@ EOF
 		exit 1
 	fi
 
+	INFO "FIXME: remove this sleep"
+	sleep 10
+
 	INFO "Connecting to dnstest-{0,1,2}.dnstest.default.svc.cluster.local"
-	kubectl run -it --rm --image=alpine --restart=Never dnstest-shell -- sh -exc 'for f in $(seq 0 2); do wget -O- http://dnstest-${f}.dnstest.default.svc.cluster.local; done'
+	kubectl run -i --rm --image=alpine --restart=Never dnstest-shell -- sh -exc 'for f in $(seq 0 2); do wget -O- http://dnstest-${f}.dnstest.default.svc.cluster.local; done'
 
 	INFO "Deleting Service \"dnstest\""
 	kubectl delete service dnstest
