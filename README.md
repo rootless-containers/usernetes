@@ -31,6 +31,7 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 - [Advanced guide](#advanced-guide)
   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
   - [Routing ping packets](#routing-ping-packets)
+  - [IP addresses](#ip-addresses)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -332,6 +333,25 @@ To route ping packets, you may need to set up `net.ipv4.ping_group_range` proper
 ```console
 $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
 ```
+
+### IP addresses
+
+* 10.0.0.0/24: The CIDR for the Kubernetes ClusterIP services
+  * 10.0.0.1: The kube-apiserver ClusterIP
+  * 10.0.0.53: The CoreDNS ClusterIP
+
+* 10.5.0.0/16: The CIDR for Flannel
+
+* 10.0.42.0/24: The default CIDR for the RootlessKit network namespace. Can be overridden with `install.sh --cidr=<CIDR>`. 
+  * 10.0.42.2: The slirp4netns gateway
+  * 10.0.42.3: The slirp4netns DNS
+  * 10.0.42.100: The slirp4netns TAP device
+
+* 10.88.0.0/16: The CIDR for single-node CNI
+
+* 10.0.100.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose master
+* 10.0.101.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose containerd node
+* 10.0.102.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose CRI-O node
 
 ## License
 
