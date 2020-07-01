@@ -1,0 +1,393 @@
+From a95d960e48e419ec5d0a80926b4080b879077863 Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+Date: Mon, 29 Jun 2020 15:10:05 +0900
+Subject: [PATCH 4/4] kubelet: new feature gate: Rootless
+
+The Rootless feature gate allows the systemd cgroup manager (v2) to use the user instance of systemd.
+A container is executed in a cgroup like "/user.slice/user-1001.slice/user@1001.service/user.slice/cri-containerd-6938564e754ad86269a536ed19172af0eff5f7ff0a41eefc5b433a76f1f38f16.scope".
+
+* Tested with containerd and crun.
+* Requires the kubelet and the CRI runtime to be executed in USER+MNT+NET namespaces, mostly via RootlessKit.
+* cgroupsPerQOS is currently unsupported.
+
+Example kubelet config:
+```yaml
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+...
+featureGates:
+  Rootless: true
+rootless: true
+cgroupDriver: systemd
+cgroupsPerQOS: false
+```
+
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+---
+ cmd/kubelet/app/server.go                     |  1 +
+ pkg/features/kube_features.go                 |  7 +++
+ pkg/kubelet/apis/config/fuzzer/fuzzer.go      |  1 +
+ pkg/kubelet/apis/config/helpers_test.go       |  1 +
+ pkg/kubelet/apis/config/types.go              |  4 ++
+ .../config/v1beta1/zz_generated.conversion.go |  2 +
+ pkg/kubelet/cm/cgroup_manager_linux.go        | 47 ++++++++++++-------
+ pkg/kubelet/cm/container_manager.go           |  1 +
+ pkg/kubelet/cm/container_manager_linux.go     | 17 ++++++-
+ pkg/kubelet/cm/pod_container_manager_linux.go |  7 ++-
+ .../cm/pod_container_manager_linux_test.go    |  2 +-
+ .../k8s.io/kubelet/config/v1beta1/types.go    |  6 +++
+ test/e2e_node/node_container_manager_test.go  |  2 +-
+ 13 files changed, 76 insertions(+), 22 deletions(-)
+
+diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
+index 55e15c533d7..3492709f5c6 100644
+--- a/cmd/kubelet/app/server.go
++++ b/cmd/kubelet/app/server.go
+@@ -733,6 +733,7 @@ func run(s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate f
+ 				EnforceCPULimits:                      s.CPUCFSQuota,
+ 				CPUCFSQuotaPeriod:                     s.CPUCFSQuotaPeriod.Duration,
+ 				ExperimentalTopologyManagerPolicy:     s.TopologyManagerPolicy,
++				Rootless:                              s.Rootless,
+ 			},
+ 			s.FailSwapOn,
+ 			devicePluginEnabled,
+diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
+index 0a14541b08d..7eb82956055 100644
+--- a/pkg/features/kube_features.go
++++ b/pkg/features/kube_features.go
+@@ -602,6 +602,12 @@ const (
+ 	// have FQDN, this feature has no effect.
+ 	SetHostnameAsFQDN featuregate.Feature = "SetHostnameAsFQDN"
+ 
++	// owner: @AkihiroSuda
++	// alpha: v1.XX
++	//
++	// Enable rootless mode.
++	Rootless featuregate.Feature = "Rootless"
++
+ 	// owner: @AkihiroSuda
+ 	// alpha: v1.XX
+ 	//
+@@ -705,6 +711,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	AnyVolumeDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
+ 	DefaultPodTopologySpread:                       {Default: false, PreRelease: featuregate.Alpha},
+ 	SetHostnameAsFQDN:                              {Default: false, PreRelease: featuregate.Alpha},
++	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
+ 	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
+ 
+ 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
+diff --git a/pkg/kubelet/apis/config/fuzzer/fuzzer.go b/pkg/kubelet/apis/config/fuzzer/fuzzer.go
+index 06c636be2ad..c38cb1bdc9d 100644
+--- a/pkg/kubelet/apis/config/fuzzer/fuzzer.go
++++ b/pkg/kubelet/apis/config/fuzzer/fuzzer.go
+@@ -60,6 +60,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
+ 			obj.ImageGCHighThresholdPercent = 85
+ 			obj.ImageGCLowThresholdPercent = 80
+ 			obj.KernelMemcgNotification = false
++			obj.Rootless = false
+ 			obj.MaxOpenFiles = 1000000
+ 			obj.MaxPods = 110
+ 			obj.PodPidsLimit = -1
+diff --git a/pkg/kubelet/apis/config/helpers_test.go b/pkg/kubelet/apis/config/helpers_test.go
+index e8b4581589f..4ff5781f055 100644
+--- a/pkg/kubelet/apis/config/helpers_test.go
++++ b/pkg/kubelet/apis/config/helpers_test.go
+@@ -217,6 +217,7 @@ var (
+ 		"RegistryBurst",
+ 		"RegistryPullQPS",
+ 		"ReservedSystemCPUs",
++		"Rootless",
+ 		"RuntimeRequestTimeout.Duration",
+ 		"RunOnce",
+ 		"SerializeImagePulls",
+diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
+index d6a7f07c8b5..031f34ef510 100644
+--- a/pkg/kubelet/apis/config/types.go
++++ b/pkg/kubelet/apis/config/types.go
+@@ -324,6 +324,10 @@ type KubeletConfiguration struct {
+ 	// kernelMemcgNotification if enabled, the kubelet will integrate with the kernel memcg
+ 	// notification to determine if memory eviction thresholds are crossed rather than polling.
+ 	KernelMemcgNotification bool
++	// Rootless enables the rootless cgroup manager.
++	// Requires cgroup v2 and systemd.
++	// Requires the Rootless feature gate to be enabled.
++	Rootless bool
+ 
+ 	/* the following fields are meant for Node Allocatable */
+ 
+diff --git a/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go b/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
+index 8efd41941c1..07876d4561b 100644
+--- a/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
++++ b/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
+@@ -331,6 +331,7 @@ func autoConvert_v1beta1_KubeletConfiguration_To_config_KubeletConfiguration(in
+ 		return err
+ 	}
+ 	out.ConfigMapAndSecretChangeDetectionStrategy = config.ResourceChangeDetectionStrategy(in.ConfigMapAndSecretChangeDetectionStrategy)
++	out.Rootless = in.Rootless
+ 	out.SystemReserved = *(*map[string]string)(unsafe.Pointer(&in.SystemReserved))
+ 	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
+ 	out.ReservedSystemCPUs = in.ReservedSystemCPUs
+@@ -479,6 +480,7 @@ func autoConvert_config_KubeletConfiguration_To_v1beta1_KubeletConfiguration(in
+ 	out.ConfigMapAndSecretChangeDetectionStrategy = v1beta1.ResourceChangeDetectionStrategy(in.ConfigMapAndSecretChangeDetectionStrategy)
+ 	out.AllowedUnsafeSysctls = *(*[]string)(unsafe.Pointer(&in.AllowedUnsafeSysctls))
+ 	out.KernelMemcgNotification = in.KernelMemcgNotification
++	out.Rootless = in.Rootless
+ 	out.SystemReserved = *(*map[string]string)(unsafe.Pointer(&in.SystemReserved))
+ 	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
+ 	out.SystemReservedCgroup = in.SystemReservedCgroup
+diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
+index be33ee358c4..c81c47d772c 100644
+--- a/pkg/kubelet/cm/cgroup_manager_linux.go
++++ b/pkg/kubelet/cm/cgroup_manager_linux.go
+@@ -136,18 +136,22 @@ func IsSystemdStyleName(name string) bool {
+ type libcontainerAdapter struct {
+ 	// cgroupManagerType defines how to interface with libcontainer
+ 	cgroupManagerType libcontainerCgroupManagerType
++	rootless          bool
+ }
+ 
+ // newLibcontainerAdapter returns a configured libcontainerAdapter for specified manager.
+ // it does any initialization required by that manager to function.
+-func newLibcontainerAdapter(cgroupManagerType libcontainerCgroupManagerType) *libcontainerAdapter {
+-	return &libcontainerAdapter{cgroupManagerType: cgroupManagerType}
++func newLibcontainerAdapter(cgroupManagerType libcontainerCgroupManagerType, rootless bool) *libcontainerAdapter {
++	return &libcontainerAdapter{cgroupManagerType: cgroupManagerType, rootless: rootless}
+ }
+ 
+ // newManager returns an implementation of cgroups.Manager
+ func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, paths map[string]string) (libcontainercgroups.Manager, error) {
+ 	switch l.cgroupManagerType {
+ 	case libcontainerCgroupfs:
++		if l.rootless {
++			return nil, fmt.Errorf("cgroup manager %v does not support rootless", l.cgroupManagerType)
++		}
+ 		if libcontainercgroups.IsCgroup2UnifiedMode() {
+ 			return cgroupfs2.NewManager(cgroups, paths["memory"], false)
+ 		}
+@@ -158,7 +162,10 @@ func (l *libcontainerAdapter) newManager(cgroups *libcontainerconfigs.Cgroup, pa
+ 			panic("systemd cgroup manager not available")
+ 		}
+ 		if libcontainercgroups.IsCgroup2UnifiedMode() {
+-			return cgroupsystemd.NewUnifiedManager(cgroups, paths["memory"], false), nil
++			return cgroupsystemd.NewUnifiedManager(cgroups, paths["memory"], l.rootless), nil
++		}
++		if l.rootless {
++			return nil, fmt.Errorf("cgroup manager %v requires cgroup v2 for rootless", l.cgroupManagerType)
+ 		}
+ 		return cgroupsystemd.NewLegacyManager(cgroups, paths), nil
+ 	}
+@@ -192,7 +199,7 @@ type cgroupManagerImpl struct {
+ var _ CgroupManager = &cgroupManagerImpl{}
+ 
+ // NewCgroupManager is a factory method that returns a CgroupManager
+-func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) (CgroupManager, error) {
++func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string, rootless bool) (CgroupManager, error) {
+ 	if cgroupDriver == noneDriver {
+ 		if !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.SupportNoneCgroupDriver) {
+ 			return nil, fmt.Errorf("cgroup driver %q requires SupportNoneCgroupDriver feature gate", cgroupDriver)
+@@ -205,9 +212,12 @@ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) (CgroupManager,
+ 	if cgroupDriver == string(libcontainerSystemd) {
+ 		managerType = libcontainerSystemd
+ 	}
++	if rootless && !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.Rootless) {
++		return nil, fmt.Errorf("rootless requires Rootless feature gate")
++	}
+ 	return &cgroupManagerImpl{
+ 		subsystems: cs,
+-		adapter:    newLibcontainerAdapter(managerType),
++		adapter:    newLibcontainerAdapter(managerType, rootless),
+ 	}, nil
+ }
+ 
+@@ -493,21 +503,23 @@ func propagateControllers(path string) error {
+ }
+ 
+ // setResourcesV2 sets cgroup resource limits on cgroup v2
+-func setResourcesV2(cgroupConfig *libcontainerconfigs.Cgroup) error {
++func setResourcesV2(cgroupConfig *libcontainerconfigs.Cgroup, rootless bool) error {
+ 	if err := propagateControllers(cgroupConfig.Path); err != nil {
+ 		return err
+ 	}
+-	cgroupConfig.Resources.Devices = []*libcontainerconfigs.DeviceRule{
+-		{
+-			Type:        'a',
+-			Permissions: "rwm",
+-			Allow:       true,
+-			Minor:       libcontainerconfigs.Wildcard,
+-			Major:       libcontainerconfigs.Wildcard,
+-		},
++	if !rootless {
++		cgroupConfig.Resources.Devices = []*libcontainerconfigs.DeviceRule{
++			{
++				Type:        'a',
++				Permissions: "rwm",
++				Allow:       true,
++				Minor:       libcontainerconfigs.Wildcard,
++				Major:       libcontainerconfigs.Wildcard,
++			},
++		}
+ 	}
+ 
+-	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, false)
++	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, rootless)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create cgroup v2 manager: %v", err)
+ 	}
+@@ -614,7 +626,8 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
+ 	}
+ 
+ 	if unified {
+-		if err := setResourcesV2(libcontainerCgroupConfig); err != nil {
++		rootless := m.adapter.rootless
++		if err := setResourcesV2(libcontainerCgroupConfig, rootless); err != nil {
+ 			return fmt.Errorf("failed to set resources for cgroup %v: %v", cgroupConfig.Name, err)
+ 		}
+ 	} else {
+@@ -774,7 +787,7 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+ 	var stats *libcontainercgroups.Stats
+ 	if libcontainercgroups.IsCgroup2UnifiedMode() {
+ 		cgroupPath := m.buildCgroupUnifiedPath(name)
+-		manager, err := cgroupfs2.NewManager(nil, cgroupPath, false)
++		manager, err := cgroupfs2.NewManager(nil, cgroupPath, m.adapter.rootless)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("failed to create cgroup v2 manager: %v", err)
+ 		}
+diff --git a/pkg/kubelet/cm/container_manager.go b/pkg/kubelet/cm/container_manager.go
+index a9cb41cbcfe..7a6a70741cd 100644
+--- a/pkg/kubelet/cm/container_manager.go
++++ b/pkg/kubelet/cm/container_manager.go
+@@ -135,6 +135,7 @@ type NodeConfig struct {
+ 	EnforceCPULimits                      bool
+ 	CPUCFSQuotaPeriod                     time.Duration
+ 	ExperimentalTopologyManagerPolicy     string
++	Rootless                              bool
+ }
+ 
+ type NodeAllocatableConfig struct {
+diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
+index d165aa5ceed..fe27f7c37d1 100644
+--- a/pkg/kubelet/cm/container_manager_linux.go
++++ b/pkg/kubelet/cm/container_manager_linux.go
+@@ -259,7 +259,7 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+ 
+ 	// Turn CgroupRoot from a string (in cgroupfs path format) to internal CgroupName
+ 	cgroupRoot := ParseCgroupfsToCgroupName(nodeConfig.CgroupRoot)
+-	cgroupManager, err := NewCgroupManager(subsystems, nodeConfig.CgroupDriver)
++	cgroupManager, err := NewCgroupManager(subsystems, nodeConfig.CgroupDriver, nodeConfig.Rootless)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -268,6 +268,12 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+ 		if nodeConfig.CgroupDriver == noneDriver {
+ 			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for %s cgroup driver", nodeConfig.CgroupDriver)
+ 		}
++
++		if nodeConfig.Rootless {
++			// TODO(AkihiroSuda): support rootless
++			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for rootless")
++		}
++
+ 		// this does default to / when enabled, but this tests against regressions.
+ 		if nodeConfig.CgroupRoot == "" {
+ 			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos was specified and cgroup-root was not specified. To enable the QoS cgroup hierarchy you need to specify a valid cgroup-root")
+@@ -368,7 +374,8 @@ func (cm *containerManagerImpl) NewPodContainerManager() PodContainerManager {
+ 		}
+ 	}
+ 	return &podContainerManagerNoop{
+-		cgroupRoot: cm.cgroupRoot,
++		cgroupRoot:      cm.cgroupRoot,
++		rootlessSystemd: cm.NodeConfig.Rootless && cm.NodeConfig.CgroupDriver == "systemd",
+ 	}
+ }
+ 
+@@ -510,6 +517,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+ 		if cm.SystemCgroupsName == "/" {
+ 			return fmt.Errorf("system container cannot be root (\"/\")")
+ 		}
++		if cm.Rootless {
++			return fmt.Errorf("rootless does not support SystemCgroupsName")
++		}
+ 		cont, err := newSystemCgroups(cm.SystemCgroupsName)
+ 		if err != nil {
+ 			return err
+@@ -521,6 +531,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+ 	}
+ 
+ 	if cm.KubeletCgroupsName != "" {
++		if cm.Rootless {
++			return fmt.Errorf("rootless does not support KubeletCgroupsName")
++		}
+ 		cont, err := newSystemCgroups(cm.KubeletCgroupsName)
+ 		if err != nil {
+ 			return err
+diff --git a/pkg/kubelet/cm/pod_container_manager_linux.go b/pkg/kubelet/cm/pod_container_manager_linux.go
+index ef3499f44fc..f05da3f5035 100644
+--- a/pkg/kubelet/cm/pod_container_manager_linux.go
++++ b/pkg/kubelet/cm/pod_container_manager_linux.go
+@@ -293,7 +293,8 @@ func (m *podContainerManagerImpl) GetAllPodsFromCgroups() (map[types.UID]CgroupN
+ // enabled, so Exists() returns true always as the cgroupRoot
+ // is expected to always exist.
+ type podContainerManagerNoop struct {
+-	cgroupRoot CgroupName
++	cgroupRoot      CgroupName
++	rootlessSystemd bool
+ }
+ 
+ // Make sure that podContainerManagerStub implements the PodContainerManager interface
+@@ -308,6 +309,10 @@ func (m *podContainerManagerNoop) EnsureExists(_ *v1.Pod) error {
+ }
+ 
+ func (m *podContainerManagerNoop) GetPodContainerName(_ *v1.Pod) (CgroupName, string) {
++	if m.rootlessSystemd {
++		// "user.slice" is set to PodConfig.Linux.CgroupParent
++		return m.cgroupRoot, "user.slice"
++	}
+ 	return m.cgroupRoot, ""
+ }
+ 
+diff --git a/pkg/kubelet/cm/pod_container_manager_linux_test.go b/pkg/kubelet/cm/pod_container_manager_linux_test.go
+index fda4177a05b..db4ed280da1 100644
+--- a/pkg/kubelet/cm/pod_container_manager_linux_test.go
++++ b/pkg/kubelet/cm/pod_container_manager_linux_test.go
+@@ -100,7 +100,7 @@ func TestIsCgroupPod(t *testing.T) {
+ 		},
+ 	}
+ 	for _, cgroupDriver := range []string{"cgroupfs", "systemd"} {
+-		cm, err := NewCgroupManager(nil, cgroupDriver)
++		cm, err := NewCgroupManager(nil, cgroupDriver, false)
+ 		if err != nil {
+ 			t.Fatal(err)
+ 		}
+diff --git a/staging/src/k8s.io/kubelet/config/v1beta1/types.go b/staging/src/k8s.io/kubelet/config/v1beta1/types.go
+index 144c1d371dd..19b5a86bc1e 100644
+--- a/staging/src/k8s.io/kubelet/config/v1beta1/types.go
++++ b/staging/src/k8s.io/kubelet/config/v1beta1/types.go
+@@ -702,6 +702,12 @@ type KubeletConfiguration struct {
+ 	// Default: "Watch"
+ 	// +optional
+ 	ConfigMapAndSecretChangeDetectionStrategy ResourceChangeDetectionStrategy `json:"configMapAndSecretChangeDetectionStrategy,omitempty"`
++	// Rootless enables the rootless cgroup manager.
++	// Requires cgroup v2 and systemd.
++	// Requires the Rootless feature gate to be enabled.
++	// Default: false
++	// +optional
++	Rootless bool `json:"rootless,omitempty"`
+ 
+ 	/* the following fields are meant for Node Allocatable */
+ 
+diff --git a/test/e2e_node/node_container_manager_test.go b/test/e2e_node/node_container_manager_test.go
+index b1307c13213..49d775881f0 100644
+--- a/test/e2e_node/node_container_manager_test.go
++++ b/test/e2e_node/node_container_manager_test.go
+@@ -167,7 +167,7 @@ func runTest(f *framework.Framework) error {
+ 	}
+ 
+ 	// Create a cgroup manager object for manipulating cgroups.
+-	cgroupManager, err := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver)
++	cgroupManager, err := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver, false)
+ 	if err != nil {
+ 		return nil
+ 	}
+-- 
+2.25.1
+

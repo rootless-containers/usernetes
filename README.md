@@ -29,6 +29,10 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   - [Single node](#single-node)
   - [Multi node (Docker Compose)](#multi-node-docker-compose)
 - [Advanced guide](#advanced-guide)
+  - [Enabling cgroups](#enabling-cgroups)
+    - [Enable cgroup v2](#enable-cgroup-v2)
+    - [Enable cpu controller](#enable-cpu-controller)
+    - [Run Usernetes installer](#run-usernetes-installer)
   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
   - [Routing ping packets](#routing-ping-packets)
   - [IP addresses](#ip-addresses)
@@ -84,11 +88,8 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 * Usermode networking called [slirp4netns](https://github.com/rootless-containers/slirp4netns) is used instead of kernel-mode [vEth](http://man7.org/linux/man-pages/man4/veth.4.html) pairs.
 * [fuse-overlayfs](https://github.com/containers/fuse-overlayfs) is used instead of kernel-mode overlayfs.
 * Node ports are network-namespaced
-* Following features are not supported:
-  * Cgroups
-  * Apparmor
-
-Support for cgroups (v2 only) is being experimented in [https://github.com/AkihiroSuda/critest-rootless-cgroup2](https://github.com/AkihiroSuda/critest-rootless-cgroup2).
+* No support for cgroup v1. Resource limitations are ignored on cgroup v1 hosts. To enable support for cgroup (v2 only), see [Enabling cgroups](#enabling-cgroups).
+* Apparmor is unsupported
 
 ## Requirements
 
@@ -307,6 +308,47 @@ Connecting to 10.5.7.3 (10.5.7.3:80)
 ```
 
 ## Advanced guide
+
+### Enabling cgroups
+
+To enable cgroups (resource limits), the host needs to be running with cgroup v2.
+
+If `/sys/fs/cgroup/cgroup.controllers` is present on your system, you are using v2, otherwise you are using v1.
+As of 2020, Fedora is the only well-known Linux distributon that uses cgroup v2 by default. Fedora uses cgroup v2 by default since Fedora 31.
+
+#### Enable cgroup v2
+To enable cgroup v2, add `systemd.unified_cgroup_hierarchy=1` to the `GRUB_CMDLINE_LINUX` line in `/etc/default/grub` and run `sudo update-grub`.
+
+If `grubby` command is available on your system, this step can be also accomplished with `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=1"`.
+
+
+#### Enable cpu controller
+Typically, only `memory` and `pids` controllers are delegated to non-root users by default.
+```console
+$ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers
+memory pids
+```
+
+
+To  allow delegation of all controllers, you need to change the systemd configuration as follows:
+
+```console
+# mkdir -p /etc/systemd/system/user@.service.d
+# cat > /etc/systemd/system/user@.service.d/delegate.conf << EOF
+[Service]
+Delegate=cpu cpuset io memory pids
+EOF
+# systemctl daemon-reload
+```
+
+#### Run Usernetes installer
+
+The installer script (`install.sh`) needs to be executed with `--cgroup-manager=systemd`.
+```console
+$ ./install.sh --cgroup-manager=systemd
+```
+
+Currently, `--cgroup-manager=systemd` is incompatible with `--cri=crio`.
 
 ### Expose netns ports to the host
 

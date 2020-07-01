@@ -9,6 +9,17 @@ function ERROR() {
 	echo >&2 -e "\e[101m\e[97m[ERROR]\e[49m\e[39m $@"
 }
 
+function util::wait_for_pod() {
+	name="$1"
+	if ! timeout 60 sh -exc "until kubectl get pods -o json $name | jq -r \".status.phase\" | grep -x \"Running\" ;do sleep 10; done"; then
+		ERROR "The $name pod is not running."
+		set -x
+		kubectl get pods -o wide $name
+		kubectl get pods -o yaml $name
+		exit 1
+	fi
+}
+
 function smoketest_dns() {
 	INFO "Installing CoreDNS"
 	kubectl apply -f manifests/coredns.yaml
@@ -72,4 +83,19 @@ EOF
 	kubectl delete service dnstest
 	INFO "Deleting StatefulSet \"dnstest\""
 	kubectl delete statefulset dnstest
+}
+
+function smoketest_limits() {
+	INFO "Creating Pod \"test-limits\""
+	kubectl apply -f hack/smoketest-manifests/test-limits.yaml
+	util::wait_for_pod test-limits
+
+	INFO "Testing memory limit (42 Mib)"
+	[ "$(kubectl exec test-limits -- cat /sys/fs/cgroup/memory.max)" = "$((1024 * 1024 * 42))" ]
+
+	INFO "Testing CPU limit (0.42 cores)"
+	[ "$(kubectl exec test-limits -- cat /sys/fs/cgroup/cpu.max)" = "42000 100000" ]
+
+	INFO "Deleting Pod \"test-limits\""
+	kubectl delete pod test-limits
 }

@@ -13,7 +13,7 @@ set -u
 set +e
 set -x
 systemctl --user -T -f stop u7s.target
-systemctl --user -T -f stop 'u7s-*'
+systemctl --user -T -f stop --signal=KILL 'u7s-*'
 systemctl --user -T disable u7s.target
 rm -rf ${config_dir}/systemd/user/u7s*
 systemctl --user -T daemon-reload

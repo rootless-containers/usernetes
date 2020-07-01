@@ -22,9 +22,9 @@ jobs:
       run: |
         make clean
         docker builder prune -a -f
-    - name: "Smoke test (containerd)"
+    - name: "Smoke test (containerd, w/o cgroups)"
       run: ./hack/smoketest-docker.sh u7s-test-containerd rootlesscontainers/usernetes --cri=containerd
-    - name: "Smoke test (CRI-O)"
+    - name: "Smoke test (CRI-O, w/o cgroups)"
       run: ./hack/smoketest-docker.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio
     - name: "Smoke test (multi-node cluster with Flannel)"
       run: ./hack/smoketest-docker-compose.sh
@@ -47,7 +47,9 @@ jobs:
         vagrant up
         mkdir -p ~/.ssh
         vagrant ssh-config >> ~/.ssh/config
-    - name: "Smoke test (containerd)"
+    - name: "Smoke test (containerd, w/o cgroups)"
       run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
-    - name: "Smoke test (CRI-O)"
+    - name: "Smoke test (containerd, with systemd cgroup manager)"
+      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd --cgroup-manager=systemd
+    - name: "Smoke test (CRI-O, w/o cgroups)"
       run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio

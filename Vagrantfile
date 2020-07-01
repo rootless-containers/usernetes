@@ -12,6 +12,17 @@ Vagrant.configure("2") do |config|
     v.cpus = 2
   end
   config.vm.provision "shell", inline: <<-SHELL
-    dnf install -y iptables
+    dnf install -y iptables jq
+
+    # Delegate cgroup v2 controllers
+    mkdir -p /etc/systemd/system/user@.service.d
+    cat > /etc/systemd/system/user@.service.d/delegate.conf << EOF
+[Service]
+# default: Delegate=pids memory
+# NOTE: delegation of cpuset requires systemd >= 244 (Fedora >= 32, Ubuntu >= 20.04). cpuset is ignored on Fedora 31.
+Delegate=cpu cpuset io memory pids
+EOF
+    systemctl daemon-reload
+
   SHELL
 end
