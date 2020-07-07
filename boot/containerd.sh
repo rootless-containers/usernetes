@@ -27,7 +27,7 @@ state = "$XDG_RUNTIME_DIR/usernetes/containerd"
     disable_cgroup = ${disable_cgroup}
     disable_apparmor = true
     restrict_oom_score_adj = true
-    disable_hugepages_cgroup_controller = true
+    disable_hugetlb_controller = true
     [plugins."io.containerd.grpc.v1.cri".containerd]
       snapshotter = "fuse-overlayfs"
       default_runtime_name = "crun"

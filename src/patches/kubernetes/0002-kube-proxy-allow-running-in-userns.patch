@@ -1,4 +1,4 @@
-From c63656823402b1fab811a3dc86311332d11582d7 Mon Sep 17 00:00:00 2001
+From 01f05c7c29e543fdb862840630108b884a1ff10e Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/4] kube-proxy: allow running in userns
@@ -150,7 +150,7 @@ index 4f292e73399..1c75026b5e6 100644
          "//vendor/k8s.io/utils/exec:go_default_library",
          "//vendor/k8s.io/utils/net:go_default_library",
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index 6b4f5ce451d..ac54510d36b 100644
+index 71c04391955..4758ffc136f 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
