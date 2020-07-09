@@ -38,6 +38,13 @@ fi
 
 smoketest_dns
 
-if grep -q 'U7S_CGROUP_MANAGER=.*systemd.*' ~/.config/usernetes/env; then
-	smoketest_limits
+if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
+	if echo $@ | grep -qw crio; then
+		INFO "Skipping resource limitation tests (CRI-O does not support cgroup in rootless)"
+	else
+		INFO "Detected cgroup v2 and containerd. Running resource limitation tests"
+		smoketest_limits
+	fi
+else
+	INFO "Skipping resource limitation tests (delegation is unsupported on cgroup v1 hosts)"
 fi

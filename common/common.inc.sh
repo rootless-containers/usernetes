@@ -75,7 +75,6 @@ function nsenter::_nsenter() {
 	if ! [[ -f $pidfile ]]; then
 		return 1
 	fi
-	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
 	# see the corresponding code in boot/rootlesskit.sh
 	local pidreadyfile=$XDG_RUNTIME_DIR/usernetes/rootlesskit/_child_pid.u7s-ready
 	if ! [[ -f $pidreadyfile ]]; then
@@ -86,7 +85,7 @@ function nsenter::_nsenter() {
 	fi
 	export ROOTLESSKIT_STATE_DIR=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 	# TODO(AkihiroSuda): ping to $XDG_RUNTIME_DIR/usernetes/rootlesskit/api.sock
-	nsenter -U --preserve-credential -n -m -t $(cat $pidfile) --wd=$PWD -- $@
+	nsenter -U --preserve-credential -n -m -C -t $(cat $pidfile) --wd=$PWD -- $@
 }
 
 # entrypoint begins

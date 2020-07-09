@@ -47,9 +47,7 @@ jobs:
         vagrant up
         mkdir -p ~/.ssh
         vagrant ssh-config >> ~/.ssh/config
-    - name: "Smoke test (containerd, w/o cgroups)"
+    - name: "Smoke test (containerd, with cgroup v2)"
       run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
-    - name: "Smoke test (containerd, with systemd cgroup manager)"
-      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd --cgroup-manager=systemd
     - name: "Smoke test (CRI-O, w/o cgroups)"
-      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
+      run: ./hack/smoketest-docker.sh u7s-test-crio rootlesscontainers/usernetes --cri=crio

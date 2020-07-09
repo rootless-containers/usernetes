@@ -4,8 +4,8 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-06-05T19:03:47Z
-ARG ROOTLESSKIT_COMMIT=d41d6063cf995c4b2bb8743101d6d14f0ba5287c
+# 2020-07-09T07:24:33Z
+ARG ROOTLESSKIT_COMMIT=263cab049ddb607db1f3f80121fb4cf11ef2d8dd
 # 2020-07-06T18:22:34Z
 ARG CONTAINERD_COMMIT=68b9b8f8961a59084176b0456e938c855b63de7c
 # 2020-06-29T04:43:00Z
@@ -75,11 +75,6 @@ RUN git clone https://github.com/containerd/containerd.git /go/src/github.com/co
 WORKDIR /go/src/github.com/containerd/containerd
 ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
-COPY ./src/patches/containerd /patches
-# `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
 ENV GO111MODULE=off
 RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \

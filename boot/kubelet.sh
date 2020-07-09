@@ -2,11 +2,6 @@
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
 
-: ${U7S_CGROUP_MANAGER=}
-if [[ $U7S_CGROUP_MANAGER == "" ]]; then
-	U7S_CGROUP_MANAGER="none"
-fi
-
 mkdir -p $XDG_RUNTIME_DIR/usernetes
 cat >$XDG_RUNTIME_DIR/usernetes/kubelet-config.yaml <<EOF
 kind: KubeletConfiguration
@@ -24,15 +19,12 @@ clusterDNS:
   - "10.0.0.53"
 failSwapOn: false
 featureGates:
-  Rootless: true
-  SupportNoneCgroupDriver: true
   DevicePlugins: false
   LocalStorageCapacityIsolation: false
 evictionHard:
   nodefs.available: "3%"
-rootless: true
-cgroupDriver: $U7S_CGROUP_MANAGER
-cgroupsPerQOS: false
+cgroupDriver: "cgroupfs"
+cgroupsPerQOS: true
 enforceNodeAllocatable: []
 EOF
 

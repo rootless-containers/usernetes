@@ -32,16 +32,38 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	# * /var/lib: copy-up is required for several Kube stuff
 	# * /opt: copy-up is required for mounting /opt/cni/bin
 	#
-	# We do NOT specify --pidns, as it is incompatible with systemd cgroup manager.
+	# We do NOT specify --pidns here, because it leaks unevacuatable processes with PID=0 in cgroup.procs .
+	# TODO: let RootlessKit (parent) handle the evacuation so that we can specify --pidns here
 	rootlesskit \
 		--state-dir $rk_state_dir \
 		--net=slirp4netns --mtu=65520 --disable-host-loopback --slirp4netns-sandbox=true --slirp4netns-seccomp=true \
 		--port-driver=builtin \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		--propagation=rslave \
+		--cgroupns \
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
+	# mount cgroup v2 (even if the host is cgroup v1)
+	mount -t cgroup2 cgroup2 /tmp
+	mount -n --move /tmp /sys/fs/cgroup
+	(
+		cd /sys/fs/cgroup
+		set +e
+		# evacuate the procs in the namespaced root, otherwise we can't enable domain controllers
+		# TODO: this should be handled by RootlessKit
+		mkdir u7s-init
+		for f in $(cat cgroup.procs); do echo 2>/dev/null $f >u7s-init/cgroup.procs; done
+		if grep -qw 0 cgroup.procs; then
+			log:error "Unexpected cgroup.procs status"
+			exit 1
+		fi
+		for f in $(cat cgroup.controllers); do
+			log::info "Enabling cgroup controller $f"
+			echo "+$f" >cgroup.subtree_control
+		done
+	)
+
 	# save IP address
 	echo $U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
 
@@ -73,11 +95,9 @@ else
 		mount --bind $src $f
 	done
 	rk_pid=$(cat $rk_state_dir/child_pid)
-	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
-	# child_pid might be created before the child is ready
 	echo $rk_pid >$rk_state_dir/_child_pid.u7s-ready
 	log::info "RootlessKit ready, PID=${rk_pid}, state directory=$rk_state_dir ."
-	log::info "Hint: You can enter RootlessKit namespaces by running \`nsenter -U --preserve-credential -n -m -t ${rk_pid}\`."
+	log::info "Hint: You can enter RootlessKit namespaces by running \`nsenter -U --preserve-credential -n -m -C -t ${rk_pid}\`."
 	if [[ -n $U7S_ROOTLESSKIT_PORTS ]]; then
 		rootlessctl --socket $rk_state_dir/api.sock add-ports $U7S_ROOTLESSKIT_PORTS
 	fi

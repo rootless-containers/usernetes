@@ -77,11 +77,13 @@ Currently, the following distributions adopt Usernetes:
 
 ## How it works
 
-Usernetes executes Kubernetes and CRI runtimes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/mount_namespaces.7.html), and [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html).
+Usernetes executes Kubernetes and CRI runtimes without the root privileges by using unprivileged [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html), [`mount_namespaces(7)`](http://man7.org/linux/man-pages/man7/mount_namespaces.7.html), [`network_namespaces(7)`](http://man7.org/linux/man-pages/man7/network_namespaces.7.html), and [`cgroup_namespaces(7)`](http://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html).
 
 To set up NAT across the host and the network namespace without the root privilege, Usernetes uses a usermode network stack ([slirp4netns](https://github.com/rootless-containers/slirp4netns)).
 
 No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux/man-pages/man1/newuidmap.1.html) and [`newgidmap(1)`](http://man7.org/linux/man-pages/man1/newgidmap.1.html), which are used for setting up [`user_namespaces(7)`](http://man7.org/linux/man-pages/man7/user_namespaces.7.html) with multiple sub-UIDs and sub-GIDs.
+
+For cgroup access, Usernetes rely on systemd to delegate the controllers.
 
 ## Restrictions
 
@@ -340,15 +342,9 @@ Delegate=cpu cpuset io memory pids
 EOF
 # systemctl daemon-reload
 ```
+#### CRI runtime
 
-#### Run Usernetes installer
-
-The installer script (`install.sh`) needs to be executed with `--cgroup-manager=systemd`.
-```console
-$ ./install.sh --cgroup-manager=systemd
-```
-
-Currently, `--cgroup-manager=systemd` is incompatible with `--cri=crio`.
+Currently only containerd is suported for cgroup v2 resouce limitation.
 
 ### Expose netns ports to the host
 
