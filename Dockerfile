@@ -4,23 +4,23 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-06-05T19:03:47Z
-ARG ROOTLESSKIT_COMMIT=d41d6063cf995c4b2bb8743101d6d14f0ba5287c
-# 2020-07-06T18:22:34Z
-ARG CONTAINERD_COMMIT=68b9b8f8961a59084176b0456e938c855b63de7c
+# 2020-07-09T07:24:33Z
+ARG ROOTLESSKIT_COMMIT=263cab049ddb607db1f3f80121fb4cf11ef2d8dd
+# 2020-07-16T01:40:58Z
+ARG CONTAINERD_COMMIT=f4ebe02f98d6c0872632c18e98f3bba51260ced8
 # 2020-06-29T04:43:00Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=1f0c34271bdd9f9e6d4181edb71ecac9497e71be
-# 2020-06-25T18:33:13Z
-ARG CRIO_COMMIT=d0dc0d3076367f6a26c46fb6e72d1e582b552599
-# 2020-07-07T07:57:58Z
-ARG KUBE_NODE_COMMIT=aaf40adcd006945a7ed63415448d7ee0e6c21f33
+# 2020-07-16T00:04:49Z
+ARG CRIO_COMMIT=180badebc3cba532233c4b7e80707ac1384c17da
+# 2020-07-16T02:16:34Z
+ARG KUBE_NODE_COMMIT=1f4da99f696efa30246e02221e3f85b92b7a8a5e
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.1.2
-ARG CONMON_RELEASE=v2.0.18
-ARG CRUN_RELEASE=0.14
+ARG SLIRP4NETNS_RELEASE=v1.1.4
+ARG CONMON_RELEASE=2.0.19
+ARG CRUN_RELEASE=0.14.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.1.2
-ARG KUBE_MASTER_RELEASE=v1.19.0-beta.2
+ARG KUBE_MASTER_RELEASE=v1.19.0-rc.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.6
@@ -81,7 +81,7 @@ RUN git config user.email "nobody@example.com" && \
   git config user.name "Usernetes Build Script" && \
   git am /patches/* && git show --summary
 ENV GO111MODULE=off
-RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
+RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs seccomp" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
@@ -107,13 +107,10 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
-FROM common-golang-alpine-heavy AS conmon-build
-RUN apk add -q --no-cache glib-dev glib-static
-RUN git clone https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
-WORKDIR /go/src/github.com/containers/conmon
+FROM busybox AS conmon-build
 ARG CONMON_RELEASE
-RUN git pull && git checkout ${CONMON_RELEASE}
-RUN make static && mkdir /out && cp bin/conmon /out
+ADD https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon-${CONMON_RELEASE} /out/conmon
+RUN chmod +x /out/conmon
 
 ### CNI Plugins (cniplugins-build)
 FROM busybox AS cniplugins-build

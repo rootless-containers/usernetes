@@ -1,4 +1,4 @@
-From c3a39db2c4c5ed0e84061b7db1a387931c52510c Mon Sep 17 00:00:00 2001
+From 9f7f951fef5ec7b9ca5aa277da688963b545118b Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -40,10 +40,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  13 files changed, 86 insertions(+), 23 deletions(-)
 
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 2152c82694c..47771e882bd 100644
+index b1c4921fa3b..a0c7a266f23 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -733,6 +733,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -734,6 +734,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  				EnforceCPULimits:                      s.CPUCFSQuota,
  				CPUCFSQuotaPeriod:                     s.CPUCFSQuotaPeriod.Duration,
  				ExperimentalTopologyManagerPolicy:     s.TopologyManagerPolicy,
@@ -52,13 +52,13 @@ index 2152c82694c..47771e882bd 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index a8482c78d4a..a1d1b51fe73 100644
+index ca277c466a7..d66a4b14986 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -602,6 +602,12 @@ const (
- 	// Allow setting the Fully Qualified Domain Name (FQDN) in the hostname of a Pod. If a Pod does not
- 	// have FQDN, this feature has no effect.
- 	SetHostnameAsFQDN featuregate.Feature = "SetHostnameAsFQDN"
+@@ -633,6 +633,12 @@ const (
+ 	//
+ 	// Allows kube-proxy to create DSR loadbalancers for Windows
+ 	WinDSR featuregate.Feature = "WinDSR"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -68,16 +68,16 @@ index a8482c78d4a..a1d1b51fe73 100644
  )
  
  func init() {
-@@ -694,6 +700,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	AnyVolumeDataSource:                            {Default: false, PreRelease: featuregate.Alpha},
- 	DefaultPodTopologySpread:                       {Default: false, PreRelease: featuregate.Alpha},
+@@ -730,6 +736,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	SetHostnameAsFQDN:                              {Default: false, PreRelease: featuregate.Alpha},
+ 	WinOverlay:                                     {Default: false, PreRelease: featuregate.Alpha},
+ 	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
 +	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/fuzzer/fuzzer.go b/pkg/kubelet/apis/config/fuzzer/fuzzer.go
-index 2c68c3596e7..fcc781c7e01 100644
+index 3a05dae926f..acf29488ec0 100644
 --- a/pkg/kubelet/apis/config/fuzzer/fuzzer.go
 +++ b/pkg/kubelet/apis/config/fuzzer/fuzzer.go
 @@ -60,6 +60,7 @@ func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
@@ -89,10 +89,10 @@ index 2c68c3596e7..fcc781c7e01 100644
  			obj.MaxPods = 110
  			obj.PodPidsLimit = -1
 diff --git a/pkg/kubelet/apis/config/helpers_test.go b/pkg/kubelet/apis/config/helpers_test.go
-index 115ec8150ce..c97a45bfad7 100644
+index c75d4d289d3..0c492c57930 100644
 --- a/pkg/kubelet/apis/config/helpers_test.go
 +++ b/pkg/kubelet/apis/config/helpers_test.go
-@@ -218,6 +218,7 @@ var (
+@@ -219,6 +219,7 @@ var (
  		"RegistryBurst",
  		"RegistryPullQPS",
  		"ReservedSystemCPUs",
@@ -101,7 +101,7 @@ index 115ec8150ce..c97a45bfad7 100644
  		"RunOnce",
  		"SerializeImagePulls",
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index bead9bad55e..38f3a010f50 100644
+index a7e2d5e1b23..e77dc3e7d6c 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -325,6 +325,10 @@ type KubeletConfiguration struct {
@@ -116,7 +116,7 @@ index bead9bad55e..38f3a010f50 100644
  	/* the following fields are meant for Node Allocatable */
  
 diff --git a/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go b/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
-index f8f4c947616..58b83e56495 100644
+index e0b7608745b..590bf57c8bd 100644
 --- a/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
 +++ b/pkg/kubelet/apis/config/v1beta1/zz_generated.conversion.go
 @@ -332,6 +332,7 @@ func autoConvert_v1beta1_KubeletConfiguration_To_config_KubeletConfiguration(in
@@ -127,7 +127,7 @@ index f8f4c947616..58b83e56495 100644
  	out.SystemReserved = *(*map[string]string)(unsafe.Pointer(&in.SystemReserved))
  	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
  	out.ReservedSystemCPUs = in.ReservedSystemCPUs
-@@ -483,6 +484,7 @@ func autoConvert_config_KubeletConfiguration_To_v1beta1_KubeletConfiguration(in
+@@ -486,6 +487,7 @@ func autoConvert_config_KubeletConfiguration_To_v1beta1_KubeletConfiguration(in
  	out.ConfigMapAndSecretChangeDetectionStrategy = v1beta1.ResourceChangeDetectionStrategy(in.ConfigMapAndSecretChangeDetectionStrategy)
  	out.AllowedUnsafeSysctls = *(*[]string)(unsafe.Pointer(&in.AllowedUnsafeSysctls))
  	out.KernelMemcgNotification = in.KernelMemcgNotification
@@ -136,7 +136,7 @@ index f8f4c947616..58b83e56495 100644
  	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
  	out.SystemReservedCgroup = in.SystemReservedCgroup
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index c7c7026da40..07a42e75fb7 100644
+index 8c671d30a65..b13149c313e 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -133,18 +133,22 @@ func IsSystemdStyleName(name string) bool {
@@ -198,7 +198,7 @@ index c7c7026da40..07a42e75fb7 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -482,21 +492,23 @@ func propagateControllers(path string) error {
+@@ -482,18 +492,20 @@ func propagateControllers(path string) error {
  }
  
  // setResourcesV2 sets cgroup resource limits on cgroup v2
@@ -226,13 +226,18 @@ index c7c7026da40..07a42e75fb7 100644
 +			},
 +		}
  	}
+ 	cgroupConfig.Resources.SkipDevices = true
+ 
+@@ -505,7 +517,7 @@ func setResourcesV2(cgroupConfig *libcontainerconfigs.Cgroup) error {
+ 		klog.V(6).Infof("Optional subsystem not supported: hugetlb")
+ 	}
  
 -	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, false)
 +	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, rootless)
  	if err != nil {
  		return fmt.Errorf("failed to create cgroup v2 manager: %v", err)
  	}
-@@ -603,7 +615,8 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
+@@ -613,7 +625,8 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
  	}
  
  	if unified {
@@ -242,7 +247,7 @@ index c7c7026da40..07a42e75fb7 100644
  			return fmt.Errorf("failed to set resources for cgroup %v: %v", cgroupConfig.Name, err)
  		}
  	} else {
-@@ -763,7 +776,7 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -773,7 +786,7 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	var stats *libcontainercgroups.Stats
  	if libcontainercgroups.IsCgroup2UnifiedMode() {
  		cgroupPath := m.buildCgroupUnifiedPath(name)
@@ -264,7 +269,7 @@ index a9cb41cbcfe..7a6a70741cd 100644
  
  type NodeAllocatableConfig struct {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 43a2e463c5a..efecbd42264 100644
+index d2c82ff3880..018ae9c345c 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -259,9 +259,17 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
@@ -296,7 +301,7 @@ index 43a2e463c5a..efecbd42264 100644
  	}
  }
  
-@@ -504,6 +513,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+@@ -505,6 +514,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
  		if cm.SystemCgroupsName == "/" {
  			return fmt.Errorf("system container cannot be root (\"/\")")
  		}
@@ -306,7 +311,7 @@ index 43a2e463c5a..efecbd42264 100644
  		cont, err := newSystemCgroups(cm.SystemCgroupsName)
  		if err != nil {
  			return err
-@@ -515,6 +527,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
+@@ -516,6 +528,9 @@ func (cm *containerManagerImpl) setupNode(activePods ActivePodsFunc) error {
  	}
  
  	if cm.KubeletCgroupsName != "" {
@@ -360,7 +365,7 @@ index 62c9f203a00..db4ed280da1 100644
  			qosContainersInfo: qosContainersInfo,
  		}
 diff --git a/staging/src/k8s.io/kubelet/config/v1beta1/types.go b/staging/src/k8s.io/kubelet/config/v1beta1/types.go
-index 254a3e1fec9..4c7b3c2ff38 100644
+index 49e848077d7..629664e176f 100644
 --- a/staging/src/k8s.io/kubelet/config/v1beta1/types.go
 +++ b/staging/src/k8s.io/kubelet/config/v1beta1/types.go
 @@ -703,6 +703,12 @@ type KubeletConfiguration struct {
@@ -377,7 +382,7 @@ index 254a3e1fec9..4c7b3c2ff38 100644
  	/* the following fields are meant for Node Allocatable */
  
 diff --git a/test/e2e_node/node_container_manager_test.go b/test/e2e_node/node_container_manager_test.go
-index d128cecaee6..49d775881f0 100644
+index d128cecaee6..313a2e6b6a0 100644
 --- a/test/e2e_node/node_container_manager_test.go
 +++ b/test/e2e_node/node_container_manager_test.go
 @@ -167,7 +167,10 @@ func runTest(f *framework.Framework) error {
@@ -387,7 +392,7 @@ index d128cecaee6..49d775881f0 100644
 -	cgroupManager := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver)
 +	cgroupManager, err := cm.NewCgroupManager(subsystems, oldCfg.CgroupDriver, false)
 +	if err != nil {
-+		return nil
++		return err
 +	}
  
  	defer destroyTemporaryCgroupsForReservation(cgroupManager)
