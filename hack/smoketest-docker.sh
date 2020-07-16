@@ -35,6 +35,8 @@ chmod +x $tmpdir/bin/kubectl
 export PATH=$tmpdir/bin:$PATH
 
 kubectl get nodes -o wide
+: "FIXME remove this sleep"
+sleep 30
 if ! timeout 60 time kubectl run --rm -i --image busybox --restart=Never hello echo hello $container; then
 	kubectl get pods -o yaml
 	kubectl get nodes -o yaml
