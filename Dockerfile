@@ -6,26 +6,26 @@
 
 # 2020-07-09T07:24:33Z
 ARG ROOTLESSKIT_COMMIT=263cab049ddb607db1f3f80121fb4cf11ef2d8dd
-# 2020-07-16T01:40:58Z
-ARG CONTAINERD_COMMIT=f4ebe02f98d6c0872632c18e98f3bba51260ced8
-# 2020-06-29T04:43:00Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=1f0c34271bdd9f9e6d4181edb71ecac9497e71be
-# 2020-07-16T00:04:49Z
-ARG CRIO_COMMIT=180badebc3cba532233c4b7e80707ac1384c17da
-# 2020-07-16T02:16:34Z
-ARG KUBE_NODE_COMMIT=1f4da99f696efa30246e02221e3f85b92b7a8a5e
+# 2020-07-24T06:20:16Z
+ARG CONTAINERD_COMMIT=67f19bfdd8b878d42e5e9ad39cc9816aaec50728
+# 2020-07-16T05:02:05Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=d86b677ea0f243cb451939e743dfc5815e8cb65c
+# 2020-07-23T17:42:59Z
+ARG CRIO_COMMIT=3b89556fc06e9dac7ebec5d83f0c301a5c932dfa
+# 2020-07-24T02:30:23Z
+ARG KUBE_NODE_COMMIT=8a3fc2d7e2043bc980bb5301d2f4292020f1a2dd
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.4
 ARG CONMON_RELEASE=2.0.19
 ARG CRUN_RELEASE=0.14.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.1.2
-ARG KUBE_MASTER_RELEASE=v1.19.0-rc.1
+ARG KUBE_MASTER_RELEASE=v1.19.0-rc.2
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.6
 ARG FLANNEL_RELEASE=v0.12.0
-ARG ETCD_RELEASE=v3.4.9
+ARG ETCD_RELEASE=v3.4.10
 ARG CFSSL_RELEASE=1.4.1
 
 ### Common base images (common-*)
@@ -75,11 +75,6 @@ RUN git clone https://github.com/containerd/containerd.git /go/src/github.com/co
 WORKDIR /go/src/github.com/containerd/containerd
 ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
-COPY ./src/patches/containerd /patches
-# `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
 ENV GO111MODULE=off
 RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs seccomp" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \

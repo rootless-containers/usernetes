@@ -1,4 +1,4 @@
-From 9f7f951fef5ec7b9ca5aa277da688963b545118b Mon Sep 17 00:00:00 2001
+From 8df2283d9748bb452ce64802dd9a4bf9c02b909e Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -52,13 +52,13 @@ index b1c4921fa3b..a0c7a266f23 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index ca277c466a7..d66a4b14986 100644
+index f36ae65c0cc..f5a75240439 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -633,6 +633,12 @@ const (
+@@ -645,6 +645,12 @@ const (
  	//
- 	// Allows kube-proxy to create DSR loadbalancers for Windows
- 	WinDSR featuregate.Feature = "WinDSR"
+ 	// Disables Accelerator Metrics Collected by Kubelet
+ 	DisableAcceleratorUsageMetrics featuregate.Feature = "DisableAcceleratorUsageMetrics"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -68,10 +68,10 @@ index ca277c466a7..d66a4b14986 100644
  )
  
  func init() {
-@@ -730,6 +736,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	SetHostnameAsFQDN:                              {Default: false, PreRelease: featuregate.Alpha},
+@@ -744,6 +750,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinOverlay:                                     {Default: false, PreRelease: featuregate.Alpha},
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
+ 	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
 +	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed

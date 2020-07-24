@@ -1,4 +1,4 @@
-From 13518703d29d0cf8ae92a6b6891ada67b8135333 Mon Sep 17 00:00:00 2001
+From 33e47edac7e72f2a0460b8659b6e33b995031cdc Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -84,10 +84,10 @@ index a0c7a266f23..611c280d718 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index d66a4b14986..35cbd4f5d1e 100644
+index f5a75240439..af7b9b4e91a 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -639,6 +639,15 @@ const (
+@@ -651,6 +651,15 @@ const (
  	//
  	// Enable rootless mode.
  	Rootless featuregate.Feature = "Rootless"
@@ -103,9 +103,9 @@ index d66a4b14986..35cbd4f5d1e 100644
  )
  
  func init() {
-@@ -737,6 +746,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	WinOverlay:                                     {Default: false, PreRelease: featuregate.Alpha},
+@@ -751,6 +760,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
+ 	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
  	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
