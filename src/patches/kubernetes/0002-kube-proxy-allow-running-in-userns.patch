@@ -1,4 +1,4 @@
-From 804c32ff425b57f93580b0640b45bdda46cfaf15 Mon Sep 17 00:00:00 2001
+From e9ab29c57b047196847edb449c714fa513215f85 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/4] kube-proxy: allow running in userns
