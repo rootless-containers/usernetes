@@ -16,12 +16,9 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
     - [Debian GNU/Linux](#debian-gnulinux)
     - [Arch Linux](#arch-linux)
     - [openSUSE](#opensuse)
-    - [Fedora](#fedora)
-    - [RHEL/CentOS 8](#rhelcentos-8)
-    - [RHEL/CentOS 7](#rhelcentos-7)
-- [Install from binary](#install-from-binary)
-- [Install from source](#install-from-source)
+    - [Fedora, RHEL/CentOS](#fedora-rhelcentos)
 - [Quick start](#quick-start)
+  - [Download](#download)
   - [Install](#install)
   - [Use `kubectl`](#use-kubectl)
   - [Uninstall](#uninstall)
@@ -36,6 +33,7 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
   - [Routing ping packets](#routing-ping-packets)
   - [IP addresses](#ip-addresses)
+  - [Install Usernetes from source](#install-usernetes-from-source)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -129,16 +127,12 @@ exampleuser:231072:65536
 #### openSUSE
 * `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
 
-#### Fedora
+#### Fedora, RHEL/CentOS
 * Run `sudo dnf install -y iptables`.
 
-#### RHEL/CentOS 8
-* Run `sudo dnf install -y iptables`.
+## Quick start
 
-#### RHEL/CentOS 7
-* Unsupported since February 2020. [Usernetes v20200126.0 (January 26, 2020)](https://github.com/rootless-containers/usernetes/tree/v20200126.0#rhelcentos-7) should work.
-
-## Install from binary
+### Download
 
 Download the latest `usernetes-x86_64.tbz` from [Releases](https://github.com/rootless-containers/usernetes/releases).
 
@@ -146,19 +140,6 @@ Download the latest `usernetes-x86_64.tbz` from [Releases](https://github.com/ro
 $ tar xjvf usernetes-x86_64.tbz
 $ cd usernetes
 ```
-
-## Install from source
-
-Docker 17.05+ is required for building Usernetes from the source.
-Docker 18.09+ with `DOCKER_BUILDKIT=1` is recommended.
-
-```console
-$ make
-```
-
-Binaries are generated under `./bin` directory.
-
-## Quick start
 
 ### Install
 
@@ -382,18 +363,29 @@ $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
   * 10.0.0.1: The kube-apiserver ClusterIP
   * 10.0.0.53: The CoreDNS ClusterIP
 
-* 10.5.0.0/16: The CIDR for Flannel
-
 * 10.0.42.0/24: The default CIDR for the RootlessKit network namespace. Can be overridden with `install.sh --cidr=<CIDR>`. 
   * 10.0.42.2: The slirp4netns gateway
   * 10.0.42.3: The slirp4netns DNS
   * 10.0.42.100: The slirp4netns TAP device
 
-* 10.88.0.0/16: The CIDR for single-node CNI
-
 * 10.0.100.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose master
 * 10.0.101.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose containerd node
 * 10.0.102.0/24: The CIDR used instead of 10.0.42.0/24 in Docker Compose CRI-O node
+
+* 10.5.0.0/16: The CIDR for Flannel
+
+* 10.88.0.0/16: The CIDR for single-node CNI
+
+### Install Usernetes from source
+
+Docker 17.05+ is required for building Usernetes from the source.
+Docker 18.09+ with `DOCKER_BUILDKIT=1` is recommended.
+
+```console
+$ make
+```
+
+Binaries are generated under `./bin` directory.
 
 ## License
 
