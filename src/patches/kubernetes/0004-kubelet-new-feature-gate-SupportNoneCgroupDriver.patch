@@ -1,4 +1,4 @@
-From 33e47edac7e72f2a0460b8659b6e33b995031cdc Mon Sep 17 00:00:00 2001
+From a95c6390e1ba8c4a20fec37a9ca89a789d474c4a Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
