@@ -1,18 +1,18 @@
-From e9ab29c57b047196847edb449c714fa513215f85 Mon Sep 17 00:00:00 2001
+From c96515e9bf26da8bee2c3764058ff3fc20255d6e Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/4] kube-proxy: allow running in userns
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- cmd/kube-proxy/app/BUILD            | 11 +++++++++++
+ cmd/kube-proxy/app/BUILD            | 14 ++++++++++++++
  cmd/kube-proxy/app/server_others.go |  9 ++++++++-
  pkg/proxy/userspace/BUILD           |  1 +
  pkg/proxy/userspace/proxier.go      |  6 +++++-
- 4 files changed, 25 insertions(+), 2 deletions(-)
+ 4 files changed, 28 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 5971ef20282..52ed46c9095 100644
+index 4791670bdac..5c166d08323 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
 @@ -87,6 +87,7 @@ go_library(
@@ -22,7 +22,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:darwin": [
+         "@io_bazel_rules_go//go/platform:android": [
 @@ -99,6 +100,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -30,7 +30,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:dragonfly": [
+         "@io_bazel_rules_go//go/platform:darwin": [
 @@ -111,6 +113,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -38,7 +38,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:freebsd": [
+         "@io_bazel_rules_go//go/platform:dragonfly": [
 @@ -123,6 +126,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -46,7 +46,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:ios": [
+         "@io_bazel_rules_go//go/platform:freebsd": [
 @@ -135,6 +139,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -54,7 +54,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:linux": [
+         "@io_bazel_rules_go//go/platform:illumos": [
 @@ -147,6 +152,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -62,7 +62,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:nacl": [
+         "@io_bazel_rules_go//go/platform:ios": [
 @@ -159,6 +165,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -70,7 +70,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:netbsd": [
+         "@io_bazel_rules_go//go/platform:js": [
 @@ -171,6 +178,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -78,7 +78,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:openbsd": [
+         "@io_bazel_rules_go//go/platform:linux": [
 @@ -183,6 +191,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -86,7 +86,7 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:plan9": [
+         "@io_bazel_rules_go//go/platform:nacl": [
 @@ -195,6 +204,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
@@ -94,8 +94,32 @@ index 5971ef20282..52ed46c9095 100644
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/net:go_default_library",
          ],
-         "@io_bazel_rules_go//go/platform:solaris": [
+         "@io_bazel_rules_go//go/platform:netbsd": [
 @@ -207,6 +217,7 @@ go_library(
+             "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
+             "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
+             "//staging/src/k8s.io/component-base/metrics:go_default_library",
++            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
+             "//vendor/k8s.io/utils/net:go_default_library",
+         ],
+         "@io_bazel_rules_go//go/platform:openbsd": [
+@@ -219,6 +230,7 @@ go_library(
+             "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
+             "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
+             "//staging/src/k8s.io/component-base/metrics:go_default_library",
++            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
+             "//vendor/k8s.io/utils/net:go_default_library",
+         ],
+         "@io_bazel_rules_go//go/platform:plan9": [
+@@ -231,6 +243,7 @@ go_library(
+             "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
+             "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
+             "//staging/src/k8s.io/component-base/metrics:go_default_library",
++            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
+             "//vendor/k8s.io/utils/net:go_default_library",
+         ],
+         "@io_bazel_rules_go//go/platform:solaris": [
+@@ -243,6 +256,7 @@ go_library(
              "//staging/src/k8s.io/client-go/tools/cache:go_default_library",
              "//staging/src/k8s.io/client-go/tools/watch:go_default_library",
              "//staging/src/k8s.io/component-base/metrics:go_default_library",
@@ -138,7 +162,7 @@ index eb69ea27fb9..21f41f24fc2 100644
  		NodeRef:                nodeRef,
  		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/BUILD b/pkg/proxy/userspace/BUILD
-index 4f292e73399..1c75026b5e6 100644
+index 472830df4af..031194b7ae2 100644
 --- a/pkg/proxy/userspace/BUILD
 +++ b/pkg/proxy/userspace/BUILD
 @@ -34,6 +34,7 @@ go_library(
