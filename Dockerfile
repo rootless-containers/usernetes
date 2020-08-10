@@ -4,23 +4,24 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-07-28T18:17:03Z
-ARG ROOTLESSKIT_COMMIT=1bcc451594441f5ecdefc7c7f12cea94f66e035b
-# 2020-07-28T18:36:44Z
-ARG CONTAINERD_COMMIT=eb6354a1186044e9cbcf2c7086b2647be679ebbe
-# 2020-07-16T05:02:05Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=d86b677ea0f243cb451939e743dfc5815e8cb65c
+# 2020-08-04T05:54:43Z
+ARG ROOTLESSKIT_COMMIT=85deee8b519174868c350cf4ee509023c9989486
+# 2020-08-11T23:08:09Z
+ARG CONTAINERD_COMMIT=e9f94064b9616ab36a8a51d632a63f97f7783c3d
+# 2020-08-05T05:41:04Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=c836fb75a379cd66a0f39c32f3bc899943876795
 # 2020-07-28T19:10:42Z
+# NOTE: newer version has a regression: https://github.com/cri-o/cri-o/issues/4069
 ARG CRIO_COMMIT=c1d5921e48281d089eecc19ccddf1c72bb2f54b3
-# 2020-07-29T04:04:01Z
-ARG KUBE_NODE_COMMIT=aec30be5b3341d0937dc12e1d973cacb3714560e
+# 2020-08-12T03:07:45Z
+ARG KUBE_NODE_COMMIT=fa13dc11d12ba9cab8c462db4a3fee5fd09d9b07
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.4
-ARG CONMON_RELEASE=2.0.19
+ARG CONMON_RELEASE=2.0.20
 ARG CRUN_RELEASE=0.14.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.1.2
-ARG KUBE_MASTER_RELEASE=v1.19.0-rc.2
+ARG KUBE_MASTER_RELEASE=v1.19.0-rc.4
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.6
@@ -32,8 +33,7 @@ ARG CFSSL_RELEASE=1.4.1
 FROM alpine:3.12 AS common-alpine
 RUN apk add -q --no-cache git build-base autoconf automake libtool
 
-# Kubernetes requires Go 1.14: https://github.com/kubernetes/kubernetes/pull/92438
-FROM golang:1.14-alpine AS common-golang-alpine
+FROM golang:1.15-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
@@ -76,7 +76,8 @@ WORKDIR /go/src/github.com/containerd/containerd
 ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
 ENV GO111MODULE=off
-RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs seccomp" \
+ENV CGO_ENABLED=0
+RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-linkmode external -extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
 
@@ -104,7 +105,7 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
 ### conmon (conmon-build)
 FROM busybox AS conmon-build
 ARG CONMON_RELEASE
-ADD https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon-${CONMON_RELEASE} /out/conmon
+ADD https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon /out/conmon
 RUN chmod +x /out/conmon
 
 ### CNI Plugins (cniplugins-build)

@@ -1,4 +1,4 @@
-From 764fbb783ec2c10b66447a825d0c792616a3d506 Mon Sep 17 00:00:00 2001
+From f3483648f92322025218263011b9bfc5a9225811 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
