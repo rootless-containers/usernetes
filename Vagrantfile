@@ -3,13 +3,15 @@
 
 Vagrant.configure("2") do |config|
   config.vm.box = "fedora/32-cloud-base"
+  memory = 4096
+  cpus = 2
   config.vm.provider :virtualbox do |v|
-    v.memory = 2048
-    v.cpus = 2
+    v.memory = memory
+    v.cpus = cpus
   end
   config.vm.provider :libvirt do |v|
-    v.memory = 2048
-    v.cpus = 2
+    v.memory = memory
+    v.cpus = cpus
   end
   config.vm.provision "shell", inline: <<-SHELL
     dnf install -y iptables jq
