@@ -1,4 +1,4 @@
-From f3483648f92322025218263011b9bfc5a9225811 Mon Sep 17 00:00:00 2001
+From f1ff3817f11c67d8dbbb75f30d494cff570e8491 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -52,10 +52,10 @@ index b1c4921fa3b..a0c7a266f23 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index f36ae65c0cc..f5a75240439 100644
+index 1b86a6cff08..9252096115f 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -645,6 +645,12 @@ const (
+@@ -646,6 +646,12 @@ const (
  	//
  	// Disables Accelerator Metrics Collected by Kubelet
  	DisableAcceleratorUsageMetrics featuregate.Feature = "DisableAcceleratorUsageMetrics"
@@ -68,7 +68,7 @@ index f36ae65c0cc..f5a75240439 100644
  )
  
  func init() {
-@@ -744,6 +750,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -745,6 +751,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinOverlay:                                     {Default: false, PreRelease: featuregate.Alpha},
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
  	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
@@ -136,7 +136,7 @@ index e0b7608745b..590bf57c8bd 100644
  	out.KubeReserved = *(*map[string]string)(unsafe.Pointer(&in.KubeReserved))
  	out.SystemReservedCgroup = in.SystemReservedCgroup
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index 8c671d30a65..b13149c313e 100644
+index 628957ee51a..e8abebf12d1 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -133,18 +133,22 @@ func IsSystemdStyleName(name string) bool {
@@ -198,7 +198,7 @@ index 8c671d30a65..b13149c313e 100644
  }
  
  // Name converts the cgroup to the driver specific value in cgroupfs form.
-@@ -482,18 +492,20 @@ func propagateControllers(path string) error {
+@@ -475,18 +485,20 @@ func propagateControllers(path string) error {
  }
  
  // setResourcesV2 sets cgroup resource limits on cgroup v2
@@ -228,16 +228,16 @@ index 8c671d30a65..b13149c313e 100644
  	}
  	cgroupConfig.Resources.SkipDevices = true
  
-@@ -505,7 +517,7 @@ func setResourcesV2(cgroupConfig *libcontainerconfigs.Cgroup) error {
+@@ -498,7 +510,7 @@ func setResourcesV2(cgroupConfig *libcontainerconfigs.Cgroup) error {
  		klog.V(6).Infof("Optional subsystem not supported: hugetlb")
  	}
  
--	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, false)
-+	manager, err := cgroupfs2.NewManager(cgroupConfig, cgroupConfig.Path, rootless)
+-	manager, err := cgroupfs2.NewManager(cgroupConfig, filepath.Join(cmutil.CgroupRoot, cgroupConfig.Path), false)
++	manager, err := cgroupfs2.NewManager(cgroupConfig, filepath.Join(cmutil.CgroupRoot, cgroupConfig.Path), rootless)
  	if err != nil {
  		return fmt.Errorf("failed to create cgroup v2 manager: %v", err)
  	}
-@@ -613,7 +625,8 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
+@@ -606,7 +618,8 @@ func (m *cgroupManagerImpl) Update(cgroupConfig *CgroupConfig) error {
  	}
  
  	if unified {
@@ -247,7 +247,7 @@ index 8c671d30a65..b13149c313e 100644
  			return fmt.Errorf("failed to set resources for cgroup %v: %v", cgroupConfig.Name, err)
  		}
  	} else {
-@@ -773,7 +786,7 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -762,7 +775,7 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	var stats *libcontainercgroups.Stats
  	if libcontainercgroups.IsCgroup2UnifiedMode() {
  		cgroupPath := m.buildCgroupUnifiedPath(name)

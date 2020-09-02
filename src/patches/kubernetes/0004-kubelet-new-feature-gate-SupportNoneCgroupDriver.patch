@@ -1,4 +1,4 @@
-From fe748752b123e9fb63d281fc7d1e75adc843755e Mon Sep 17 00:00:00 2001
+From 3ab2c53273307563bc65f0ef0af94224f6d0d971 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -84,10 +84,10 @@ index a0c7a266f23..611c280d718 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index f5a75240439..af7b9b4e91a 100644
+index 9252096115f..849d7cef863 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -651,6 +651,15 @@ const (
+@@ -652,6 +652,15 @@ const (
  	//
  	// Enable rootless mode.
  	Rootless featuregate.Feature = "Rootless"
@@ -103,7 +103,7 @@ index f5a75240439..af7b9b4e91a 100644
  )
  
  func init() {
-@@ -751,6 +760,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -752,6 +761,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
  	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
  	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
@@ -125,7 +125,7 @@ index e77dc3e7d6c..92a61d53d30 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index b13149c313e..23944c31001 100644
+index e8abebf12d1..496ad8d4844 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -50,6 +50,9 @@ const (
@@ -153,7 +153,7 @@ index b13149c313e..23944c31001 100644
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -804,3 +815,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -793,3 +804,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
