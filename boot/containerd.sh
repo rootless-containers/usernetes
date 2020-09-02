@@ -30,12 +30,12 @@ state = "$XDG_RUNTIME_DIR/usernetes/containerd"
     disable_hugetlb_controller = true
     [plugins."io.containerd.grpc.v1.cri".containerd]
       snapshotter = "fuse-overlayfs"
-      default_runtime_name = "crun"
+      default_runtime_name = "runc"
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
           runtime_type = "io.containerd.runc.v2"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.crun.options]
-            BinaryName = "crun"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            BinaryName = "${U7S_BASE_DIR}/bin/runc"
             SystemdCgroup = ${systemd_cgroup}
     [plugins."io.containerd.grpc.v1.cri".cni]
       bin_dir = "/opt/cni/bin"

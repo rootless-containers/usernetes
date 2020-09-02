@@ -12,13 +12,14 @@ ARG CONTAINERD_COMMIT=efa0e809135e440995c6e92ca21b3545659d906b
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=ce3f92bc40ad9f820e0f733758ae5e3df0f120f7
 # 2020-09-02T02:33:49Z
 ARG CRIO_COMMIT=257b378ce5a189b25f9c6ca08b8406ffec99bd5a
+# 2020-08-25T01:18:38Z
+ARG RUNC_COMMIT=09ddc63afdde16d5fb859a1d3ab010bd45f08497
 # 2020-09-02T02:41:53Z
 ARG KUBE_NODE_COMMIT=0d2205f515d8655ab6d0cdabc54f2718eb0fc518
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.4
 ARG CONMON_RELEASE=2.0.20
-ARG CRUN_RELEASE=0.14.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.1.2
 ARG KUBE_MASTER_RELEASE=v1.19.1-rc.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
@@ -62,11 +63,15 @@ ARG FUSE_OVERLAYFS_RELEASE
 ADD https://github.com/containers/fuse-overlayfs/releases/download/${FUSE_OVERLAYFS_RELEASE}/fuse-overlayfs-x86_64 /out/fuse-overlayfs
 RUN chmod +x /out/fuse-overlayfs
 
-### crun (crun-build)
-FROM busybox AS crun-build
-ARG CRUN_RELEASE
-ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-static-x86_64 /out/crun
-RUN chmod +x /out/crun
+### runc (runc-build)
+FROM common-golang-alpine-heavy AS runc-build
+RUN git clone https://github.com/opencontainers/runc.git /go/src/github.com/opencontainers/runc
+WORKDIR /go/src/github.com/opencontainers/runc
+ARG RUNC_COMMIT
+RUN git pull && git checkout ${RUNC_COMMIT}
+ENV GO111MODULE=off
+RUN make static && \
+  mkdir /out && cp runc /out
 
 ### containerd (containerd-build)
 FROM common-golang-alpine-heavy AS containerd-build
@@ -170,7 +175,7 @@ FROM scratch AS bin-main
 COPY --from=rootlesskit-build /out/* /
 COPY --from=slirp4netns-build /out/* /
 COPY --from=fuse-overlayfs-build /out/* /
-COPY --from=crun-build /out/* /
+COPY --from=runc-build /out/* /
 COPY --from=containerd-build /out/* /
 COPY --from=containerd-fuse-overlayfs-build /out/* /
 COPY --from=crio-build /out/* /

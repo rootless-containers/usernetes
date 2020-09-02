@@ -39,11 +39,11 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
     container_attach_socket_dir = "$XDG_RUNTIME_DIR/usernetes/crio"
     namespaces_dir = "$XDG_RUNTIME_DIR/usernetes/crio/ns"
     cgroup_manager = "cgroupfs"
-    default_runtime = "crun"
+    default_runtime = "runc"
     [crio.runtime.runtimes]
-      [crio.runtime.runtimes.crun]
-        runtime_path = "$U7S_BASE_DIR/bin/crun"
-        runtime_root = "$XDG_RUNTIME_DIR/crio/crun"
+      [crio.runtime.runtimes.runc]
+        runtime_path = "$U7S_BASE_DIR/bin/runc"
+        runtime_root = "$XDG_RUNTIME_DIR/crio/runc"
   [crio.network]
     network_dir = "/etc/cni/net.d/"
     plugin_dirs = ["/opt/cni/bin/"]
