@@ -1,4 +1,4 @@
-From a8bdf7b05b7261d83df58b05e5130f1e354e0a95 Mon Sep 17 00:00:00 2001
+From b4e0688120a79439cd2da5c5f6da8ec3b039f7a5 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/4] kube-proxy: allow running in userns
@@ -12,7 +12,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 28 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/kube-proxy/app/BUILD b/cmd/kube-proxy/app/BUILD
-index 4791670bdac..5c166d08323 100644
+index fec2efa4c63..205dbc2b4eb 100644
 --- a/cmd/kube-proxy/app/BUILD
 +++ b/cmd/kube-proxy/app/BUILD
 @@ -87,6 +87,7 @@ go_library(
@@ -174,7 +174,7 @@ index 472830df4af..031194b7ae2 100644
          "//vendor/k8s.io/utils/exec:go_default_library",
          "//vendor/k8s.io/utils/net:go_default_library",
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index 71c04391955..e93e44073f0 100644
+index 71076129f9d..3c8c16ca135 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,6 +26,7 @@ import (
@@ -185,7 +185,7 @@ index 71c04391955..e93e44073f0 100644
  	v1 "k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-@@ -209,7 +210,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
+@@ -231,7 +232,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
  
  	err = setRLimit(64 * 1000)
  	if err != nil {

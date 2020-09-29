@@ -1,4 +1,4 @@
-From 3ab2c53273307563bc65f0ef0af94224f6d0d971 Mon Sep 17 00:00:00 2001
+From 455b96f3e43c38b8545e6c17cb30f2a0f6e2dfb9 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -18,7 +18,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  6 files changed, 103 insertions(+), 20 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 8306387ea8b..ed423a894de 100644
+index a208b5ac9a0..fbeabc81d1e 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
 @@ -483,7 +483,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
@@ -31,10 +31,10 @@ index 8306387ea8b..ed423a894de 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index a0c7a266f23..611c280d718 100644
+index 562d8db7950..5a3935ef6b5 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -602,26 +602,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -606,26 +606,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  	}
  
  	var cgroupRoots []string
@@ -84,10 +84,10 @@ index a0c7a266f23..611c280d718 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 9252096115f..849d7cef863 100644
+index 725f86754a1..cbd08768d41 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -652,6 +652,15 @@ const (
+@@ -643,6 +643,15 @@ const (
  	//
  	// Enable rootless mode.
  	Rootless featuregate.Feature = "Rootless"
@@ -103,7 +103,7 @@ index 9252096115f..849d7cef863 100644
  )
  
  func init() {
-@@ -752,6 +761,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -741,6 +750,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
  	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
  	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
@@ -125,7 +125,7 @@ index e77dc3e7d6c..92a61d53d30 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index e8abebf12d1..496ad8d4844 100644
+index 845ffffce50..2cd5d838f5e 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
 @@ -50,6 +50,9 @@ const (
@@ -153,7 +153,7 @@ index e8abebf12d1..496ad8d4844 100644
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -793,3 +804,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -782,3 +793,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
@@ -212,10 +212,10 @@ index e8abebf12d1..496ad8d4844 100644
 +	}, nil
 +}
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 018ae9c345c..6220ae85ce3 100644
+index 838ffb7e1f4..03560a29117 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -265,6 +265,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
+@@ -263,6 +263,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
  	}
  	// Check if Cgroup-root actually exists on the node
  	if nodeConfig.CgroupsPerQOS {
