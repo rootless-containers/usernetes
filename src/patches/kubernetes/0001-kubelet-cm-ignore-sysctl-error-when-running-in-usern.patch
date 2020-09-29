@@ -1,4 +1,4 @@
-From 6781a254fdfb794807fbd94ac530fba03b0f3252 Mon Sep 17 00:00:00 2001
+From 191799342a57a5443f427f11e388be6647de460c Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/4] kubelet/cm: ignore sysctl error when running in userns
@@ -10,7 +10,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 646569dc33b..0dc99bc343b 100644
+index dab983bf21c..e0d124f3f46 100644
 --- a/pkg/kubelet/cm/BUILD
 +++ b/pkg/kubelet/cm/BUILD
 @@ -78,6 +78,7 @@ go_library(
@@ -19,18 +19,18 @@ index 646569dc33b..0dc99bc343b 100644
              "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/io:go_default_library",
-             "//vendor/k8s.io/utils/mount:go_default_library",
              "//vendor/k8s.io/utils/path:go_default_library",
-@@ -140,6 +141,7 @@ go_library(
+         ],
+@@ -139,6 +140,7 @@ go_library(
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd:go_default_library",
              "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
 +            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
              "//vendor/k8s.io/utils/io:go_default_library",
-             "//vendor/k8s.io/utils/mount:go_default_library",
              "//vendor/k8s.io/utils/path:go_default_library",
+         ],
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 57110ed7745..d2c82ff3880 100644
+index 6ba41468776..3fbfeb9856b 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -33,6 +33,7 @@ import (
@@ -39,9 +39,9 @@ index 57110ed7745..d2c82ff3880 100644
  	"github.com/opencontainers/runc/libcontainer/configs"
 +	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
  	"k8s.io/klog/v2"
+ 	"k8s.io/mount-utils"
  	utilio "k8s.io/utils/io"
- 	"k8s.io/utils/mount"
-@@ -437,7 +438,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
+@@ -434,7 +435,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
  			klog.V(2).Infof("Updating kernel flag: %v, expected value: %v, actual value: %v", flag, expectedValue, val)
  			err = sysctl.SetSysctl(flag, expectedValue)
  			if err != nil {

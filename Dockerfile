@@ -4,23 +4,23 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2020-08-31T08:43:49Z
-ARG ROOTLESSKIT_COMMIT=36f981d4cf0631b96775c5969df6d7a2df757441
-# 2020-08-27T12:48:58Z
-ARG CONTAINERD_COMMIT=efa0e809135e440995c6e92ca21b3545659d906b
+# 2020-09-29T07:50:59Z
+ARG ROOTLESSKIT_COMMIT=8cba5bd3bbbb89c20e49006a43a1a019937da1cc
+# 2020-09-28T16:10:27Z
+ARG CONTAINERD_COMMIT=4a6b47d470d9f2dfc3d49f2819b968861dfa123e
 # 2020-08-17T18:53:55Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=ce3f92bc40ad9f820e0f733758ae5e3df0f120f7
-# 2020-09-02T02:33:49Z
-ARG CRIO_COMMIT=257b378ce5a189b25f9c6ca08b8406ffec99bd5a
-# 2020-09-02T02:41:53Z
-ARG KUBE_NODE_COMMIT=0d2205f515d8655ab6d0cdabc54f2718eb0fc518
+# 2020-09-29T00:52:12Z
+ARG CRIO_COMMIT=1455ee83eb942f5b0fa67db0c3a66ef294419c27
+# 2020-09-29T07:37:25Z
+ARG KUBE_NODE_COMMIT=df8e3ee5f85a8a6002d899a98c121d1908e9863e
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.4
 ARG CONMON_RELEASE=2.0.20
-ARG CRUN_RELEASE=0.14.1
+ARG CRUN_RELEASE=0.15
 ARG FUSE_OVERLAYFS_RELEASE=v1.1.2
-ARG KUBE_MASTER_RELEASE=v1.19.1-rc.0
+ARG KUBE_MASTER_RELEASE=v1.20.0-alpha.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.20.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.8.7
@@ -65,7 +65,7 @@ RUN chmod +x /out/fuse-overlayfs
 ### crun (crun-build)
 FROM busybox AS crun-build
 ARG CRUN_RELEASE
-ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-static-x86_64 /out/crun
+ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-linux-amd64 /out/crun
 RUN chmod +x /out/crun
 
 ### containerd (containerd-build)
