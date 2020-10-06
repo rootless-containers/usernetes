@@ -45,11 +45,22 @@ jobs:
       working-directory: usernetes
       run: |
         vagrant up
-        mkdir -p ~/.ssh
-        vagrant ssh-config >> ~/.ssh/config
+        vagrant ssh-config > ~/vagrant-ssh-config
     - name: "Smoke test (containerd, w/o cgroups)"
-      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
+      run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=containerd
+    - name: "Boot VM"
+      working-directory: usernetes
+      run: |
+        vagrant destroy -f
+        vagrant up
+        vagrant ssh-config > ~/vagrant-ssh-config
     - name: "Smoke test (containerd, with systemd cgroup manager)"
-      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd --cgroup-manager=systemd
+      run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=containerd --cgroup-manager=systemd
+    - name: "Boot VM"
+      working-directory: usernetes
+      run: |
+        vagrant destroy -f
+        vagrant up
+        vagrant ssh-config > ~/vagrant-ssh-config
     - name: "Smoke test (CRI-O, w/o cgroups)"
-      run: ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
+      run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=crio
