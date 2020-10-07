@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
     v.cpus = cpus
   end
   config.vm.provision "shell", inline: <<-SHELL
-    dnf install -y iptables jq
+    dnf install -y iptables conntrack jq
 
     # Delegate cgroup v2 controllers
     mkdir -p /etc/systemd/system/user@.service.d

@@ -6,7 +6,7 @@ mkdir -p $XDG_RUNTIME_DIR/usernetes
 cat >$XDG_RUNTIME_DIR/usernetes/kube-proxy-config.yaml <<EOF
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
-mode: "userspace"
+mode: "iptables"
 clientConnection:
   kubeconfig: "$XDG_CONFIG_HOME/usernetes/node/kube-proxy.kubeconfig"
 featureGates:

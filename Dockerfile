@@ -189,7 +189,7 @@ ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
   chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \
-  dnf install -q -y findutils fuse3 git iproute iptables hostname procps-ng which \
+  dnf install -q -y conntrack findutils fuse3 git iproute iptables hostname procps-ng which \
 # systemd-container: for machinectl
   systemd-container && \
   useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
