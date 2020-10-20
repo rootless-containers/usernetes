@@ -1,4 +1,4 @@
-From 06390381dd669b5c647e9d80f14c77ec7cd1e4ff Mon Sep 17 00:00:00 2001
+From d7d6ef816a21377803a6ad1c2e34d0fb5d7a0403 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -40,10 +40,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  13 files changed, 88 insertions(+), 23 deletions(-)
 
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 5f7e3555aab..562d8db7950 100644
+index c7690392b57..c6c89fe9c3d 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -738,6 +738,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -739,6 +739,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  				EnforceCPULimits:                      s.CPUCFSQuota,
  				CPUCFSQuotaPeriod:                     s.CPUCFSQuotaPeriod.Duration,
  				ExperimentalTopologyManagerPolicy:     s.TopologyManagerPolicy,
@@ -52,10 +52,10 @@ index 5f7e3555aab..562d8db7950 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 2ab0b3bc366..725f86754a1 100644
+index 5a79a7fa99f..429751722e0 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -637,6 +637,12 @@ const (
+@@ -641,6 +641,12 @@ const (
  	//
  	// Disables Accelerator Metrics Collected by Kubelet
  	DisableAcceleratorUsageMetrics featuregate.Feature = "DisableAcceleratorUsageMetrics"
@@ -68,10 +68,10 @@ index 2ab0b3bc366..725f86754a1 100644
  )
  
  func init() {
-@@ -734,6 +740,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -738,6 +744,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinOverlay:                                     {Default: true, PreRelease: featuregate.Beta},
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
- 	DisableAcceleratorUsageMetrics:                 {Default: false, PreRelease: featuregate.Alpha},
+ 	DisableAcceleratorUsageMetrics:                 {Default: true, PreRelease: featuregate.Beta},
 +	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
