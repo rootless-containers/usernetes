@@ -1,4 +1,4 @@
-From 8cf10db96a56cee26c9816bf50373977cd1d1a2f Mon Sep 17 00:00:00 2001
+From b4a187505cd3edb80cd60015adb15c3c6c2409d0 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -18,10 +18,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  6 files changed, 103 insertions(+), 20 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 37cbb7d6087..ca01eedfaa9 100644
+index f216bc8484d..9b137c64486 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -483,7 +483,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -490,7 +490,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.ProviderID, "provider-id", c.ProviderID, "Unique identifier for identifying the node in a machine database, i.e cloudprovider")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -31,7 +31,7 @@ index 37cbb7d6087..ca01eedfaa9 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index c6c89fe9c3d..656a1abf97f 100644
+index 9e35d23f607..7b3eb8be0af 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -607,26 +607,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
@@ -84,10 +84,10 @@ index c6c89fe9c3d..656a1abf97f 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 429751722e0..a3f83713b59 100644
+index ecd448010c4..ff2cde27cd0 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -647,6 +647,15 @@ const (
+@@ -657,6 +657,15 @@ const (
  	//
  	// Enable rootless mode.
  	Rootless featuregate.Feature = "Rootless"
@@ -103,9 +103,9 @@ index 429751722e0..a3f83713b59 100644
  )
  
  func init() {
-@@ -745,6 +754,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
+@@ -756,6 +765,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	DisableAcceleratorUsageMetrics:                 {Default: true, PreRelease: featuregate.Beta},
+ 	HPAContainerMetrics:                            {Default: false, PreRelease: featuregate.Alpha},
  	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
@@ -212,7 +212,7 @@ index 845ffffce50..2cd5d838f5e 100644
 +	}, nil
 +}
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 838ffb7e1f4..03560a29117 100644
+index b27dab5583b..f547d276787 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -263,6 +263,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
@@ -227,5 +227,5 @@ index 838ffb7e1f4..03560a29117 100644
  			// TODO(AkihiroSuda): support rootless
  			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for rootless")
 -- 
-2.25.1
+2.27.0
 
