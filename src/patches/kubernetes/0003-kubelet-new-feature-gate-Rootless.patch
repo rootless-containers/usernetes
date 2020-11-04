@@ -1,4 +1,4 @@
-From d7d6ef816a21377803a6ad1c2e34d0fb5d7a0403 Mon Sep 17 00:00:00 2001
+From 45f7874bbd53cf10eb62377916417ba4c9a832e6 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -40,7 +40,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  13 files changed, 88 insertions(+), 23 deletions(-)
 
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index c7690392b57..c6c89fe9c3d 100644
+index f920f65c004..9e35d23f607 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -739,6 +739,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
@@ -52,13 +52,13 @@ index c7690392b57..c6c89fe9c3d 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 5a79a7fa99f..429751722e0 100644
+index 165040aa182..ecd448010c4 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -641,6 +641,12 @@ const (
- 	//
- 	// Disables Accelerator Metrics Collected by Kubelet
- 	DisableAcceleratorUsageMetrics featuregate.Feature = "DisableAcceleratorUsageMetrics"
+@@ -651,6 +651,12 @@ const (
+ 	// Add support for the HPA to scale based on metrics from individual containers
+ 	// in target pods
+ 	HPAContainerMetrics featuregate.Feature = "HPAContainerMetrics"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -68,10 +68,10 @@ index 5a79a7fa99f..429751722e0 100644
  )
  
  func init() {
-@@ -738,6 +744,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	WinOverlay:                                     {Default: true, PreRelease: featuregate.Beta},
+@@ -749,6 +755,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
  	DisableAcceleratorUsageMetrics:                 {Default: true, PreRelease: featuregate.Beta},
+ 	HPAContainerMetrics:                            {Default: false, PreRelease: featuregate.Alpha},
 +	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
@@ -266,7 +266,7 @@ index b99f20e870a..845ffffce50 100644
  			return nil, fmt.Errorf("failed to create cgroup v2 manager: %v", err)
  		}
 diff --git a/pkg/kubelet/cm/container_manager.go b/pkg/kubelet/cm/container_manager.go
-index 8436bfbac91..e71e7c5e1ae 100644
+index 83c150cbec1..8f8a27a9dd0 100644
 --- a/pkg/kubelet/cm/container_manager.go
 +++ b/pkg/kubelet/cm/container_manager.go
 @@ -135,6 +135,7 @@ type NodeConfig struct {
@@ -278,7 +278,7 @@ index 8436bfbac91..e71e7c5e1ae 100644
  
  type NodeAllocatableConfig struct {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 3fbfeb9856b..838ffb7e1f4 100644
+index 4d889870bf9..b27dab5583b 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -257,9 +257,17 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
@@ -407,5 +407,5 @@ index d128cecaee6..313a2e6b6a0 100644
  	defer destroyTemporaryCgroupsForReservation(cgroupManager)
  	defer func() {
 -- 
-2.25.1
+2.27.0
 

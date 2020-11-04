@@ -1,4 +1,4 @@
-From 1bbfa7cd5d7d2b8c4da829dae505b740c1970e0e Mon Sep 17 00:00:00 2001
+From 6ebb71949ffe06c9b8c8a9c260f84b897bb6728f Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/4] kube-proxy: allow running in userns
@@ -128,7 +128,7 @@ index fec2efa4c63..205dbc2b4eb 100644
          ],
          "@io_bazel_rules_go//go/platform:windows": [
 diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index 614dd61d460..2ccf368a99a 100644
+index b44dbb54b2f..0db316a3752 100644
 --- a/cmd/kube-proxy/app/server_others.go
 +++ b/cmd/kube-proxy/app/server_others.go
 @@ -35,6 +35,7 @@ import (
@@ -198,5 +198,5 @@ index 71076129f9d..3c8c16ca135 100644
  
  	proxyPorts := newPortAllocator(pr)
 -- 
-2.25.1
+2.27.0
 
