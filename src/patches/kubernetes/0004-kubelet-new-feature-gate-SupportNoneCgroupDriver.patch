@@ -1,4 +1,4 @@
-From b4a187505cd3edb80cd60015adb15c3c6c2409d0 Mon Sep 17 00:00:00 2001
+From 360fde390b23768ee304dbd4b70eba25c9189161 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
@@ -31,10 +31,10 @@ index f216bc8484d..9b137c64486 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 9e35d23f607..7b3eb8be0af 100644
+index 337d14ea148..7bbb2ce683b 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -607,26 +607,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -606,26 +606,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  	}
  
  	var cgroupRoots []string
@@ -84,10 +84,10 @@ index 9e35d23f607..7b3eb8be0af 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index ecd448010c4..ff2cde27cd0 100644
+index b8d2331cde0..7802b47df97 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -657,6 +657,15 @@ const (
+@@ -698,6 +698,15 @@ const (
  	//
  	// Enable rootless mode.
  	Rootless featuregate.Feature = "Rootless"
@@ -103,16 +103,16 @@ index ecd448010c4..ff2cde27cd0 100644
  )
  
  func init() {
-@@ -756,6 +765,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	DisableAcceleratorUsageMetrics:                 {Default: true, PreRelease: featuregate.Beta},
- 	HPAContainerMetrics:                            {Default: false, PreRelease: featuregate.Alpha},
+@@ -803,6 +812,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	ExecProbeTimeout:                               {Default: true, PreRelease: featuregate.GA}, // lock to default in v1.21 and remove in v1.22
+ 	KubeletCredentialProviders:                     {Default: false, PreRelease: featuregate.Alpha},
  	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
 +	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
  	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index e77dc3e7d6c..92a61d53d30 100644
+index c06e9278f6d..83c0a07700e 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -210,7 +210,7 @@ type KubeletConfiguration struct {
@@ -212,7 +212,7 @@ index 845ffffce50..2cd5d838f5e 100644
 +	}, nil
 +}
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index b27dab5583b..f547d276787 100644
+index 34752a96a60..c23d41c2eba 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -263,6 +263,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I

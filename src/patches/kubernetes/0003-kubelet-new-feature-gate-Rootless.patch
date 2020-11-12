@@ -1,4 +1,4 @@
-From 45f7874bbd53cf10eb62377916417ba4c9a832e6 Mon Sep 17 00:00:00 2001
+From 4fa298336292d1d76716d4851877e223d45ff6fe Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 29 Jun 2020 15:10:05 +0900
 Subject: [PATCH 3/4] kubelet: new feature gate: Rootless
@@ -40,10 +40,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  13 files changed, 88 insertions(+), 23 deletions(-)
 
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index f920f65c004..9e35d23f607 100644
+index a3b6fbf04ac..337d14ea148 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -739,6 +739,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -738,6 +738,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  				EnforceCPULimits:                      s.CPUCFSQuota,
  				CPUCFSQuotaPeriod:                     s.CPUCFSQuotaPeriod.Duration,
  				ExperimentalTopologyManagerPolicy:     s.TopologyManagerPolicy,
@@ -52,13 +52,13 @@ index f920f65c004..9e35d23f607 100644
  			s.FailSwapOn,
  			devicePluginEnabled,
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 165040aa182..ecd448010c4 100644
+index dd68cf34063..b8d2331cde0 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -651,6 +651,12 @@ const (
- 	// Add support for the HPA to scale based on metrics from individual containers
- 	// in target pods
- 	HPAContainerMetrics featuregate.Feature = "HPAContainerMetrics"
+@@ -692,6 +692,12 @@ const (
+ 	//
+ 	// Enable kubelet exec plugins for image pull credentials.
+ 	KubeletCredentialProviders featuregate.Feature = "KubeletCredentialProviders"
 +
 +	// owner: @AkihiroSuda
 +	// alpha: v1.XX
@@ -68,10 +68,10 @@ index 165040aa182..ecd448010c4 100644
  )
  
  func init() {
-@@ -749,6 +755,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	WinDSR:                                         {Default: false, PreRelease: featuregate.Alpha},
- 	DisableAcceleratorUsageMetrics:                 {Default: true, PreRelease: featuregate.Beta},
- 	HPAContainerMetrics:                            {Default: false, PreRelease: featuregate.Alpha},
+@@ -796,6 +802,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+ 	LoadBalancerIPMode:                             {Default: false, PreRelease: featuregate.Alpha},
+ 	ExecProbeTimeout:                               {Default: true, PreRelease: featuregate.GA}, // lock to default in v1.21 and remove in v1.22
+ 	KubeletCredentialProviders:                     {Default: false, PreRelease: featuregate.Alpha},
 +	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
  
  	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
@@ -101,7 +101,7 @@ index c75d4d289d3..0c492c57930 100644
  		"RunOnce",
  		"SerializeImagePulls",
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index a7e2d5e1b23..e77dc3e7d6c 100644
+index 96481ad9f13..c06e9278f6d 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -325,6 +325,10 @@ type KubeletConfiguration struct {
@@ -266,10 +266,10 @@ index b99f20e870a..845ffffce50 100644
  			return nil, fmt.Errorf("failed to create cgroup v2 manager: %v", err)
  		}
 diff --git a/pkg/kubelet/cm/container_manager.go b/pkg/kubelet/cm/container_manager.go
-index 83c150cbec1..8f8a27a9dd0 100644
+index bf8122610a2..70f1dbd463f 100644
 --- a/pkg/kubelet/cm/container_manager.go
 +++ b/pkg/kubelet/cm/container_manager.go
-@@ -135,6 +135,7 @@ type NodeConfig struct {
+@@ -138,6 +138,7 @@ type NodeConfig struct {
  	EnforceCPULimits                      bool
  	CPUCFSQuotaPeriod                     time.Duration
  	ExperimentalTopologyManagerPolicy     string
@@ -278,7 +278,7 @@ index 83c150cbec1..8f8a27a9dd0 100644
  
  type NodeAllocatableConfig struct {
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 4d889870bf9..b27dab5583b 100644
+index e4f99e68172..34752a96a60 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -257,9 +257,17 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
