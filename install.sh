@@ -267,7 +267,7 @@ PartOf=u7s.target
 
 [Service]
 ExecStart=${base}/boot/rootlesskit.sh
-Delegate=cpu cpuset io memory pids
+Delegate=yes
 ${service_common}
 EOF
 

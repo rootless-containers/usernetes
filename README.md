@@ -317,7 +317,7 @@ To  allow delegation of all controllers, you need to change the systemd configur
 # mkdir -p /etc/systemd/system/user@.service.d
 # cat > /etc/systemd/system/user@.service.d/delegate.conf << EOF
 [Service]
-Delegate=cpu cpuset io memory pids
+Delegate=yes
 EOF
 # systemctl daemon-reload
 ```
