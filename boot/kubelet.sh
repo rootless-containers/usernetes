@@ -28,7 +28,6 @@ clusterDNS:
   - "10.0.0.53"
 failSwapOn: false
 featureGates:
-  SupportNoneCgroupDriver: true
   DevicePlugins: false
   LocalStorageCapacityIsolation: false
 evictionHard:
