@@ -449,5 +449,5 @@ set +x
 INFO 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
 INFO "Hint: To enable addons including CoreDNS, run: kubectl apply -f ${base}/manifests/*.yaml"
 if [[ -f ${config_dir}/usernetes/master/admin-localhost.kubeconfig ]]; then
-	INFO "Hint: KUBECONFIG=${config_dir}/usernetes/master/admin-localhost.kubeconfig"
+	INFO "Hint: export KUBECONFIG=${config_dir}/usernetes/master/admin-localhost.kubeconfig"
 fi
