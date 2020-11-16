@@ -260,7 +260,19 @@ WantedBy=u7s.target
 EOF
 
 ### RootlessKit
-cat <<EOF | x u7s-rootlesskit.service
+if [ -n "$cri" ]; then
+  cat <<EOF | x u7s-rootlesskit.service
+[Unit]
+Description=Usernetes RootlessKit service ($cri)
+PartOf=u7s.target
+
+[Service]
+ExecStart=${base}/boot/rootlesskit.sh ${base}/boot/${cri}.sh
+Delegate=yes
+${service_common}
+EOF
+else
+  cat <<EOF | x u7s-rootlesskit.service
 [Unit]
 Description=Usernetes RootlessKit service
 PartOf=u7s.target
@@ -270,6 +282,7 @@ ExecStart=${base}/boot/rootlesskit.sh
 Delegate=yes
 ${service_common}
 EOF
+fi
 
 ### etcd
 # TODO: support running without RootlessKit
@@ -355,24 +368,12 @@ if [ -n "$cri" ]; then
 	cat <<EOF | x u7s-node.target
 [Unit]
 Description=Usernetes target for Kubernetes node components (${cri})
-Requires=u7s-${cri}.service $([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kubelet-${cri}.service u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
-After=u7s-${cri}.service u7s-kubelet-${cri}.service $([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
+Requires=$([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kubelet-${cri}.service u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
+After=u7s-kubelet-${cri}.service $([ "$cri" = "containerd" ] && echo u7s-containerd-fuse-overlayfs-grpc.service) u7s-kube-proxy.service $([ "$cni" = "flannel" ] && echo u7s-flanneld.service)
 PartOf=u7s.target
 
 [Install]
 WantedBy=u7s.target
-EOF
-
-	cat <<EOF | x u7s-${cri}.service
-[Unit]
-Description=Usernetes ${cri} service
-BindsTo=u7s-rootlesskit.service
-PartOf=u7s-node.target
-
-[Service]
-# TODO: enable Type=Notify (with NotifyAccess=all) when CRI runtimes support cgroup
-ExecStart=${base}/boot/${cri}.sh
-${service_common}
 EOF
 
 	if [ "$cri" = "containerd" ]; then
@@ -381,7 +382,6 @@ EOF
 Description=Usernetes containerd-fuse-overlayfs-grpc service
 BindsTo=u7s-rootlesskit.service
 PartOf=u7s-node.target
-Before=u7s-containerd.service
 
 [Service]
 Type=notify
@@ -396,8 +396,6 @@ EOF
 [Unit]
 Description=Usernetes kubelet service (${cri})
 BindsTo=u7s-rootlesskit.service
-Requires=u7s-${cri}.service
-After=u7s-${cri}.service
 PartOf=u7s-node.target
 
 [Service]

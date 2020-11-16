@@ -1,7 +1,7 @@
 #!/bin/bash
+# needs to be called inside the namespaces
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
-nsenter::main $0 $@
 
 disable_cgroup="true"
 if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
