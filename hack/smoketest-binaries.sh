@@ -38,6 +38,6 @@ fi
 
 smoketest_dns
 
-if grep -q 'U7S_CGROUP_MANAGER=.*systemd.*' ~/.config/usernetes/env; then
+if grep -q 'U7S_CGROUP_ENABLED=1' ~/.config/usernetes/env; then
 	smoketest_limits
 fi

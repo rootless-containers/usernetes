@@ -2,9 +2,13 @@
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
 
-: ${U7S_CGROUP_MANAGER=}
-if [[ $U7S_CGROUP_MANAGER == "" ]]; then
-	U7S_CGROUP_MANAGER="none"
+cgroup_driver="none"
+cgroups_per_qos="false"
+if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
+	cgroup_driver="cgroupfs"
+	cgroups_per_qos="true"
+else
+	log::warning "Running without cgroup"
 fi
 
 mkdir -p $XDG_RUNTIME_DIR/usernetes
@@ -24,15 +28,13 @@ clusterDNS:
   - "10.0.0.53"
 failSwapOn: false
 featureGates:
-  Rootless: true
   SupportNoneCgroupDriver: true
   DevicePlugins: false
   LocalStorageCapacityIsolation: false
 evictionHard:
   nodefs.available: "3%"
-rootless: true
-cgroupDriver: $U7S_CGROUP_MANAGER
-cgroupsPerQOS: false
+cgroupDriver: "${cgroup_driver}"
+cgroupsPerQOS: ${cgroups_per_qos}
 enforceNodeAllocatable: []
 EOF
 

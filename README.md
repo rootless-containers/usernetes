@@ -116,7 +116,7 @@ exampleuser:231072:65536
 
 ### Distribution-specific hint
 #### Ubuntu
-* No preparation is needed.
+* Add `kernel.dmesg_restrict=0` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
 
 #### Debian GNU/Linux
 * Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
@@ -324,12 +324,14 @@ EOF
 
 #### Run Usernetes installer
 
-The installer script (`install.sh`) needs to be executed with `--cgroup-manager=systemd`.
+The installer script (`install.sh`) does not need a special flag to enable rootless cgroup.
+
+Just run `install.sh`:
 ```console
 $ ./install.sh --cgroup-manager=systemd
 ```
 
-Currently, `--cgroup-manager=systemd` is incompatible with `--cri=crio`.
+Note: CRI-O (`--cri=crio`) does not support rootless cgroup yet.
 
 ### Expose netns ports to the host
 

@@ -5,6 +5,10 @@ function INFO() {
 	echo -e "\e[104m\e[97m[INFO]\e[49m\e[39m $@"
 }
 
+function WARNING() {
+	echo >&2 -e "\e[101m\e[97m[WARNING]\e[49m\e[39m $@"
+}
+
 function ERROR() {
 	echo >&2 -e "\e[101m\e[97m[ERROR]\e[49m\e[39m $@"
 }
@@ -36,7 +40,6 @@ arg0=$0
 start="u7s.target"
 cri="containerd"
 cni=""
-cgroup_manager=""
 publish=""
 publish_default="0.0.0.0:6443:6443/tcp"
 cidr="10.0.42.0/24"
@@ -49,7 +52,6 @@ function usage() {
 	echo "  --start=UNIT        Enable and start the specified target after the installation, e.g. \"u7s.target\". Set to an empty to disable autostart. (Default: \"$start\")"
 	echo "  --cri=RUNTIME       Specify CRI runtime, \"containerd\" or \"crio\". (Default: \"$cri\")"
 	echo '  --cni=RUNTIME       Specify CNI, an empty string (none) or "flannel". (Default: none)'
-	echo '  --cgroup-manager=M  Specify cgroup manager, an empty string (none) or "systemd". \"systemd\" requires cgroup v2 and containerd. (Default: none)'
 	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: \"${publish_default}\")"
 	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: \"$cidr\")"
 	echo
@@ -67,7 +69,7 @@ function usage() {
 }
 
 set +e
-args=$(getopt -o hp: --long help,publish:,start:,cri:,cni:,cgroup-manager:,cidr:,,delay:,wait-init-certs -n $arg0 -- "$@")
+args=$(getopt -o hp: --long help,publish:,start:,cri:,cni:,cidr:,,delay:,wait-init-certs -n $arg0 -- "$@")
 getopt_status=$?
 set -e
 if [ $getopt_status != 0 ]; then
@@ -114,18 +116,6 @@ while true; do
 		esac
 		shift 2
 		;;
-	--cgroup-manager)
-		cgroup_manager="$2"
-		case "$cgroup_manager" in
-		"" | "none" | "systemd") ;;
-
-		*)
-			ERROR "Unknown cgroup manager \"$cgroup_manager\". Supported values: \"\" (default) \"systemd\" ."
-			exit 1
-			;;
-		esac
-		shift 2
-		;;
 	--cidr)
 		cidr="$2"
 		shift 2
@@ -155,16 +145,31 @@ if [[ -z "$publish" ]]; then
 	publish=$publish_default
 fi
 
-# validate flags
-if [[ "${cgroup_manager}" = "systemd" ]]; then
-	if [[ ! -f "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers" ]]; then
-		ERROR "The cgroup manager \"systemd\" requires cgroup v2."
+# check sysctl
+if ! grep -qw 0 /proc/sys/kernel/dmesg_restrict; then
+	ERROR "FIXME: kernel.dmesg_restrict needs to be 0"
+	exit 1
+fi
+
+# check cgroup config
+U7S_CGROUP_ENABLED=
+if [[ "$cri" != "containerd" ]]; then
+	WARNING "Disabling Rootless cgroup: Rootless cgroup is not supported by CRI-O yet"
+elif [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
+	WARNING "Disabling Rootless cgroup: the system is using cgroup v1, you need to reboot the system with systemd.unified_cgroup_hierarchy=1"
+else
+	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
+	if [[ ! -f $f ]]; then
+		ERROR "systemd not running? file not found: $f"
 		exit 1
 	fi
-	# TODO: validate delegated controllers
-	if [[ "${cri}" != "containerd" ]]; then
-		ERROR "The cgroup manager \"systemd\" requires containerd."
-		exit 1
+	if ! grep -q cpu $f; then
+		WARNING "Disabling Rootless cgroup: cpu controller is not enabled, you need to configure /etc/systemd/system/user@.service.d"
+	elif ! grep -q memory $f; then
+		WARNING "Disabling Rootless cgroup: memory controller is not enabled, you need to configure /etc/systemd/system/user@.service.d"
+	else
+		INFO "Rootless cgroup (v2) is supported"
+		U7S_CGROUP_ENABLED="1"
 	fi
 fi
 
@@ -179,7 +184,7 @@ mkdir -p ${config_dir}/usernetes
 cat /dev/null >${config_dir}/usernetes/env
 cat <<EOF >>${config_dir}/usernetes/env
 U7S_ROOTLESSKIT_PORTS=${publish}
-U7S_CGROUP_MANAGER=${cgroup_manager}
+U7S_CGROUP_ENABLED=${U7S_CGROUP_ENABLED}
 EOF
 if [ "$cni" = "flannel" ]; then
 	cat <<EOF >>${config_dir}/usernetes/env
@@ -262,6 +267,7 @@ PartOf=u7s.target
 
 [Service]
 ExecStart=${base}/boot/rootlesskit.sh
+Delegate=cpu cpuset io memory pids
 ${service_common}
 EOF
 
