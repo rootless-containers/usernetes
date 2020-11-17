@@ -86,12 +86,7 @@ function nsenter::_nsenter() {
 	fi
 	export ROOTLESSKIT_STATE_DIR=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 	# TODO(AkihiroSuda): ping to $XDG_RUNTIME_DIR/usernetes/rootlesskit/api.sock
-	c=""
-	if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
-		# we need to enter cgroupns as well
-		c="-C"
-	fi
-	nsenter -U --preserve-credential -n -m $c -t $(cat $pidfile) --wd=$PWD -- $@
+	nsenter -U --preserve-credential -n -m -C -t $(cat $pidfile) --wd=$PWD -- $@
 }
 
 # entrypoint begins
