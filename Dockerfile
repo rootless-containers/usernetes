@@ -143,11 +143,16 @@ RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
   mkdir /out && cp _output/bin/kube* /out
 
 #### flannel (flannel-build)
-FROM busybox AS flannel-build
+# TODO: use upstream binary when https://github.com/coreos/flannel/issues/1365 gets resolved
+FROM common-golang-alpine-heavy AS flannel-build
+RUN git clone -q https://github.com/coreos/flannel.git /go/src/github.com/coreos/flannel
+WORKDIR /go/src/github.com/coreos/flannel
 ARG FLANNEL_RELEASE
-RUN mkdir -p /out && \
-  wget -q -O /out/flanneld https://github.com/coreos/flannel/releases/download/${FLANNEL_RELEASE}/flanneld-amd64 && \
-  chmod +x /out/flanneld
+RUN git pull && git checkout ${FLANNEL_RELEASE}
+ENV CGO_ENABLED=0
+ENV GO111MODULE=off
+RUN make dist/flanneld && \
+  mkdir /out && cp dist/flanneld /out
 
 #### etcd (etcd-build)
 FROM busybox AS etcd-build
@@ -184,7 +189,7 @@ COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
 #### Test (test-main)
-FROM fedora:32 AS test-main
+FROM fedora:33 AS test-main
 ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
 RUN chmod +x /docker-entrypoint.sh && \
