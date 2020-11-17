@@ -1,7 +1,15 @@
-From ce0481375a00594dfbd05fdd13006e46d5a2b3e5 Mon Sep 17 00:00:00 2001
+From 0fb8faf0ad51265a5b3a7be5ca7287f59f151a4a Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
-Subject: [PATCH 2/4] kube-proxy: allow running in userns
+Subject: [PATCH 2/3] kube-proxy: allow running in userns
+
+Ignore errors during setting the following sysctl values,
+by setting connTracker to nil:
+- net.netfilter.nf_conntrack_max
+- net.netfilter.nf_conntrack_tcp_timeout_established
+- net.netfilter.nf_conntrack_tcp_timeout_close_wait
+
+Also ignore an error during setting RLIMIT_NOFILE.
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---

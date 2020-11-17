@@ -1,15 +1,11 @@
 #!/bin/bash
+# needs to be called inside the namespaces
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
-nsenter::main $0 $@
 
 export _CRIO_ROOTLESS=1
 
-: ${U7S_CGROUP_MANAGER=}
-if [[ $U7S_CGROUP_MANAGER == "systemd" ]]; then
-	log::error "CRI-O does not support systemd cgroup manager"
-	exit 1
-fi
+log::warning "Running without cgroup (rootless cgroup is not supported yet by CRI-O)"
 
 mkdir -p $XDG_CONFIG_HOME/usernetes/crio $XDG_CONFIG_HOME/usernetes/containers/oci/hooks.d
 

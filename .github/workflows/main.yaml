@@ -46,16 +46,8 @@ jobs:
       run: |
         vagrant up
         vagrant ssh-config > ~/vagrant-ssh-config
-    - name: "Smoke test (containerd, w/o cgroups)"
+    - name: "Smoke test (containerd, w/ systemd-delegated cgroupfs)"
       run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=containerd
-    - name: "Boot VM"
-      working-directory: usernetes
-      run: |
-        vagrant destroy -f
-        vagrant up
-        vagrant ssh-config > ~/vagrant-ssh-config
-    - name: "Smoke test (containerd, with systemd cgroup manager)"
-      run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=containerd --cgroup-manager=systemd
     - name: "Boot VM"
       working-directory: usernetes
       run: |

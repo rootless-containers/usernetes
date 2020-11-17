@@ -18,6 +18,10 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	_U7S_CHILD=1
 	: ${U7S_PARENT_IP=$(hostname -I | sed -e 's/ .*//g')}
 	export _U7S_CHILD U7S_PARENT_IP
+	cgroupns="false"
+	if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
+		cgroupns="true"
+	fi
 	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
 	#
 	# --net specifies the network stack. slirp4netns and VPNKit are supported.
@@ -38,6 +42,7 @@ if [[ $_U7S_CHILD == 0 ]]; then
 		--net=slirp4netns --mtu=65520 --disable-host-loopback --slirp4netns-sandbox=true --slirp4netns-seccomp=true \
 		--port-driver=builtin \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
+		--cgroupns=$cgroupns \
 		--propagation=rslave \
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
@@ -53,6 +58,19 @@ else
 		/etc/cni \
 		/etc/containerd /etc/containers /etc/crio \
 		/etc/kubernetes
+
+	if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
+		# we are in cgroupns, we need to mount our own cgroupfs
+		mount -t tmpfs none /sys/fs/cgroup
+		mount -t cgroup2 none /sys/fs/cgroup
+		cd /sys/fs/cgroup
+		(
+			# evacuate existing procs so that we can enable all controllers including threaded ones
+			mkdir evacuation
+			for f in $(cat cgroup.procs); do echo $f >evacuation/cgroup.procs || true; done
+			echo "+cpu +cpuset +memory +io +pids" >cgroup.subtree_control
+		)
+	fi
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d

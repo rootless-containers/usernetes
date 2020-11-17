@@ -186,6 +186,7 @@ COPY --from=cfssl-build /out/* /
 #### Test (test-main)
 FROM fedora:32 AS test-main
 ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
+COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
 RUN chmod +x /docker-entrypoint.sh && \
 # As of Feb 2020, Fedora has wrong permission bits on newuidmap and newgidmap.
   chmod +s /usr/bin/newuidmap /usr/bin/newgidmap && \

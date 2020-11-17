@@ -1,24 +1,23 @@
-From 360fde390b23768ee304dbd4b70eba25c9189161 Mon Sep 17 00:00:00 2001
+From 4b0e5235bc6b440828f9e44ebdefa7eb30fbc56b Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
-Subject: [PATCH 4/4] kubelet: new feature gate: SupportNoneCgroupDriver
+Subject: [PATCH 3/3] [Not for Upstream] kubelet: new cgroup driver: "none"
 
-The "none" driver is expected to be used for running "rootless" mode on a host that does not support cgroup v2.
+The "none" driver is used for running "rootless" mode on a host that does not support cgroup v2.
 
-This commit is specific to Usernetes and unlikely going to be proposed to the Kubernetes upstream.
+This commit is specific to Usernetes and isn't going to be proposed to the Kubernetes upstream.
+So, there is no FeatureFlag for gating this driver.
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- cmd/kubelet/app/options/options.go        |  2 +-
- cmd/kubelet/app/server.go                 | 40 +++++++-------
- pkg/features/kube_features.go             | 10 ++++
- pkg/kubelet/apis/config/types.go          |  2 +-
- pkg/kubelet/cm/cgroup_manager_linux.go    | 65 +++++++++++++++++++++++
- pkg/kubelet/cm/container_manager_linux.go |  4 ++
- 6 files changed, 103 insertions(+), 20 deletions(-)
+ cmd/kubelet/app/options/options.go     |  2 +-
+ cmd/kubelet/app/server.go              | 40 ++++++++--------
+ pkg/kubelet/apis/config/types.go       |  2 +-
+ pkg/kubelet/cm/cgroup_manager_linux.go | 64 ++++++++++++++++++++++++++
+ 4 files changed, 88 insertions(+), 20 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index f216bc8484d..9b137c64486 100644
+index d821f8f1246..eb948a99bdd 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
 @@ -490,7 +490,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
@@ -31,10 +30,10 @@ index f216bc8484d..9b137c64486 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 337d14ea148..7bbb2ce683b 100644
+index ff7e05feec1..10b46948dee 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -606,26 +606,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -607,26 +607,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  	}
  
  	var cgroupRoots []string
@@ -83,39 +82,11 @@ index 337d14ea148..7bbb2ce683b 100644
  	}
  
  	if kubeDeps.CAdvisorInterface == nil {
-diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index b8d2331cde0..7802b47df97 100644
---- a/pkg/features/kube_features.go
-+++ b/pkg/features/kube_features.go
-@@ -698,6 +698,15 @@ const (
- 	//
- 	// Enable rootless mode.
- 	Rootless featuregate.Feature = "Rootless"
-+
-+	// owner: @AkihiroSuda
-+	// alpha: v1.XX
-+	//
-+	// Enable support for "none" cgroup driver.
-+	//
-+	// The "none" driver is expected to be used for running "rootless" mode on a host
-+	// that does not support cgroup v2.
-+	SupportNoneCgroupDriver featuregate.Feature = "SupportNoneCgroupDriver"
- )
- 
- func init() {
-@@ -803,6 +812,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
- 	ExecProbeTimeout:                               {Default: true, PreRelease: featuregate.GA}, // lock to default in v1.21 and remove in v1.22
- 	KubeletCredentialProviders:                     {Default: false, PreRelease: featuregate.Alpha},
- 	Rootless:                                       {Default: false, PreRelease: featuregate.Alpha},
-+	SupportNoneCgroupDriver:                        {Default: false, PreRelease: featuregate.Alpha},
- 
- 	// inherited features from generic apiserver, relisted here to get a conflict if it is changed
- 	// unintentionally on either side:
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index c06e9278f6d..83c0a07700e 100644
+index d518a6cf412..2745a326d1d 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
-@@ -210,7 +210,7 @@ type KubeletConfiguration struct {
+@@ -216,7 +216,7 @@ type KubeletConfiguration struct {
  	// And all Burstable and BestEffort pods are brought up under their
  	// specific top level QoS cgroup.
  	CgroupsPerQOS bool
@@ -125,10 +96,10 @@ index c06e9278f6d..83c0a07700e 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index 845ffffce50..2cd5d838f5e 100644
+index b99f20e870a..de9d59badc4 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
-@@ -50,6 +50,9 @@ const (
+@@ -48,6 +48,9 @@ const (
  	libcontainerCgroupfs libcontainerCgroupManagerType = "cgroupfs"
  	// libcontainerSystemd means use libcontainer with systemd
  	libcontainerSystemd libcontainerCgroupManagerType = "systemd"
@@ -138,22 +109,21 @@ index 845ffffce50..2cd5d838f5e 100644
  	// systemdSuffix is the cgroup name suffix for systemd
  	systemdSuffix string = ".slice"
  )
-@@ -197,6 +200,14 @@ var _ CgroupManager = &cgroupManagerImpl{}
+@@ -188,6 +191,13 @@ var _ CgroupManager = &cgroupManagerImpl{}
  
  // NewCgroupManager is a factory method that returns a CgroupManager
- func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string, rootless bool) (CgroupManager, error) {
+ func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
 +	if cgroupDriver == noneDriver {
-+		if !utilfeature.DefaultFeatureGate.Enabled(kubefeatures.SupportNoneCgroupDriver) {
-+			return nil, fmt.Errorf("cgroup driver %q requires SupportNoneCgroupDriver feature gate", cgroupDriver)
-+		}
++		// The patch for the "none" driver isn't going to be merged to the Kubernetes upstream,
++		// so it is no worth adding a FeatureGate for this.
 +		cm := &noneCgroupManager{}
 +		cm.init()
-+		return cm, nil
++		return cm
 +	}
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -782,3 +793,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -767,3 +777,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }
@@ -211,21 +181,6 @@ index 845ffffce50..2cd5d838f5e 100644
 +		MemoryStats: &MemoryStats{},
 +	}, nil
 +}
-diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 34752a96a60..c23d41c2eba 100644
---- a/pkg/kubelet/cm/container_manager_linux.go
-+++ b/pkg/kubelet/cm/container_manager_linux.go
-@@ -263,6 +263,10 @@ func NewContainerManager(mountUtil mount.Interface, cadvisorInterface cadvisor.I
- 	}
- 	// Check if Cgroup-root actually exists on the node
- 	if nodeConfig.CgroupsPerQOS {
-+		if nodeConfig.CgroupDriver == noneDriver {
-+			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for %s cgroup driver", nodeConfig.CgroupDriver)
-+		}
-+
- 		if nodeConfig.Rootless {
- 			// TODO(AkihiroSuda): support rootless
- 			return nil, fmt.Errorf("invalid configuration: cgroups-per-qos is not supported for rootless")
 -- 
 2.27.0
 
