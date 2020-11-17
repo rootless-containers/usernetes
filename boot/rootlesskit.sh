@@ -13,11 +13,43 @@ rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 : ${U7S_ROOTLESSKIT_PORTS=}
 : ${U7S_FLANNEL=}
 
+CH_EVACUATION="${rk_state_dir}/channel_evacuation"
+# TODO: move evac() logic to RootlessKit
+function evac() {
+	log::info "Waiting for evacuation:stage1"
+	while grep -q "stage1" $CH_EVACUATION; do sleep 0.1; done
+	g=$(grep -oP '0::\K.*' /proc/self/cgroup)
+	if [[ -n $g ]]; then
+		cd /sys/fs/cgroup/$g
+		(
+			# evacuate existing procs so that we can enable all controllers including threaded ones
+			mkdir evacuation
+			for pid in $(cat cgroup.procs); do
+				log::info "Evacuating $pid from $g to $g/evacuation"
+				echo $pid >evacuation/cgroup.procs || true
+			done
+			if [[ -f /sys/fs/cgroup/cgroup.controllers ]]; then
+				for controller in $(cat /sys/fs/cgroup/cgroup.controllers); do
+					log::info "Enabling controller ${controller}"
+					echo "+${controller}" >cgroup.subtree_control || true
+				done
+			fi
+		)
+	fi
+	log::info "Switching to evacuation:stage2"
+	echo stage2 >$CH_EVACUATION
+}
+
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
 	_U7S_CHILD=1
 	: ${U7S_PARENT_IP=$(hostname -I | sed -e 's/ .*//g')}
 	export _U7S_CHILD U7S_PARENT_IP
+
+	mkdir -p ${rk_state_dir}
+	echo >$CH_EVACUATION
+	evac &
+
 	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
 	#
 	# --net specifies the network stack. slirp4netns and VPNKit are supported.
@@ -31,18 +63,30 @@ if [[ $_U7S_CHILD == 0 ]]; then
 	# * /run: copy-up is required so that we can create /run/* in our namespace
 	# * /var/lib: copy-up is required for several Kube stuff
 	# * /opt: copy-up is required for mounting /opt/cni/bin
-	#
-	# We do NOT specify --pidns, as it is incompatible with systemd cgroup manager.
 	rootlesskit \
 		--state-dir $rk_state_dir \
 		--net=slirp4netns --mtu=65520 --disable-host-loopback --slirp4netns-sandbox=true --slirp4netns-seccomp=true \
 		--port-driver=builtin \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
+		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		--cgroupns \
+		--pidns \
+		--ipcns \
+		--utsns \
 		--propagation=rslave \
 		$U7S_ROOTLESSKIT_FLAGS \
 		$0 $@
 else
+	# wait for cgroup evacuation
+	echo "Switching to evacuation:stage1"
+	echo "stage1" >$CH_EVACUATION
+	echo "Waiting for evacuation:stage2"
+	while grep -q "stage2" $CH_EVACUATION; do sleep 0.1; done
+
+	# we are in cgroupns, we need to mount our own cgroupfs
+	mount -t tmpfs none /sys/fs/cgroup
+	mount -t cgroup2 none /sys/fs/cgroup
+
 	# save IP address
 	echo $U7S_PARENT_IP >$XDG_RUNTIME_DIR/usernetes/parent_ip
 
@@ -54,17 +98,6 @@ else
 		/etc/cni \
 		/etc/containerd /etc/containers /etc/crio \
 		/etc/kubernetes
-
-	# we are in cgroupns, we need to mount our own cgroupfs
-	mount -t tmpfs none /sys/fs/cgroup
-	mount -t cgroup2 none /sys/fs/cgroup
-	cd /sys/fs/cgroup
-	(
-		# evacuate existing procs so that we can enable all controllers including threaded ones
-		mkdir evacuation
-		for f in $(cat cgroup.procs); do echo $f >evacuation/cgroup.procs || true; done
-		echo "+cpu +cpuset +memory +io +pids" >cgroup.subtree_control || true
-	)
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d
