@@ -47,6 +47,8 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 * CRI runtimes
   * containerd (default)
   * CRI-O
+* OCI runtime
+  * crun
 * Multi-node CNI
   * Flannel (VXLAN)
 * CoreDNS
@@ -115,6 +117,8 @@ exampleuser:231072:65536
 ```
 
 ### Distribution-specific hint
+Recommended host distributions are Ubuntu 20.10 and Fedora 33.
+
 #### Ubuntu
 * Add `kernel.dmesg_restrict=0` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
 
