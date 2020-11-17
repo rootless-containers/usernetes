@@ -86,7 +86,7 @@ function nsenter::_nsenter() {
 	fi
 	export ROOTLESSKIT_STATE_DIR=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 	# TODO(AkihiroSuda): ping to $XDG_RUNTIME_DIR/usernetes/rootlesskit/api.sock
-	nsenter -U --preserve-credential -n -m -C -t $(cat $pidfile) --wd=$PWD -- $@
+	nsenter --user --preserve-credential --mount --net --cgroup --pid --ipc --uts -t $(cat $pidfile) --wd=$PWD -- $@
 }
 
 # entrypoint begins
