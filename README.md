@@ -328,7 +328,7 @@ The installer script (`install.sh`) does not need a special flag to enable rootl
 
 Just run `install.sh`:
 ```console
-$ ./install.sh --cgroup-manager=systemd
+$ ./install.sh
 ```
 
 Note: CRI-O (`--cri=crio`) does not support rootless cgroup yet.
