@@ -6,24 +6,24 @@
 
 # 2020-11-25T13:01:36Z
 ARG ROOTLESSKIT_COMMIT=7d4b61b7e0939e63d2d550139ee0ee0a96081b07
-# 2020-12-02T19:55:22Z
-ARG CONTAINERD_COMMIT=9561d9389d3dd87ff6030bf1da4e705bbc024130
+# 2020-12-18T12:06:38Z
+ARG CONTAINERD_COMMIT=ce7024558f405232fc2ed9e23762d1eaac2c55cf
 # 2020-11-26T04:31:15Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=930b272c60b0321f4921f8cd31c82804bf16b558
-# 2020-12-02T20:16:26Z
-ARG CRIO_COMMIT=4dff9dd17d3d27046b3261bd5688581c421334a9
-# 2020-12-02T14:40:50Z
-ARG KUBE_NODE_COMMIT=5b8c3b90f3c74ba79f4bfa5be560d011694a7da0
+# 2020-12-19T02:40:05Z
+ARG CRIO_COMMIT=fa7aaed3de86874623830d5633815b1ea0004961
+# 2020-12-20T06:32:25Z
+ARG KUBE_NODE_COMMIT=c995039d62fbfee032918c09a9ca64864533311d
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.8
-ARG CONMON_RELEASE=2.0.20
+ARG CONMON_RELEASE=2.0.22
 ARG CRUN_RELEASE=0.16
 ARG FUSE_OVERLAYFS_RELEASE=v1.3.0
 ARG KUBE_MASTER_RELEASE=v1.21.0-alpha.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.21.0-usernetes
-ARG CNI_PLUGINS_RELEASE=v0.8.7
+ARG CNI_PLUGINS_RELEASE=v0.9.0
 ARG FLANNEL_RELEASE=v0.13.0
 ARG ETCD_RELEASE=v3.4.14
 ARG CFSSL_RELEASE=1.5.0
@@ -104,8 +104,10 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
 ### conmon (conmon-build)
 FROM busybox AS conmon-build
 ARG CONMON_RELEASE
-ADD https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon /out/conmon
-RUN chmod +x /out/conmon
+RUN wget -q https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon-${CONMON_RELEASE}.zip && \
+  unzip conmon-${CONMON_RELEASE}.zip && \
+  mkdir /out && mv result/bin/conmon /out && \
+  chmod +x /out/conmon
 
 ### CNI Plugins (cniplugins-build)
 FROM busybox AS cniplugins-build
