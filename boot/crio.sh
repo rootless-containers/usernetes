@@ -13,6 +13,10 @@ cat >$XDG_CONFIG_HOME/usernetes/containers/policy.json <<EOF
 {"default": [{"type": "insecureAcceptAnything"}]}
 EOF
 
+cat >$XDG_CONFIG_HOME/usernetes/containers/registries.conf <<EOF
+unqualified-search-registries=["docker.io"]
+EOF
+
 cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
 [crio]
   runroot = "$XDG_RUNTIME_DIR/usernetes/containers/storage"
@@ -26,7 +30,6 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
     listen = "$XDG_RUNTIME_DIR/usernetes/crio/crio.sock"
   [crio.image]
     signature_policy = "$XDG_CONFIG_HOME/usernetes/containers/policy.json"
-    registries = ["docker.io"]
   [crio.runtime]
     conmon = "$U7S_BASE_DIR/bin/conmon"
     conmon_cgroup = "pod"
@@ -45,4 +48,7 @@ cat >$XDG_CONFIG_HOME/usernetes/crio/crio.conf <<EOF
     plugin_dirs = ["/opt/cni/bin/"]
 EOF
 
-exec crio --config $XDG_CONFIG_HOME/usernetes/crio/crio.conf $@
+exec crio \
+	--config $XDG_CONFIG_HOME/usernetes/crio/crio.conf \
+	--registries-conf $XDG_CONFIG_HOME/usernetes/containers/registries.conf \
+	$@

@@ -4,22 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-01-02T16:49:13Z
-ARG ROOTLESSKIT_COMMIT=8f2fdee9f2230e60ebc02be208dc2b7e71ddfd3c
-# 2021-01-14T01:39:14Z
-ARG CONTAINERD_COMMIT=cb76f534f679468af6ae3ed7b66d54d8a5cdced4
-# 2020-11-26T04:31:15Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=930b272c60b0321f4921f8cd31c82804bf16b558
-# 2021-01-12T21:08:04Z
-ARG CRIO_COMMIT=3a90a17709e3606624c8fab1112a7aef307c4af0
-# 2021-01-14T05:59:03Z
-ARG KUBE_NODE_COMMIT=68108c70e29a74bb455ab63adeb5725a37e94e4f
+# 2021-01-22T05:57:48Z
+ARG ROOTLESSKIT_COMMIT=27c9611a3931149dd91fabd2d559140c351bf36f
+# 2021-01-22T09:22:23Z
+ARG CONTAINERD_COMMIT=0bbbc59b97e1a1d3a9e9767c0ad532cd47c28dce
+# 2021-01-20T09:48:39Z
+ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=6225620685cfce4e45e8ff858c2698aacab7b012
+# 2021-01-21T01:27:31Z
+ARG CRIO_COMMIT=42acc24ca393bf77dc58692fffbf9122be660486
+# 2021-01-22T08:37:26Z
+ARG KUBE_NODE_COMMIT=82ebcd171909c4cd6007007fc07b025d0950153d
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.8
-ARG CONMON_RELEASE=2.0.22
-ARG CRUN_RELEASE=0.16
-ARG FUSE_OVERLAYFS_RELEASE=v1.3.0
+ARG CONMON_RELEASE=2.0.25
+ARG CRUN_RELEASE=0.17
+ARG FUSE_OVERLAYFS_RELEASE=v1.4.0
 ARG KUBE_MASTER_RELEASE=v1.21.0-alpha.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.21.0-usernetes
@@ -29,14 +29,14 @@ ARG ETCD_RELEASE=v3.4.14
 ARG CFSSL_RELEASE=1.5.0
 
 ### Common base images (common-*)
-FROM alpine:3.12 AS common-alpine
+FROM alpine:3.13 AS common-alpine
 RUN apk add -q --no-cache git build-base autoconf automake libtool
 
 FROM golang:1.15-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
-RUN apk -q --no-cache add bash build-base linux-headers libseccomp-dev
+RUN apk -q --no-cache add bash build-base linux-headers libseccomp-dev libseccomp-static
 
 ### RootlessKit (rootlesskit-build)
 FROM common-golang-alpine AS rootlesskit-build
@@ -45,7 +45,6 @@ WORKDIR /go/src/github.com/rootless-containers/rootlesskit
 ARG ROOTLESSKIT_COMMIT
 RUN git pull && git checkout ${ROOTLESSKIT_COMMIT}
 ENV CGO_ENABLED=0
-ENV GO111MODULE=off
 RUN mkdir /out && \
   go build -o /out/rootlesskit github.com/rootless-containers/rootlesskit/cmd/rootlesskit && \
   go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
@@ -74,7 +73,6 @@ RUN git clone https://github.com/containerd/containerd.git /go/src/github.com/co
 WORKDIR /go/src/github.com/containerd/containerd
 ARG CONTAINERD_COMMIT
 RUN git pull && git checkout ${CONTAINERD_COMMIT}
-ENV GO111MODULE=off
 ENV CGO_ENABLED=0
 RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-linkmode external -extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
@@ -87,7 +85,6 @@ WORKDIR /go/src/github.com/AkihiroSuda/containerd-fuse-overlayfs
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT
 RUN git pull && git checkout ${CONTAINERD_FUSE_OVERLAYFS_COMMIT}
 ENV CGO_ENABLED=0
-ENV GO111MODULE=off
 RUN mkdir /out && \
   go build -o /out/containerd-fuse-overlayfs-grpc github.com/AkihiroSuda/containerd-fuse-overlayfs/cmd/containerd-fuse-overlayfs-grpc
 
@@ -97,7 +94,6 @@ RUN git clone -q https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-ENV GO111MODULE=off
 RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
@@ -138,7 +134,6 @@ RUN git config user.email "nobody@example.com" && \
   git am /patches/* && git show --summary
 ARG KUBE_GIT_VERSION
 ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
-ENV GO111MODULE=off
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
   make --quiet kube-proxy kubelet && \
@@ -152,7 +147,6 @@ WORKDIR /go/src/github.com/coreos/flannel
 ARG FLANNEL_RELEASE
 RUN git pull && git checkout ${FLANNEL_RELEASE}
 ENV CGO_ENABLED=0
-ENV GO111MODULE=off
 RUN make dist/flanneld && \
   mkdir /out && cp dist/flanneld /out
 
