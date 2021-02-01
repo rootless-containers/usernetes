@@ -4,8 +4,8 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-01-22T05:57:48Z
-ARG ROOTLESSKIT_COMMIT=27c9611a3931149dd91fabd2d559140c351bf36f
+# v0.13.0
+ARG ROOTLESSKIT_COMMIT=f6717f3e7add04bc4dbe81e0b1a696b4ce052b47
 # 2021-01-22T09:22:23Z
 ARG CONTAINERD_COMMIT=0bbbc59b97e1a1d3a9e9767c0ad532cd47c28dce
 # 2021-01-20T09:48:39Z
