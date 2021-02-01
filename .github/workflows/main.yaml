@@ -54,5 +54,5 @@ jobs:
         vagrant destroy -f
         vagrant up
         vagrant ssh-config > ~/vagrant-ssh-config
-    - name: "Smoke test (CRI-O, w/o cgroups)"
+    - name: "Smoke test (CRI-O, w/ systemd-delegated cgroupfs)"
       run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=crio

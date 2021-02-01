@@ -37,7 +37,6 @@ if [[ $_U7S_CHILD == 0 ]]; then
 		--net=slirp4netns --mtu=65520 --disable-host-loopback --slirp4netns-sandbox=true --slirp4netns-seccomp=true \
 		--port-driver=builtin \
 		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
-		--copy-up=/etc --copy-up=/run --copy-up=/var/lib --copy-up=/opt \
 		--cgroupns \
 		--pidns \
 		--ipcns \
@@ -70,10 +69,14 @@ else
 	mkdir -p /opt/cni/bin
 	mount --bind $U7S_BASE_DIR/bin/cni /opt/cni/bin
 
-	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube.
-	binds=(/var/lib/kubelet /var/lib/cni /var/log)
+	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube and CRI-O.
+	binds=(/var/lib/kubelet /var/lib/cni /var/log /var/lib/containers)
 	for f in ${binds[@]}; do
 		src=$XDG_DATA_HOME/usernetes/$(echo $f | sed -e s@/@_@g)
+		if [[ -L $f ]]; then
+			# Remove link created by `rootlesskit --copy-up` if any
+			rm -rf $f
+		fi
 		mkdir -p $src $f
 		mount --bind $src $f
 	done

@@ -5,7 +5,9 @@ source $U7S_BASE_DIR/common/common.inc.sh
 
 export _CRIO_ROOTLESS=1
 
-log::warning "Running without cgroup (rootless cgroup is not supported yet by CRI-O)"
+if [[ "$U7S_CGROUP_ENABLED" != "1" ]]; then
+	log::warning "Running without cgroup"
+fi
 
 mkdir -p $XDG_CONFIG_HOME/usernetes/crio $XDG_CONFIG_HOME/usernetes/containers/oci/hooks.d
 
