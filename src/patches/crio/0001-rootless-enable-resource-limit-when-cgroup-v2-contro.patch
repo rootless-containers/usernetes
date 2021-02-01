@@ -1,0 +1,107 @@
+From 365a74c6ab043af21a14a6db8bcdc8af14a624fe Mon Sep 17 00:00:00 2001
+From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+Date: Mon, 1 Feb 2021 18:52:30 +0900
+Subject: [PATCH] rootless: enable resource limit when cgroup v2 controllers
+ are delegated
+
+Requires systemd-delegated cgroupfs driver.
+See Usernetes PR XXXX for the actual usage.
+
+Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
+---
+ server/rootless.go | 64 +++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/server/rootless.go b/server/rootless.go
+index 39c65a90b..424669966 100644
+--- a/server/rootless.go
++++ b/server/rootless.go
+@@ -1,10 +1,14 @@
+ package server
+ 
+ import (
++	"io/ioutil"
++	"path/filepath"
+ 	"strings"
+ 
++	"github.com/opencontainers/runc/libcontainer/cgroups"
+ 	rspec "github.com/opencontainers/runtime-spec/specs-go"
+ 	"github.com/opencontainers/runtime-tools/generate"
++	"github.com/sirupsen/logrus"
+ )
+ 
+ func hasNetworkNamespace(config *rspec.Spec) bool {
+@@ -17,7 +21,41 @@ func hasNetworkNamespace(config *rspec.Spec) bool {
+ }
+ 
+ func makeOCIConfigurationRootless(g *generate.Generator) {
+-	g.Config.Linux.Resources = nil
++	// Resource limitations requires cgroup v2 delegation (https://rootlesscontaine.rs/getting-started/common/cgroup2/).
++	if g.Config.Linux.Resources != nil {
++		// cannot control device eBPF with rootless
++		g.Config.Linux.Resources.Devices = nil
++		v2Controllers := getAvailableV2Controllers()
++		if _, ok := v2Controllers["memory"]; !ok && g.Config.Linux.Resources.Memory != nil {
++			logrus.Warn("rootless: cgroup v2 memory controller is not delegated. Discarding memory limit.")
++			g.Config.Linux.Resources.Memory = nil
++		}
++		if _, ok := v2Controllers["cpu"]; !ok && g.Config.Linux.Resources.CPU != nil {
++			logrus.Warn("rootless: cgroup v2 cpu controller is not delegated. Discarding cpu limit.")
++			g.Config.Linux.Resources.CPU = nil
++		}
++		if _, ok := v2Controllers["cpuset"]; !ok && g.Config.Linux.Resources.CPU != nil {
++			logrus.Warn("rootless: cgroup v2 cpuset controller is not delegated. Discarding cpuset limit.")
++			g.Config.Linux.Resources.CPU.Cpus = ""
++			g.Config.Linux.Resources.CPU.Mems = ""
++		}
++		if _, ok := v2Controllers["pids"]; !ok && g.Config.Linux.Resources.Pids != nil {
++			logrus.Warn("rootless: cgroup v2 pids controller is not delegated. Discarding pids limit.")
++			g.Config.Linux.Resources.Pids = nil
++		}
++		if _, ok := v2Controllers["io"]; !ok && g.Config.Linux.Resources.BlockIO != nil {
++			logrus.Warn("rootless: cgroup v2 io controller is not delegated. Discarding block I/O limit.")
++			g.Config.Linux.Resources.BlockIO = nil
++		}
++		if _, ok := v2Controllers["rdma"]; !ok && g.Config.Linux.Resources.Rdma != nil {
++			logrus.Warn("rootless: cgroup v2 rdma controller is not delegated. Discarding RDMA limit.")
++			g.Config.Linux.Resources.Rdma = nil
++		}
++		if _, ok := v2Controllers["hugetlb"]; !ok && g.Config.Linux.Resources.HugepageLimits != nil {
++			logrus.Warn("rootless: cgroup v2 hugetlb controller is not delegated. Discarding RDMA limit.")
++			g.Config.Linux.Resources.HugepageLimits = nil
++		}
++	}
+ 	g.Config.Process.OOMScoreAdj = nil
+ 	g.Config.Process.ApparmorProfile = ""
+ 
+@@ -45,3 +83,27 @@ func makeOCIConfigurationRootless(g *generate.Generator) {
+ 
+ 	g.SetLinuxCgroupsPath("")
+ }
++
++// getAvailableV2Controllers returns the entries in /sys/fs/cgroup/<SELF>/cgroup.controllers
++func getAvailableV2Controllers() map[string]struct{} {
++	procSelfCgroup, err := cgroups.ParseCgroupFile("/proc/self/cgroup")
++	if err != nil {
++		logrus.WithError(err).Error("failed to parse /proc/self/cgroup")
++		return nil
++	}
++	v2Group := procSelfCgroup[""]
++	if v2Group == "" {
++		return nil
++	}
++	controllersPath := filepath.Join("/sys/fs/cgroup", v2Group, "cgroup.controllers")
++	controllersBytes, err := ioutil.ReadFile(controllersPath)
++	if err != nil {
++		logrus.WithError(err).Errorf("failed to read %s", controllersPath)
++		return nil
++	}
++	result := make(map[string]struct{})
++	for _, controller := range strings.Fields(string(controllersBytes)) {
++		result[controller] = struct{}{}
++	}
++	return result
++}
+-- 
+2.27.0
+

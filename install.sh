@@ -153,9 +153,7 @@ fi
 
 # check cgroup config
 U7S_CGROUP_ENABLED=
-if [[ "$cri" != "containerd" ]]; then
-	WARNING "Disabling Rootless cgroup: Rootless cgroup is not supported by CRI-O yet"
-elif [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
+if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
 	WARNING "Disabling Rootless cgroup: the system is using cgroup v1, you need to reboot the system with systemd.unified_cgroup_hierarchy=1"
 else
 	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
@@ -261,7 +259,7 @@ EOF
 
 ### RootlessKit
 if [ -n "$cri" ]; then
-  cat <<EOF | x u7s-rootlesskit.service
+	cat <<EOF | x u7s-rootlesskit.service
 [Unit]
 Description=Usernetes RootlessKit service ($cri)
 PartOf=u7s.target
@@ -272,7 +270,7 @@ Delegate=yes
 ${service_common}
 EOF
 else
-  cat <<EOF | x u7s-rootlesskit.service
+	cat <<EOF | x u7s-rootlesskit.service
 [Unit]
 Description=Usernetes RootlessKit service
 PartOf=u7s.target

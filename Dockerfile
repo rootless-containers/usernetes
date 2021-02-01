@@ -94,6 +94,11 @@ RUN git clone -q https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
+COPY ./src/patches/crio /patches
+# `git am` requires user info to be set
+RUN git config user.email "nobody@example.com" && \
+  git config user.name "Usernetes Build Script" && \
+  git am /patches/* && git show --summary
 RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 

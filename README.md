@@ -335,7 +335,7 @@ Just run `install.sh`:
 $ ./install.sh
 ```
 
-Note: CRI-O (`--cri=crio`) does not support rootless cgroup yet.
+Both containerd (`--cri=containerd`) and CRI-O (`--cri=crio`) are supported.
 
 ### Expose netns ports to the host
 
