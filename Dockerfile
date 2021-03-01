@@ -4,28 +4,28 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-02-01T08:57:31Z
-ARG ROOTLESSKIT_COMMIT=fb4e5e34f3de09b0f573be1ccac1d97a35d260b7
-# 2021-01-28T15:32:47Z
-ARG CONTAINERD_COMMIT=19ee068f93c91f7b9b2a858457f1af2cabc7bc06
+# 2021-03-01T05:47:03Z
+ARG ROOTLESSKIT_COMMIT=b166adcb5e8a6f21928706644e10053bca7891c0
+# 2021-02-26T22:59:43Z
+ARG CONTAINERD_COMMIT=10bbd1a462869c3ff9b6723fb3105b13fcd73a58
 # 2021-01-20T09:48:39Z
 ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=6225620685cfce4e45e8ff858c2698aacab7b012
-# 2021-01-29T11:10:49Z
-ARG CRIO_COMMIT=70938c3d44b22e31bf41973951acfe9f85383eaa
-# 2021-01-31T16:39:48Z
-ARG KUBE_NODE_COMMIT=081f68d6852872573d63e2b922d1afdcc602746b
+# 2021-02-25T17:52:16Z
+ARG CRIO_COMMIT=7414d33dad0bf4735afc7bca86da398d88db9725
+# 2021-03-01T04:22:41Z
+ARG KUBE_NODE_COMMIT=6a9182c9448266875a1576bfc1bab1b08c4d34e6
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.1.8
-ARG CONMON_RELEASE=2.0.25
-ARG CRUN_RELEASE=0.17
+ARG SLIRP4NETNS_RELEASE=v1.1.9
+ARG CONMON_RELEASE=2.0.26
+ARG CRUN_RELEASE=0.18
 ARG FUSE_OVERLAYFS_RELEASE=v1.4.0
-ARG KUBE_MASTER_RELEASE=v1.21.0-alpha.2
+ARG KUBE_MASTER_RELEASE=v1.21.0-beta.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.21.0-usernetes
-ARG CNI_PLUGINS_RELEASE=v0.9.0
+ARG CNI_PLUGINS_RELEASE=v0.9.1
 ARG FLANNEL_RELEASE=v0.13.0
-ARG ETCD_RELEASE=v3.4.14
+ARG ETCD_RELEASE=v3.5.0-alpha.0
 ARG CFSSL_RELEASE=1.5.0
 
 ### Common base images (common-*)
@@ -105,9 +105,8 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
 ### conmon (conmon-build)
 FROM busybox AS conmon-build
 ARG CONMON_RELEASE
-RUN wget -q https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon-${CONMON_RELEASE}.zip && \
-  unzip conmon-${CONMON_RELEASE}.zip && \
-  mkdir /out && mv result/bin/conmon /out && \
+RUN wget -q https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon.amd64 && \
+  mkdir /out && mv conmon.amd64 /out/conmon && \
   chmod +x /out/conmon
 
 ### CNI Plugins (cniplugins-build)
