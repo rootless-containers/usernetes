@@ -1,4 +1,4 @@
-From 93669113991b0635ec1e77f3d8d44c8e87ebd22c Mon Sep 17 00:00:00 2001
+From ec2446d60464c9452b701e867130fc7fe58ab057 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 1/3] kubelet/cm: ignore sysctl error when running in userns
@@ -13,32 +13,11 @@ Errors during setting the following sysctl values are ignored:
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- pkg/kubelet/cm/BUILD                      | 2 ++
  pkg/kubelet/cm/container_manager_linux.go | 7 ++++++-
- 2 files changed, 8 insertions(+), 1 deletion(-)
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/pkg/kubelet/cm/BUILD b/pkg/kubelet/cm/BUILD
-index 6935ba92d09..41b70f1d5e1 100644
---- a/pkg/kubelet/cm/BUILD
-+++ b/pkg/kubelet/cm/BUILD
-@@ -78,6 +78,7 @@ go_library(
-             "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
-             "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd:go_default_library",
-             "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
-+            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
-             "//vendor/k8s.io/utils/io:go_default_library",
-             "//vendor/k8s.io/utils/path:go_default_library",
-         ],
-@@ -139,6 +140,7 @@ go_library(
-             "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
-             "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd:go_default_library",
-             "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
-+            "//vendor/github.com/opencontainers/runc/libcontainer/system:go_default_library",
-             "//vendor/k8s.io/utils/io:go_default_library",
-             "//vendor/k8s.io/utils/path:go_default_library",
-         ],
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index eeea6a8b7e4..55296e05ed2 100644
+index e6e16ace516..615f509a72c 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -33,6 +33,7 @@ import (
@@ -49,7 +28,7 @@ index eeea6a8b7e4..55296e05ed2 100644
  	"k8s.io/klog/v2"
  	"k8s.io/mount-utils"
  	utilio "k8s.io/utils/io"
-@@ -435,7 +436,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
+@@ -454,7 +455,11 @@ func setupKernelTunables(option KernelTunableBehavior) error {
  			klog.V(2).Infof("Updating kernel flag: %v, expected value: %v, actual value: %v", flag, expectedValue, val)
  			err = sysctl.SetSysctl(flag, expectedValue)
  			if err != nil {
