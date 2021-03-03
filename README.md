@@ -119,9 +119,6 @@ exampleuser:231072:65536
 ### Distribution-specific hint
 Recommended host distributions are Ubuntu 20.10 and Fedora 33.
 
-#### Ubuntu
-* Add `kernel.dmesg_restrict=0` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
-
 #### Debian GNU/Linux
 * Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
 

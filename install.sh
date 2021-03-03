@@ -145,12 +145,6 @@ if [[ -z "$publish" ]]; then
 	publish=$publish_default
 fi
 
-# check sysctl
-if ! grep -qw 0 /proc/sys/kernel/dmesg_restrict; then
-	ERROR "FIXME: kernel.dmesg_restrict needs to be 0"
-	exit 1
-fi
-
 # check cgroup config
 U7S_CGROUP_ENABLED=
 if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
