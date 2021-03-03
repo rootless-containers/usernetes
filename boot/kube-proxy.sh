@@ -12,6 +12,13 @@ clientConnection:
 featureGates:
 # EndpointSliceProxying seems to break ClusterIP: https://github.com/rootless-containers/usernetes/pull/179
   EndpointSliceProxying: false
+conntrack:
+# Skip setting sysctl value "net.netfilter.nf_conntrack_max"
+  maxPerCore: 0
+# Skip setting "net.netfilter.nf_conntrack_tcp_timeout_established"
+  tcpEstablishedTimeout: 0s
+# Skip setting "net.netfilter.nf_conntrack_tcp_timeout_close"
+  tcpCloseWaitTimeout: 0s
 EOF
 
 exec $(dirname $0)/nsenter.sh kube-proxy \

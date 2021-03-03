@@ -1,56 +1,15 @@
-From 246b6db18bb9f74e55c279855eebe520b4e01f14 Mon Sep 17 00:00:00 2001
+From 684fe7c77aa97daec1a1109667ba06742b75c8d9 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 2/3] kube-proxy: allow running in userns
 
-Ignore errors during setting the following sysctl values,
-by setting connTracker to nil:
-- net.netfilter.nf_conntrack_max
-- net.netfilter.nf_conntrack_tcp_timeout_established
-- net.netfilter.nf_conntrack_tcp_timeout_close_wait
-
-Also ignore an error during setting RLIMIT_NOFILE.
+Ignore an error during setting RLIMIT_NOFILE.
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- cmd/kube-proxy/app/server_others.go | 9 ++++++++-
- pkg/proxy/userspace/proxier.go      | 6 +++++-
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ pkg/proxy/userspace/proxier.go | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/cmd/kube-proxy/app/server_others.go b/cmd/kube-proxy/app/server_others.go
-index bcbf7392f06..13ee146fb0b 100644
---- a/cmd/kube-proxy/app/server_others.go
-+++ b/cmd/kube-proxy/app/server_others.go
-@@ -35,6 +35,7 @@ import (
- 
- 	"k8s.io/apimachinery/pkg/fields"
- 
-+	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
- 	v1 "k8s.io/api/core/v1"
- 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
- 	"k8s.io/apimachinery/pkg/types"
-@@ -361,6 +362,12 @@ func newProxyServer(
- 		}
- 	}
- 
-+	var connTracker Conntracker
-+	if !libcontainersystem.RunningInUserNS() {
-+		// if we are in userns, sysctl does not work and connTracker should be kept nil
-+		connTracker = &realConntracker{}
-+	}
-+
- 	return &ProxyServer{
- 		Client:                 client,
- 		EventClient:            eventClient,
-@@ -372,7 +379,7 @@ func newProxyServer(
- 		Broadcaster:            eventBroadcaster,
- 		Recorder:               recorder,
- 		ConntrackConfiguration: config.Conntrack,
--		Conntracker:            &realConntracker{},
-+		Conntracker:            connTracker,
- 		ProxyMode:              proxyMode,
- 		NodeRef:                nodeRef,
- 		MetricsBindAddress:     config.MetricsBindAddress,
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
 index 32bd5e56684..503818954ec 100644
 --- a/pkg/proxy/userspace/proxier.go
