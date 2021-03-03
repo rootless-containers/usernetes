@@ -21,5 +21,9 @@ Vagrant.configure("2") do |config|
     mkdir -p /etc/systemd/system/user@.service.d
     cp /vagrant/hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
     systemctl daemon-reload
+
+    # dmesg_restrict=1 is set for testing issue 204.
+    # This sysctl is NOT a requirement ro run Usernetes.
+    sysctl -w kernel.dmesg_restrict=1
   SHELL
 end
