@@ -261,6 +261,7 @@ PartOf=u7s.target
 [Service]
 ExecStart=${base}/boot/rootlesskit.sh ${base}/boot/${cri}.sh
 Delegate=yes
+PrivateMounts=true
 ${service_common}
 EOF
 else
