@@ -1,4 +1,4 @@
-From 2e41845075bd239ab993c234d12e865fcb48db4f Mon Sep 17 00:00:00 2001
+From f6304fb2f22507d79f086acee450cf99e3d7eb46 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 3/3] [Not for Upstream] kubelet: new cgroup driver: "none"
@@ -17,7 +17,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 88 insertions(+), 20 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 9774f5ee823..74de80e3fdd 100644
+index 74226f8e3d8..2eed0f2d031 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
 @@ -483,7 +483,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
@@ -27,13 +27,13 @@ index 9774f5ee823..74de80e3fdd 100644
 -	fs.StringVar(&c.CgroupDriver, "cgroup-driver", c.CgroupDriver, "Driver that the kubelet uses to manipulate cgroups on the host.  Possible values: 'cgroupfs', 'systemd'")
 +	fs.StringVar(&c.CgroupDriver, "cgroup-driver", c.CgroupDriver, "Driver that the kubelet uses to manipulate cgroups on the host.  Possible values: 'cgroupfs', 'systemd', 'none'")
  	fs.StringVar(&c.CgroupRoot, "cgroup-root", c.CgroupRoot, "Optional root cgroup to use for pods. This is handled by the container runtime on a best effort basis. Default: '', which means use the container runtime default.")
- 	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'. Default: 'none'")
+ 	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'.")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 499e47f7b08..37faf70c5aa 100644
+index 2dc10a512b3..1bdbcbd7f72 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
-@@ -607,26 +607,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
+@@ -622,26 +622,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
  	}
  
  	var cgroupRoots []string
@@ -41,7 +41,7 @@ index 499e47f7b08..37faf70c5aa 100644
 -	cgroupRoots = append(cgroupRoots, nodeAllocatableRoot)
 -	kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
 -	if err != nil {
--		klog.Warningf("failed to get the kubelet's cgroup: %v.  Kubelet system container metrics may be missing.", err)
+-		klog.InfoS("Failed to get the kubelet's cgroup. Kubelet system container metrics may be missing.", "err", err)
 -	} else if kubeletCgroup != "" {
 -		cgroupRoots = append(cgroupRoots, kubeletCgroup)
 -	}
@@ -52,21 +52,21 @@ index 499e47f7b08..37faf70c5aa 100644
 +		cgroupRoots = append(cgroupRoots, nodeAllocatableRoot)
 +		kubeletCgroup, err := cm.GetKubeletContainer(s.KubeletCgroups)
 +		if err != nil {
-+			klog.Warningf("failed to get the kubelet's cgroup: %v.  Kubelet system container metrics may be missing.", err)
++			klog.InfoS("Failed to get the kubelet's cgroup. Kubelet system container metrics may be missing.", "err", err)
 +		} else if kubeletCgroup != "" {
 +			cgroupRoots = append(cgroupRoots, kubeletCgroup)
 +		}
  
 -	runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
 -	if err != nil {
--		klog.Warningf("failed to get the container runtime's cgroup: %v. Runtime system container metrics may be missing.", err)
+-		klog.InfoS("Failed to get the container runtime's cgroup. Runtime system container metrics may be missing.", "err", err)
 -	} else if runtimeCgroup != "" {
 -		// RuntimeCgroups is optional, so ignore if it isn't specified
 -		cgroupRoots = append(cgroupRoots, runtimeCgroup)
 -	}
 +		runtimeCgroup, err := cm.GetRuntimeContainer(s.ContainerRuntime, s.RuntimeCgroups)
 +		if err != nil {
-+			klog.Warningf("failed to get the container runtime's cgroup: %v. Runtime system container metrics may be missing.", err)
++			klog.InfoS("Failed to get the container runtime's cgroup. Runtime system container metrics may be missing.", "err", err)
 +		} else if runtimeCgroup != "" {
 +			// RuntimeCgroups is optional, so ignore if it isn't specified
 +			cgroupRoots = append(cgroupRoots, runtimeCgroup)
@@ -83,7 +83,7 @@ index 499e47f7b08..37faf70c5aa 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index 749a6df2a65..1591be68c85 100644
+index fcc86830b5a..9eece47b26d 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -216,7 +216,7 @@ type KubeletConfiguration struct {
@@ -96,10 +96,10 @@ index 749a6df2a65..1591be68c85 100644
  	// CPUManagerPolicy is the name of the policy to use.
  	// Requires the CPUManager feature gate to be enabled.
 diff --git a/pkg/kubelet/cm/cgroup_manager_linux.go b/pkg/kubelet/cm/cgroup_manager_linux.go
-index b99f20e870a..de9d59badc4 100644
+index f598d466b0b..f320a77a6fa 100644
 --- a/pkg/kubelet/cm/cgroup_manager_linux.go
 +++ b/pkg/kubelet/cm/cgroup_manager_linux.go
-@@ -48,6 +48,9 @@ const (
+@@ -49,6 +49,9 @@ const (
  	libcontainerCgroupfs libcontainerCgroupManagerType = "cgroupfs"
  	// libcontainerSystemd means use libcontainer with systemd
  	libcontainerSystemd libcontainerCgroupManagerType = "systemd"
@@ -109,7 +109,7 @@ index b99f20e870a..de9d59badc4 100644
  	// systemdSuffix is the cgroup name suffix for systemd
  	systemdSuffix string = ".slice"
  )
-@@ -188,6 +191,13 @@ var _ CgroupManager = &cgroupManagerImpl{}
+@@ -189,6 +192,13 @@ var _ CgroupManager = &cgroupManagerImpl{}
  
  // NewCgroupManager is a factory method that returns a CgroupManager
  func NewCgroupManager(cs *CgroupSubsystems, cgroupDriver string) CgroupManager {
@@ -123,7 +123,7 @@ index b99f20e870a..de9d59badc4 100644
  	managerType := libcontainerCgroupfs
  	if cgroupDriver == string(libcontainerSystemd) {
  		managerType = libcontainerSystemd
-@@ -767,3 +777,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
+@@ -768,3 +778,57 @@ func (m *cgroupManagerImpl) GetResourceStats(name CgroupName) (*ResourceStats, e
  	}
  	return toResourceStats(stats), nil
  }

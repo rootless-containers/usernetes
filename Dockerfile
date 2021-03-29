@@ -4,23 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-03-02T07:35:48Z
-ARG ROOTLESSKIT_COMMIT=2d0f327305a0cf36793d0c02c309b37761f00cf5
-# 2021-03-01T22:52:27Z
-ARG CONTAINERD_COMMIT=134f7a737074727a6e87214323629b87ba658658
-# 2021-01-20T09:48:39Z
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT=6225620685cfce4e45e8ff858c2698aacab7b012
-# 2021-03-01T19:48:51Z
-ARG CRIO_COMMIT=c49f180264dd299cb16345dec0a18daaac326da3
-# 2021-03-02T07:11:20Z
-ARG KUBE_NODE_COMMIT=3727aa47d9f290cfb15d683cf61eb19ffb43c675
+# 2021-03-16T04:30:13Z
+ARG ROOTLESSKIT_COMMIT=50e88d6e889c88501455579a0177b42822bc26f2
+# 2021-03-26T14:51:29Z
+ARG CONTAINERD_COMMIT=1b05b605c860e3052dc2fb298fcf98987f9a811d
+# 2021-03-26T16:56:49Z
+ARG CRIO_COMMIT=3cf4a99706b13f05e679768cabfbdaf7e84c0dc6
+# 2021-03-27T01:26:43Z
+ARG KUBE_NODE_COMMIT=770d3f181c5d7ed100d1ba43760a74093fc9d9ef
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.9
-ARG CONMON_RELEASE=2.0.26
+ARG CONMON_RELEASE=2.0.27
 ARG CRUN_RELEASE=0.18
-ARG FUSE_OVERLAYFS_RELEASE=v1.4.0
-ARG KUBE_MASTER_RELEASE=v1.21.0-beta.0
+ARG FUSE_OVERLAYFS_RELEASE=v1.5.0
+ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.2
+ARG KUBE_MASTER_RELEASE=v1.21.0-rc.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.21.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.9.1
@@ -28,11 +27,15 @@ ARG FLANNEL_RELEASE=v0.13.0
 ARG ETCD_RELEASE=v3.5.0-alpha.0
 ARG CFSSL_RELEASE=1.5.0
 
+ARG ALPINE_RELEASE=3.13
+ARG GO_RELEASE=1.16
+ARG FEDORA_RELEASE=33
+
 ### Common base images (common-*)
-FROM alpine:3.13 AS common-alpine
+FROM alpine:${ALPINE_RELEASE} AS common-alpine
 RUN apk add -q --no-cache git build-base autoconf automake libtool
 
-FROM golang:1.15-alpine AS common-golang-alpine
+FROM golang:${GO_RELEASE}-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
 
 FROM common-golang-alpine AS common-golang-alpine-heavy
@@ -61,6 +64,12 @@ ARG FUSE_OVERLAYFS_RELEASE
 ADD https://github.com/containers/fuse-overlayfs/releases/download/${FUSE_OVERLAYFS_RELEASE}/fuse-overlayfs-x86_64 /out/fuse-overlayfs
 RUN chmod +x /out/fuse-overlayfs
 
+### containerd-fuse-overlayfs (containerd-fuse-overlayfs-build)
+FROM busybox AS containerd-fuse-overlayfs-build
+ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE
+RUN mkdir -p /out && \
+ wget -q -O - https://github.com/containerd/fuse-overlayfs-snapshotter/releases/download/v${CONTAINERD_FUSE_OVERLAYFS_RELEASE}/containerd-fuse-overlayfs-${CONTAINERD_FUSE_OVERLAYFS_RELEASE}-linux-amd64.tar.gz | tar xz -C /out
+
 ### crun (crun-build)
 FROM busybox AS crun-build
 ARG CRUN_RELEASE
@@ -77,16 +86,6 @@ ENV CGO_ENABLED=0
 RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-linkmode external -extldflags "-fno-PIC -static"' BUILDTAGS="netgo osusergo static_build no_devmapper no_btrfs no_aufs no_zfs" \
   bin/containerd bin/containerd-shim-runc-v2 bin/ctr && \
   mkdir /out && cp bin/containerd bin/containerd-shim-runc-v2 bin/ctr /out
-
-### containerd-fuse-overlayfs (containerd-fuse-overlayfs-build)
-FROM common-golang-alpine AS containerd-fuse-overlayfs-build
-RUN git clone -q https://github.com/AkihiroSuda/containerd-fuse-overlayfs.git /go/src/github.com/AkihiroSuda/containerd-fuse-overlayfs
-WORKDIR /go/src/github.com/AkihiroSuda/containerd-fuse-overlayfs
-ARG CONTAINERD_FUSE_OVERLAYFS_COMMIT
-RUN git pull && git checkout ${CONTAINERD_FUSE_OVERLAYFS_COMMIT}
-ENV CGO_ENABLED=0
-RUN mkdir /out && \
-  go build -o /out/containerd-fuse-overlayfs-grpc github.com/AkihiroSuda/containerd-fuse-overlayfs/cmd/containerd-fuse-overlayfs-grpc
 
 ### CRI-O (crio-build)
 FROM common-golang-alpine-heavy AS crio-build
@@ -189,7 +188,7 @@ COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
 #### Test (test-main)
-FROM fedora:33 AS test-main
+FROM fedora:${FEDORA_RELEASE} AS test-main
 ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
 RUN chmod +x /docker-entrypoint.sh && \

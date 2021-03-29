@@ -70,7 +70,7 @@ else
 	mount --bind $U7S_BASE_DIR/bin/cni /opt/cni/bin
 
 	# These bind-mounts are needed at the moment because the paths are hard-coded in Kube and CRI-O.
-	binds=(/var/lib/kubelet /var/lib/cni /var/log /var/lib/containers)
+	binds=(/var/lib/kubelet /var/lib/cni /var/log /var/lib/containers /var/cache)
 	for f in ${binds[@]}; do
 		src=$XDG_DATA_HOME/usernetes/$(echo $f | sed -e s@/@_@g)
 		if [[ -L $f ]]; then
