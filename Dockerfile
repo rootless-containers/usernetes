@@ -4,24 +4,24 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-03-16T04:30:13Z
-ARG ROOTLESSKIT_COMMIT=50e88d6e889c88501455579a0177b42822bc26f2
-# 2021-03-26T14:51:29Z
-ARG CONTAINERD_COMMIT=1b05b605c860e3052dc2fb298fcf98987f9a811d
-# 2021-03-26T16:56:49Z
-ARG CRIO_COMMIT=3cf4a99706b13f05e679768cabfbdaf7e84c0dc6
-# 2021-03-27T01:26:43Z
-ARG KUBE_NODE_COMMIT=770d3f181c5d7ed100d1ba43760a74093fc9d9ef
+# 2021-04-15T05:58:47Z
+ARG ROOTLESSKIT_COMMIT=2416b0b1799b3888c570c590da3cb27c13d2eb0f
+# 2021-04-24T20:46:00Z
+ARG CONTAINERD_COMMIT=56f1b3fef84d72f76ca65151854c9c9d1461e0f8
+# 2021-04-25T13:18:28Z
+ARG CRIO_COMMIT=d3dbaec060e33870e5cb5c3f7ec4207837804b00
+# 2021-04-26T07:03:01Z
+ARG KUBE_NODE_COMMIT=e640a01219736dd051dc3a9b8ac4630ec18b6b25
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.9
 ARG CONMON_RELEASE=2.0.27
-ARG CRUN_RELEASE=0.18
+ARG CRUN_RELEASE=0.19.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.5.0
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.2
-ARG KUBE_MASTER_RELEASE=v1.21.0-rc.0
+ARG KUBE_MASTER_RELEASE=v1.21.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.21.0-usernetes
+ARG KUBE_GIT_VERSION=v1.22.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.9.1
 ARG FLANNEL_RELEASE=v0.13.0
 ARG ETCD_RELEASE=v3.5.0-alpha.0
@@ -93,11 +93,6 @@ RUN git clone -q https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
 RUN git pull && git checkout ${CRIO_COMMIT}
-COPY ./src/patches/crio /patches
-# `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
 RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
