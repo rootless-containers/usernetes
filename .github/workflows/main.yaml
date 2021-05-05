@@ -45,6 +45,12 @@ jobs:
       working-directory: usernetes
       run: |
         vagrant up
+        # <FIXME>
+        # Enabling cgroup delegation seems to need rebooting since Fedora 34: https://github.com/rootless-containers/rootlesscontaine.rs/issues/32
+        # We shouldn't need this reboot.
+        vagrant halt
+        vagrant up
+        # </FIXME>
         vagrant ssh-config > ~/vagrant-ssh-config
     - name: "Smoke test (containerd, w/ systemd-delegated cgroupfs)"
       run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=containerd
@@ -53,6 +59,12 @@ jobs:
       run: |
         vagrant destroy -f
         vagrant up
+        # <FIXME>
+        # Enabling cgroup delegation seems to need rebooting since Fedora 34: https://github.com/rootless-containers/rootlesscontaine.rs/issues/32
+        # We shouldn't need this reboot.
+        vagrant halt
+        vagrant up
+        # </FIXME>
         vagrant ssh-config > ~/vagrant-ssh-config
     - name: "Smoke test (CRI-O, w/ systemd-delegated cgroupfs)"
       run: ssh -F ~/vagrant-ssh-config default /vagrant/hack/smoketest-binaries.sh --cri=crio
