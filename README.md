@@ -306,7 +306,7 @@ If `grubby` command is available on your system, this step can be also accomplis
 #### Enable cpu controller
 Typically, only `memory` and `pids` controllers are delegated to non-root users by default.
 ```console
-$ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers
+$ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.subtree_control
 memory pids
 ```
 
