@@ -296,7 +296,6 @@ Connecting to 10.5.7.3 (10.5.7.3:80)
 To enable cgroups (resource limits), the host needs to be running with cgroup v2.
 
 If `/sys/fs/cgroup/cgroup.controllers` is present on your system, you are using v2, otherwise you are using v1.
-As of 2020, Fedora is the only well-known Linux distributon that uses cgroup v2 by default. Fedora uses cgroup v2 by default since Fedora 31.
 
 #### Enable cgroup v2
 To enable cgroup v2, add `systemd.unified_cgroup_hierarchy=1` to the `GRUB_CMDLINE_LINUX` line in `/etc/default/grub` and run `sudo update-grub`.
@@ -322,6 +321,8 @@ Delegate=yes
 EOF
 # systemctl daemon-reload
 ```
+
+You have to re-login or reboot the host after changing the systemd configuration. Rebooting is recommended.
 
 #### Run Usernetes installer
 
