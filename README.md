@@ -72,7 +72,7 @@ See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
 We encourage other Kubernetes distributions to adopt Usernetes patches and tools.
 
 Currently, the following distributions adopt Usernetes:
-* [k3s](https://github.com/rancher/k3s) (Recommended version: [v1.17.0+k3s1](https://github.com/rancher/k3s/releases/tag/v1.17.0%2Bk3s.1), newer version may have a bug: [rancher/k3s#1709](https://github.com/rancher/k3s/issues/1709))
+* [k3s](https://github.com/k3s-io/k3s/blob/master/k3s-rootless.service)
 * [Silverkube](https://github.com/podenv/silverkube)
 
 ## How it works
