@@ -150,7 +150,7 @@ U7S_CGROUP_ENABLED=
 if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
 	WARNING "Disabling Rootless cgroup: the system is using cgroup v1, you need to reboot the system with systemd.unified_cgroup_hierarchy=1"
 else
-	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
+	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.subtree_control"
 	if [[ ! -f $f ]]; then
 		ERROR "systemd not running? file not found: $f"
 		exit 1
