@@ -140,7 +140,11 @@ if [[ -f "${master_d}/kubernetes.pem" ]]; then
 else
 	log::info "Creating ${master_d}/{kubernetes.pem,kubernetes-key.pem}"
 	k_hostnames="kubernetes,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster,kubernetes.svc.cluster.local"
-	ip_addrs=$(hostname -I | sed -e 's/ /,/g' -e 's/,$//g')
+	if hostname -I &>/dev/null ; then
+		ip_addrs=$(hostname -I | sed -e 's/ /,/g' -e 's/,$//g')
+	else
+		ip_addrs=$(hostname -i | sed -e 's/ /,/g' -e 's/,$//g')
+	fi
 	k_cluster_ip="10.0.0.1"
 	cfssl gencert -loglevel="$loglevel" \
 		-ca="${master_d}/ca.pem" \
