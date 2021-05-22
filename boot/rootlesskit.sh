@@ -16,7 +16,11 @@ rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
 	_U7S_CHILD=1
-	: ${U7S_PARENT_IP=$(hostname -I | sed -e 's/ .*//g')}
+	if hostname -I &>/dev/null ; then
+		: ${U7S_PARENT_IP=$(hostname -I | sed -e 's/ .*//g')}
+	else
+		: ${U7S_PARENT_IP=$(hostname -i | sed -e 's/ .*//g')}
+	fi
 	export _U7S_CHILD U7S_PARENT_IP
 
 	# Re-exec the script via RootlessKit, so as to create unprivileged {user,mount,network} namespaces.
