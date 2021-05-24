@@ -30,6 +30,7 @@ failSwapOn: false
 featureGates:
   DevicePlugins: false
   LocalStorageCapacityIsolation: false
+  KubeletInUserNamespace: true
 evictionHard:
   nodefs.available: "3%"
 cgroupDriver: "${cgroup_driver}"

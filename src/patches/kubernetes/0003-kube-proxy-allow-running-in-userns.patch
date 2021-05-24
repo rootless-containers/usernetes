@@ -1,7 +1,7 @@
-From 341823948c6f777ad264773cf0f7ffc1dcd92530 Mon Sep 17 00:00:00 2001
+From 99752c8ad58425a09d0816dea6ec46a5b50e1eab Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
-Subject: [PATCH 2/3] kube-proxy: allow running in userns
+Subject: [PATCH 3/5] kube-proxy: allow running in userns
 
 Ignore an error during setting RLIMIT_NOFILE.
 
@@ -35,5 +35,5 @@ index a2945f6fd08..d4f35de6d56 100644
  
  	proxyPorts := newPortAllocator(pr)
 -- 
-2.27.0
+2.30.2
 
