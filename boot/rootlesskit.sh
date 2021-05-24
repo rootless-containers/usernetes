@@ -85,13 +85,6 @@ else
 		mount --bind $src $f
 	done
 
-	# Allow reading /dev/kmsg with a fake content if we don't have permission
-	# (kernel.dmesg_restrict=1)
-	# https://github.com/rootless-containers/usernetes/issues/204
-	if ! head -n1 /dev/kmsg >/dev/null 2>&1; then
-		mount --bind /dev/null /dev/kmsg
-	fi
-
 	rk_pid=$(cat $rk_state_dir/child_pid)
 	# workaround for https://github.com/rootless-containers/rootlesskit/issues/37
 	# child_pid might be created before the child is ready
