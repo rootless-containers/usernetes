@@ -1,7 +1,7 @@
-From 926907649559db5d85c813cc123318c035e61c2e Mon Sep 17 00:00:00 2001
+From 311523aa8d5db2dc13d6feec5acc318e20518616 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 24 May 2021 23:35:22 +0900
-Subject: [PATCH 4/5] kubelet: ignore /dev/kmsg error when runnin in userns
+Subject: [PATCH 4/5] kubelet: ignore /dev/kmsg error when running in userns
 
 oomwatcher.NewWatcher returns "open /dev/kmsg: operation not permitted" error,
 when running with sysctl value `kernel.dmesg_restrict=1`.
@@ -10,11 +10,11 @@ The error is negligible for KubeletInUserNamespace.
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- pkg/kubelet/kubelet.go | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ pkg/kubelet/kubelet.go | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
 
 diff --git a/pkg/kubelet/kubelet.go b/pkg/kubelet/kubelet.go
-index 7f390290496..dfce93e34c9 100644
+index 8a9d2518862..ee553ed41a9 100644
 --- a/pkg/kubelet/kubelet.go
 +++ b/pkg/kubelet/kubelet.go
 @@ -37,6 +37,7 @@ import (
@@ -25,7 +25,7 @@ index 7f390290496..dfce93e34c9 100644
  	v1 "k8s.io/api/core/v1"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/fields"
-@@ -479,7 +480,18 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
+@@ -479,7 +480,17 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
  
  	oomWatcher, err := oomwatcher.NewWatcher(kubeDeps.Recorder)
  	if err != nil {
@@ -36,16 +36,15 @@ index 7f390290496..dfce93e34c9 100644
 +		// oomwatcher.NewWatcher returns "open /dev/kmsg: operation not permitted" error,
 +		// when running with sysctl value `kernel.dmesg_restrict=1`.
 +		if !utilfeature.DefaultFeatureGate.Enabled(features.KubeletInUserNamespace) {
-+			klog.Errorf("Failed to create an oomWatcher: %v (running in UserNS, Hint: enable KubeletInUserNamespace feature flag to ignore the error)",
-+				err)
++			klog.ErrorS(err, "Failed to create an oomWatcher (running in UserNS, Hint: enable KubeletInUserNamespace feature flag to ignore the error)")
 +			return nil, err
 +		}
-+		klog.Warningf("Failed to create an oomWatcher: %v (running in UserNS, ignoring)", err)
++		klog.V(2).InfoS("Failed to create an oomWatcher (running in UserNS, ignoring)", "err", err)
 +		oomWatcher = nil
  	}
  
  	clusterDNS := make([]net.IP, 0, len(kubeCfg.ClusterDNS))
-@@ -1356,8 +1368,10 @@ func (kl *Kubelet) initializeModules() error {
+@@ -1356,8 +1367,10 @@ func (kl *Kubelet) initializeModules() error {
  	}
  
  	// Start out of memory watcher.

@@ -1,4 +1,4 @@
-From 89fe19c5785575d40cbad196345d217d01560dcb Mon Sep 17 00:00:00 2001
+From f7e676c8376f7478fb60f252e017fdaa7042808d Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Tue, 21 Aug 2018 16:45:04 +0900
 Subject: [PATCH 2/5] kubelet/cm: ignore sysctl error when running in userns
@@ -17,7 +17,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  1 file changed, 8 insertions(+)
 
 diff --git a/pkg/kubelet/cm/container_manager_linux.go b/pkg/kubelet/cm/container_manager_linux.go
-index 6406e03fa3f..186f886ce47 100644
+index 6406e03fa3f..41364ef2924 100644
 --- a/pkg/kubelet/cm/container_manager_linux.go
 +++ b/pkg/kubelet/cm/container_manager_linux.go
 @@ -33,6 +33,7 @@ import (
@@ -34,10 +34,10 @@ index 6406e03fa3f..186f886ce47 100644
  			if err != nil {
 +				if libcontainersystem.RunningInUserNS() {
 +					if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.KubeletInUserNamespace) {
-+						klog.Warningf("Updating kernel flag failed: %v: %v (running in UserNS, ignoring)", flag, err)
++						klog.V(2).InfoS("Updating kernel flag failed (running in UserNS, ignoring)", "flag", flag, "err", err)
 +						continue
 +					}
-+					klog.Errorf("Updating kernel flag failed: %v: %v (Hint: enable KubeletInUserNamespace feature flag to ignore the error)", flag, err)
++					klog.ErrorS(err, "Updating kernel flag failed (Hint: enable KubeletInUserNamespace feature flag to ignore the error)", "flag", flag)
 +				}
  				errList = append(errList, err)
  			}
