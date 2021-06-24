@@ -1,7 +1,7 @@
 # targets prefixed with underscore are not intended be invoked by human
 
 .DEFAULT_GOAL := binaries
-IMAGE=rootlesscontainers/usernetes
+IMAGE=ghcr.io/rootless-containers/usernetes
 
 binaries: image _binaries
 

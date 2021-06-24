@@ -225,12 +225,15 @@ $ eval $(./show-cleanup-command.sh)
 
 ## Run Usernetes in Docker
 
-All-in-one Docker image is available as [`rootlesscontainers/usernetes`](https://hub.docker.com/r/rootlesscontainers/usernetes) on Docker Hub.
+All-in-one Docker image is available as [`ghcr.io/rootless-containers/usernetes`](https://ghcr.io/rootless-containers/usernetes) on GHCR.
+
+:warning: [`rootlesscontainers/usernetes`](https://hub.docker.com/r/rootlesscontainers/usernetes) on Docker Hub is no longer updated.
+Please use the GHCR image.
 
 To build the image manually:
 
 ```console
-$ docker build -t rootlesscontainers/usernetes .
+$ docker build -t ghcr.io/rootless-containers/usernetes .
 ```
 
 The image is based on Fedora.
@@ -238,7 +241,7 @@ The image is based on Fedora.
 ### Single node
 
 ```console
-$ docker run -td --name usernetes-node -p 127.0.0.1:6443:6443 --privileged rootlesscontainers/usernetes --cri=containerd
+$ docker run -td --name usernetes-node -p 127.0.0.1:6443:6443 --privileged ghcr.io/rootless-containers/usernetes --cri=containerd
 ```
 
 Wait until `docker ps` shows "healty" as the status of `usernetes-node` container.
