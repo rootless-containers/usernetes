@@ -15,7 +15,7 @@ ARG KUBE_NODE_COMMIT=b0010c2d9ea8f2d20ffca20da7846eb4bba6e456
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.11
-ARG CONMON_RELEASE=2.0.27
+ARG CONMON_RELEASE=2.0.29
 ARG CRUN_RELEASE=0.20.1
 ARG FUSE_OVERLAYFS_RELEASE=v1.6
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.3
@@ -97,11 +97,14 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
-FROM busybox AS conmon-build
-ARG CONMON_RELEASE
-RUN wget -q https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon.amd64 && \
-  mkdir /out && mv conmon.amd64 /out/conmon && \
-  chmod +x /out/conmon
+FROM common-golang-alpine-heavy AS conmon-build
+RUN apk add -q --no-cache glib-dev glib-static libseccomp-dev libseccomp-static
+RUN git clone -q https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
+WORKDIR /go/src/github.com/containers/conmon
+ARG CONMON_COMMIT
+RUN git pull && git checkout ${CONMON_COMMIT}
+RUN make PKG_CONFIG='pkg-config --static' CFLAGS='-static' LDFLAGS='-s -w -static' && \
+  mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
 FROM busybox AS cniplugins-build
