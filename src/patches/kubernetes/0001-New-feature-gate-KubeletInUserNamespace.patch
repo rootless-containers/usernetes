@@ -1,4 +1,4 @@
-From 2187fa5be19358f44e2083b9ffb32bd747267f45 Mon Sep 17 00:00:00 2001
+From 32676ee061bcf2795b093282754b518d6f5c9f26 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Mon, 24 May 2021 23:18:02 +0900
 Subject: [PATCH 1/5] New feature gate: KubeletInUserNamespace
@@ -15,10 +15,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  1 file changed, 9 insertions(+)
 
 diff --git a/pkg/features/kube_features.go b/pkg/features/kube_features.go
-index 2427b194fc6..d91e22ad7c2 100644
+index 795fe6a62de..5c73008f90c 100644
 --- a/pkg/features/kube_features.go
 +++ b/pkg/features/kube_features.go
-@@ -746,6 +746,14 @@ const (
+@@ -714,6 +714,14 @@ const (
  	//
  	// Enables apiserver and kubelet to allow up to 32 DNSSearchPaths and up to 2048 DNSSearchListChars.
  	ExpandedDNSConfig featuregate.Feature = "ExpandedDNSConfig"
@@ -33,7 +33,7 @@ index 2427b194fc6..d91e22ad7c2 100644
  )
  
  func init() {
-@@ -859,6 +867,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
+@@ -821,6 +829,7 @@ var defaultKubernetesFeatureGates = map[featuregate.Feature]featuregate.FeatureS
  	DisableCloudProviders:                          {Default: false, PreRelease: featuregate.Alpha},
  	StatefulSetMinReadySeconds:                     {Default: false, PreRelease: featuregate.Alpha},
  	ExpandedDNSConfig:                              {Default: false, PreRelease: featuregate.Alpha},

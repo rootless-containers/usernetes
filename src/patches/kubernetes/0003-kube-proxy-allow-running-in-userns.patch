@@ -1,4 +1,4 @@
-From 6b795ac1629a06bf7a6d93df35f969a923655361 Mon Sep 17 00:00:00 2001
+From 1f750343b746b0def4b0904da1ea82c2bbec17d1 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 3/5] kube-proxy: allow running in userns
@@ -7,30 +7,41 @@ Ignore an error during setting RLIMIT_NOFILE.
 
 Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 ---
- pkg/proxy/userspace/proxier.go | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ pkg/proxy/userspace/proxier.go | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index a2945f6fd08..36401abe570 100644
+index b9c14d28a4e..3d4b05741ec 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
-@@ -26,6 +26,7 @@ import (
+@@ -26,14 +26,17 @@ import (
  	"sync/atomic"
  	"time"
  
-+	libcontainersystem "github.com/opencontainers/runc/libcontainer/system"
++	libcontaineruserns "github.com/opencontainers/runc/libcontainer/userns"
  	v1 "k8s.io/api/core/v1"
  	"k8s.io/apimachinery/pkg/types"
  	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-@@ -231,7 +232,10 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
+ 	utilnet "k8s.io/apimachinery/pkg/util/net"
+ 	"k8s.io/apimachinery/pkg/util/runtime"
+ 	"k8s.io/apimachinery/pkg/util/sets"
++	utilfeature "k8s.io/apiserver/pkg/util/feature"
+ 	servicehelper "k8s.io/cloud-provider/service/helpers"
+ 	"k8s.io/klog/v2"
++	kubefeatures "k8s.io/kubernetes/pkg/features"
+ 	"k8s.io/kubernetes/pkg/proxy"
+ 	"k8s.io/kubernetes/pkg/proxy/config"
+ 	utilproxy "k8s.io/kubernetes/pkg/proxy/util"
+@@ -231,7 +234,11 @@ func NewCustomProxier(loadBalancer LoadBalancer, listenIP net.IP, iptables iptab
  
  	err = setRLimit(64 * 1000)
  	if err != nil {
 -		return nil, fmt.Errorf("failed to set open file handler limit: %v", err)
-+		if !libcontainersystem.RunningInUserNS() {
-+			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %v", err)
++		if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.KubeletInUserNamespace) && libcontaineruserns.RunningInUserNS() {
++			klog.ErrorS(err, "failed to set open file handler limit to 64000 (running in UserNS, ignoring)")
++		} else {
++			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %w", err)
 +		}
-+		klog.ErrorS(err, "failed to set open file handler limit to 64000 (running in UserNS, ignoring the error)")
  	}
  
  	proxyPorts := newPortAllocator(pr)
