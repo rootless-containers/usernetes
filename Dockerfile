@@ -4,30 +4,30 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-04-29T20:26:51Z
-ARG ROOTLESSKIT_COMMIT=e2839766a691861fe65c391c237c7adacad858ee
-# 2021-05-30T03:41:42Z
-ARG CONTAINERD_COMMIT=c8b33ba297d86550dd5e530527cf5d92246d292f
-# 2021-05-30T06:23:31Z
-ARG CRIO_COMMIT=8fcce26e68b3c113a33caed09c2389b4c8b7d3fa
-# 2021-05-29T03:28:24Z
-ARG KUBE_NODE_COMMIT=e6136c0303028d68cac67290d94a60cec167ccdf
+# 2021-06-22T07:02:18Z
+ARG ROOTLESSKIT_COMMIT=6ca86c69187abc5677b29bef16592bebbe4aa95c
+# 2021-06-23T15:36:38Z
+ARG CONTAINERD_COMMIT=03bfcd8a32be15f2b13e07908dacc78d89511370
+# 2021-06-23T20:04:46Z
+ARG CRIO_COMMIT=a8af5b86a343f81beced4a0697786d201cabbd88
+# 2021-06-24T01:25:40Z
+ARG KUBE_NODE_COMMIT=b0010c2d9ea8f2d20ffca20da7846eb4bba6e456
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.1.10
-ARG CONMON_RELEASE=2.0.27
-ARG CRUN_RELEASE=0.19.1
-ARG FUSE_OVERLAYFS_RELEASE=v1.5.0
-ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.2
-ARG KUBE_MASTER_RELEASE=v1.22.0-alpha.2
+ARG SLIRP4NETNS_RELEASE=v1.1.11
+ARG CONMON_RELEASE=2.0.29
+ARG CRUN_RELEASE=0.20.1
+ARG FUSE_OVERLAYFS_RELEASE=v1.6
+ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.3
+ARG KUBE_MASTER_RELEASE=v1.22.0-beta.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.22.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.9.1
 ARG FLANNEL_RELEASE=v0.14.0
-ARG ETCD_RELEASE=v3.5.0-beta.4
-ARG CFSSL_RELEASE=1.5.0
+ARG ETCD_RELEASE=v3.5.0
+ARG CFSSL_RELEASE=1.6.0
 
-ARG ALPINE_RELEASE=3.13
+ARG ALPINE_RELEASE=3.14
 ARG GO_RELEASE=1.16
 ARG FEDORA_RELEASE=34
 
@@ -97,11 +97,14 @@ RUN EXTRA_LDFLAGS='-linkmode external -extldflags "-static"' make binaries && \
   mkdir /out && cp bin/crio bin/crio-status bin/pinns /out
 
 ### conmon (conmon-build)
-FROM busybox AS conmon-build
-ARG CONMON_RELEASE
-RUN wget -q https://github.com/containers/conmon/releases/download/v${CONMON_RELEASE}/conmon.amd64 && \
-  mkdir /out && mv conmon.amd64 /out/conmon && \
-  chmod +x /out/conmon
+FROM common-golang-alpine-heavy AS conmon-build
+RUN apk add -q --no-cache glib-dev glib-static libseccomp-dev libseccomp-static
+RUN git clone -q https://github.com/containers/conmon.git /go/src/github.com/containers/conmon
+WORKDIR /go/src/github.com/containers/conmon
+ARG CONMON_COMMIT
+RUN git pull && git checkout ${CONMON_COMMIT}
+RUN make PKG_CONFIG='pkg-config --static' CFLAGS='-static' LDFLAGS='-s -w -static' && \
+  mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
 FROM busybox AS cniplugins-build
