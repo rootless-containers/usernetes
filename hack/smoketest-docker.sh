@@ -14,7 +14,7 @@ args=$@
 
 set -x
 tmpdir=$(mktemp -d)
-docker run -td --name $container -p 127.0.0.1:6443:6443 --privileged rootlesscontainers/usernetes $args
+docker run -td --name $container -p 127.0.0.1:6443:6443 --privileged ghcr.io/rootless-containers/usernetes $args
 function cleanup() {
 	docker rm -f $container
 	rm -rf $tmpdir

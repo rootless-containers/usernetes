@@ -2,7 +2,7 @@ version: "3"
 
 services:
   init-certs:
-    image: rootlesscontainers/usernetes
+    image: ghcr.io/rootless-containers/usernetes
     entrypoint: /docker-entrypoint.sh
     command:
       - unsudo
@@ -19,7 +19,7 @@ services:
       - tls-node-crio:/home/user/.config/usernetes/nodes.node-crio
       - tls-node-containerd:/home/user/.config/usernetes/nodes.node-containerd
   master:
-    image: rootlesscontainers/usernetes
+    image: ghcr.io/rootless-containers/usernetes
     command:
       - --wait-init-certs
       - --start=u7s-master-with-etcd.target
@@ -39,7 +39,7 @@ services:
     volumes:
       - tls-master:/home/user/.config/usernetes/master
   node-crio:
-    image: rootlesscontainers/usernetes
+    image: ghcr.io/rootless-containers/usernetes
     command:
       - --wait-init-certs
       - --start=u7s-node.target
@@ -60,7 +60,7 @@ services:
 # (currently required because master and flanneld share the same etcd cluster)
       - tls-master:/home/user/.config/usernetes/master
   node-containerd:
-    image: rootlesscontainers/usernetes
+    image: ghcr.io/rootless-containers/usernetes
     command:
       - --wait-init-certs
       - --start=u7s-node.target
