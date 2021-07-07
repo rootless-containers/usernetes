@@ -1,4 +1,4 @@
-From 1f750343b746b0def4b0904da1ea82c2bbec17d1 Mon Sep 17 00:00:00 2001
+From 192790c52fed05a865ef5e5e35f57236cd23e9c1 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Thu, 23 Aug 2018 14:14:44 +0900
 Subject: [PATCH 3/5] kube-proxy: allow running in userns
@@ -11,7 +11,7 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/pkg/proxy/userspace/proxier.go b/pkg/proxy/userspace/proxier.go
-index b9c14d28a4e..3d4b05741ec 100644
+index b9c14d28a4e..381fa842a2f 100644
 --- a/pkg/proxy/userspace/proxier.go
 +++ b/pkg/proxy/userspace/proxier.go
 @@ -26,14 +26,17 @@ import (
@@ -38,7 +38,7 @@ index b9c14d28a4e..3d4b05741ec 100644
  	if err != nil {
 -		return nil, fmt.Errorf("failed to set open file handler limit: %v", err)
 +		if utilfeature.DefaultFeatureGate.Enabled(kubefeatures.KubeletInUserNamespace) && libcontaineruserns.RunningInUserNS() {
-+			klog.ErrorS(err, "failed to set open file handler limit to 64000 (running in UserNS, ignoring)")
++			klog.V(2).InfoS("Failed to set open file handler limit to 64000 (running in UserNS, ignoring)", "err", err)
 +		} else {
 +			return nil, fmt.Errorf("failed to set open file handler limit to 64000: %w", err)
 +		}

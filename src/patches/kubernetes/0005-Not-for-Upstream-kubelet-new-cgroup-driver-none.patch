@@ -1,4 +1,4 @@
-From 503990007aa6d39428bd0663e9d84874bb02ddd3 Mon Sep 17 00:00:00 2001
+From c54269424463dd6c28f94234517c424787e73b54 Mon Sep 17 00:00:00 2001
 From: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
 Date: Sun, 2 Jun 2019 18:39:05 +0900
 Subject: [PATCH 5/5] [Not for Upstream] kubelet: new cgroup driver: "none"
@@ -17,10 +17,10 @@ Signed-off-by: Akihiro Suda <akihiro.suda.cz@hco.ntt.co.jp>
  4 files changed, 86 insertions(+), 20 deletions(-)
 
 diff --git a/cmd/kubelet/app/options/options.go b/cmd/kubelet/app/options/options.go
-index 09631068646..bc7d664ceba 100644
+index 98da4b7b387..56724a39026 100644
 --- a/cmd/kubelet/app/options/options.go
 +++ b/cmd/kubelet/app/options/options.go
-@@ -480,7 +480,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
+@@ -488,7 +488,7 @@ func AddKubeletConfigFlags(mainfs *pflag.FlagSet, c *kubeletconfig.KubeletConfig
  	fs.StringVar(&c.ProviderID, "provider-id", c.ProviderID, "Unique identifier for identifying the node in a machine database, i.e cloudprovider")
  
  	fs.BoolVar(&c.CgroupsPerQOS, "cgroups-per-qos", c.CgroupsPerQOS, "Enable creation of QoS cgroup hierarchy, if true top level QoS and pod cgroups are created.")
@@ -30,7 +30,7 @@ index 09631068646..bc7d664ceba 100644
  	fs.StringVar(&c.CPUManagerPolicy, "cpu-manager-policy", c.CPUManagerPolicy, "CPU Manager policy to use. Possible values: 'none', 'static'.")
  	fs.DurationVar(&c.CPUManagerReconcilePeriod.Duration, "cpu-manager-reconcile-period", c.CPUManagerReconcilePeriod.Duration, "<Warning: Alpha feature> CPU Manager reconciliation period. Examples: '10s', or '1m'. If not supplied, defaults to 'NodeStatusUpdateFrequency'")
 diff --git a/cmd/kubelet/app/server.go b/cmd/kubelet/app/server.go
-index 59662e425bb..8e6c72e17a6 100644
+index c9f7c0ac52b..2e2ea93cd86 100644
 --- a/cmd/kubelet/app/server.go
 +++ b/cmd/kubelet/app/server.go
 @@ -644,26 +644,30 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
@@ -83,7 +83,7 @@ index 59662e425bb..8e6c72e17a6 100644
  
  	if kubeDeps.CAdvisorInterface == nil {
 diff --git a/pkg/kubelet/apis/config/types.go b/pkg/kubelet/apis/config/types.go
-index fcc86830b5a..9eece47b26d 100644
+index 761de7c04ed..09116a1d718 100644
 --- a/pkg/kubelet/apis/config/types.go
 +++ b/pkg/kubelet/apis/config/types.go
 @@ -216,7 +216,7 @@ type KubeletConfiguration struct {
