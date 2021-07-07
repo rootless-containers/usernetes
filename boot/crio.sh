@@ -6,7 +6,7 @@ source $U7S_BASE_DIR/common/common.inc.sh
 export _CRIO_ROOTLESS=1
 
 if [[ "$U7S_CGROUP_ENABLED" != "1" ]]; then
-	log::warning "Running without cgroup"
+	log::warning "Running without cgroup. This mode is deprecated and will be removed in a future release of Usernetes."
 fi
 
 mkdir -p $XDG_CONFIG_HOME/usernetes/crio $XDG_CONFIG_HOME/usernetes/containers/oci/hooks.d

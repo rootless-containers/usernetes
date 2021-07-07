@@ -53,8 +53,6 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   * Flannel (VXLAN)
 * CoreDNS
 
-Currently, Usernetes uses our patched version of `kubelet` and `kube-proxy`. We are proposing our patches to the Kubernetes upstream. See [#42](https://github.com/rootless-containers/usernetes/issues/42) for the current status.
-
 Installer scripts are in POC status.
 
 See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
@@ -69,7 +67,7 @@ See [Adoption](#adoption) for Usernetes-based Kubernetes distributions.
 
 ## Adoption
 
-We encourage other Kubernetes distributions to adopt Usernetes patches and tools.
+We encourage other Kubernetes distributions to adopt Usernetes.
 
 Currently, the following distributions adopt Usernetes:
 * [k3s](https://github.com/k3s-io/k3s/blob/master/k3s-rootless.service)
@@ -88,12 +86,15 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 * Usermode networking called [slirp4netns](https://github.com/rootless-containers/slirp4netns) is used instead of kernel-mode [vEth](http://man7.org/linux/man-pages/man4/veth.4.html) pairs.
 * [fuse-overlayfs](https://github.com/containers/fuse-overlayfs) is used instead of kernel-mode overlayfs.
 * Node ports are network-namespaced
-* No support for cgroup v1. Resource limitations are ignored on cgroup v1 hosts. To enable support for cgroup (v2 only), see [Enabling cgroups](#enabling-cgroups).
 * Apparmor is unsupported
 
 ## Requirements
 
 * Kernel >= 4.18.
+
+* cgroup v2. See [Enabling cgroups](#enabling-cgroups).
+  On cgroup v1, the cgroup driver is set to "none" and the resource limitation configurations are ignored.
+  The "none" cgroup driver is deprecated and will be removed in a future release of Usernetes.
 
 * Recent version of systemd. Known to work with systemd >= 242.
 

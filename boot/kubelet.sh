@@ -8,7 +8,7 @@ if [[ "$U7S_CGROUP_ENABLED" = "1" ]]; then
 	cgroup_driver="cgroupfs"
 	cgroups_per_qos="true"
 else
-	log::warning "Running without cgroup"
+	log::warning "Running without cgroup. This mode is deprecated and will be removed in a future release of Usernetes."
 fi
 
 mkdir -p $XDG_RUNTIME_DIR/usernetes

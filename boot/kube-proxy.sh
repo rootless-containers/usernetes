@@ -9,9 +9,6 @@ kind: KubeProxyConfiguration
 mode: "userspace"
 clientConnection:
   kubeconfig: "$XDG_CONFIG_HOME/usernetes/node/kube-proxy.kubeconfig"
-featureGates:
-# EndpointSliceProxying seems to break ClusterIP: https://github.com/rootless-containers/usernetes/pull/179
-  EndpointSliceProxying: false
 conntrack:
 # Skip setting sysctl value "net.netfilter.nf_conntrack_max"
   maxPerCore: 0
