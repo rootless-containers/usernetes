@@ -1,0 +1,63 @@
+# We use Vagrant to prepare cgroup v2 env.
+
+compute_engine_instance:
+  image_project: cirrus-images
+  image: family/docker-kvm
+  platform: linux
+  nested_virtualization: true
+  # CPU limit: `16 / NTASK`: see https://cirrus-ci.org/faq/#are-there-any-limits
+  cpu: 8
+  # Memory limit: `4GB * NCPU`
+  memory: 32G
+
+task_template: &TASK_TEMPLATE
+  timeout_in: 30m
+  env:
+    DEBIAN_FRONTEND: noninteractive
+    HOME: /root
+    DOCKER_BUILDKIT: 1
+  info_script:
+    - uname -a
+    - cat /proc/cpuinfo
+    - docker info
+  build_script:
+    - make
+  install_libvirt_vagrant_script:
+    - apt-get update
+    - apt-get install -y libvirt-daemon libvirt-daemon-system vagrant vagrant-libvirt
+    - systemctl enable --now libvirtd
+  vagrant_cache:
+    fingerprint_script: uname -s ; cat Vagrantfile
+    folder: /root/.vagrant.d
+  vagrant_up_script:
+    - vagrant up
+  # <FIXME>
+  # Enabling cgroup delegation seems to need rebooting since Fedora 34: https://github.com/rootless-containers/rootlesscontaine.rs/issues/32
+  # We shouldn't need this reboot.
+  vagrant_reboot_script:
+    - vagrant halt
+    - vagrant up
+  # </FIXME>
+  vagrant_ssh_config_script:
+    - mkdir -p -m 0700 /root/.ssh
+    - vagrant ssh-config >> /root/.ssh/config
+
+single_node_task:
+  << : *TASK_TEMPLATE
+  name: "Single node"
+  containerd_test_script:
+    - ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
+  crio_test_script:
+    - ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
+
+multi_node_task:
+  << : *TASK_TEMPLATE
+  name: "Multi node with Flannel (Docker Compose)"
+  install_docker_script:
+    - ssh default sudo dnf install -y moby-engine docker-compose make
+    - ssh default sudo usermod -aG docker vagrant
+    - ssh default sudo systemctl enable --now docker
+  load_image_script:
+    - docker save ghcr.io/rootless-containers/usernetes:latest | ssh default docker load
+  compose_test_script:
+    - ssh default /vagrant/hack/smoketest-docker-compose.sh

@@ -27,13 +27,14 @@ _test:
 up: image _up
 
 _up:
-	docker-compose up -d
+	docker-compose --project-name=usernetes up -d
+	docker run --rm -v usernetes_tls-master:/a busybox timeout 60 sh -c "until test -f /a/done; do sleep 1; echo \"waiting for /a/done\"; done"
 	mkdir -p $(HOME)/.config/usernetes
-	docker run --rm -v usernetes_tls-master:/a busybox sh -c "until test -f /a/done; do sleep 1; done; cat /a/admin-localhost.kubeconfig" > $(HOME)/.config/usernetes/docker-compose.kubeconfig
+	docker run --rm -v usernetes_tls-master:/a busybox cat /a/admin-localhost.kubeconfig > $(HOME)/.config/usernetes/docker-compose.kubeconfig
 	echo "To use kubectl: export KUBECONFIG=$(HOME)/.config/usernetes/docker-compose.kubeconfig"
 
 down:
-	docker-compose down -v -t 0
+	docker-compose --project-name=usernetes down -v -t 0
 	rm -f $(HOME)/.config/usernetes/docker-compose.kubeconfig
 
 artifact: binaries _artifact
