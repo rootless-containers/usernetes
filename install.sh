@@ -165,6 +165,10 @@ else
 	fi
 fi
 
+if [[ -z "$U7S_CGROUP_ENABLED" ]]; then
+  WARNING "Cgroup is disabled. In future version of Usernetes, cgroup (v2) will be an essential requirement."
+fi
+
 # Delay for debugging
 if [[ -n "$delay" ]]; then
 	INFO "Delay: $delay seconds..."
