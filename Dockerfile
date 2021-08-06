@@ -4,22 +4,22 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-06-29T02:09:49Z
-ARG ROOTLESSKIT_COMMIT=2eaa8b0825324d162649786dac7fac279938f71f
-# 2021-07-02T21:54:58Z
-ARG CONTAINERD_COMMIT=7eceeb950b84396c165d972efb35116a113966fd
-# 2021-07-07T13:25:10Z
-ARG CRIO_COMMIT=3e5a1e48158316b1f378cd2dceb67b6ab670bc36
-# 2021-07-08T01:09:29Z
-ARG KUBE_NODE_COMMIT=f915aa39e80260e23fdc2453566f4942d2ad96d1
+# 2021-08-04T07:26:52Z
+ARG ROOTLESSKIT_COMMIT=470297074c70f7ab58ce4de00dca58efeacaaf1e
+# 2021-08-06T04:47:00Z
+ARG CONTAINERD_COMMIT=b43d9502c27c0105f47d9ec257e23d716c4756be
+# 2021-08-06T08:17:32Z
+ARG CRIO_COMMIT=126b893885d7ba47e66453420f3390238e54ee23
+
+ARG KUBE_NODE_COMMIT=v1.22.0
 
 # Version definitions (cont.)
-ARG SLIRP4NETNS_RELEASE=v1.1.11
+ARG SLIRP4NETNS_RELEASE=v1.1.12
 ARG CONMON_RELEASE=2.0.29
-ARG CRUN_RELEASE=0.20.1
-ARG FUSE_OVERLAYFS_RELEASE=v1.6
+ARG CRUN_RELEASE=0.21
+ARG FUSE_OVERLAYFS_RELEASE=v1.7
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.3
-ARG KUBE_MASTER_RELEASE=v1.22.0-beta.0
+ARG KUBE_MASTER_RELEASE=v1.22.0
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
 ARG KUBE_GIT_VERSION=v1.22.0-usernetes
 ARG CNI_PLUGINS_RELEASE=v0.9.1
@@ -128,13 +128,7 @@ RUN git clone -q https://github.com/kubernetes/kubernetes.git /kubernetes
 WORKDIR /kubernetes
 ARG KUBE_NODE_COMMIT
 RUN git pull && git checkout ${KUBE_NODE_COMMIT}
-COPY ./src/patches/kubernetes /patches
-# `git am` requires user info to be set
-RUN git config user.email "nobody@example.com" && \
-  git config user.name "Usernetes Build Script" && \
-  git am /patches/* && git show --summary
 ARG KUBE_GIT_VERSION
-ENV KUBE_GIT_VERSION=${KUBE_GIT_VERSION}
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN KUBE_STATIC_OVERRIDES=kubelet GOFLAGS=-tags=dockerless \
   make --quiet kube-proxy kubelet && \

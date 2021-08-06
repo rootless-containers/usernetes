@@ -15,5 +15,4 @@ x() {
 x ROOTLESSKIT rootless-containers/rootlesskit master
 x CONTAINERD containerd/containerd main
 x CRIO cri-o/cri-o master
-# Only Kube node needs patching. For Kube master, we download pre-built binaries.
-x KUBE_NODE kubernetes/kubernetes master
+# x KUBE_NODE kubernetes/kubernetes master
