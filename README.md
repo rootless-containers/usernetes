@@ -87,6 +87,10 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 
 ## Requirements
 
+Recommended host distributions are Ubuntu 20.10 and Fedora 35.
+
+The following requirements have to be satisfied:
+
 * Kernel >= 4.18.
 
 * cgroup v2.
@@ -96,6 +100,8 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 * `mount.fuse3` binary. Provided by `fuse3` package on most distros.
 
 * `iptables` binary. Provided by `iptables` package on most distros.
+
+* `conntrack` binary. Provided by `conntrack` package on most distros.
 
 * `newuidmap` and `newgidmap` binaries. Provided by `uidmap` package on most distros.
 
@@ -110,6 +116,32 @@ $ grep "^$(whoami):" /etc/subuid
 exampleuser:231072:65536
 $ grep "^$(whoami):" /etc/subgid
 exampleuser:231072:65536
+```
+
+* The following kernel modules to be loaded:
+```
+fuse
+tun
+tap
+bridge
+br_netfilter
+veth
+ip_tables
+ip6_tables
+iptable_nat
+ip6table_nat
+iptable_filter
+ip6table_filter
+nf_tables
+x_tables
+xt_MASQUERADE
+xt_addrtype
+xt_comment
+xt_conntrack
+xt_mark
+xt_multiport
+xt_nat
+xt_tcpudp
 ```
 
 ### cgroup v2
@@ -143,21 +175,6 @@ EOF
 ```
 
 You have to re-login or reboot the host after changing the systemd configuration. Rebooting is recommended.
-
-### Distribution-specific hint
-Recommended host distributions are Ubuntu 21.10 and Fedora 35.
-
-#### Debian GNU/Linux
-* Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
-
-#### Arch Linux
-* Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
-
-#### openSUSE
-* `sudo modprobe ip_tables iptable_mangle iptable_nat iptable_filter` is required. (This is likely to be required on other distros as well)
-
-#### Fedora, RHEL/CentOS
-* Run `sudo dnf install -y iptables`.
 
 ## Quick start
 

@@ -15,37 +15,15 @@ Vagrant.configure("2") do |config|
   end
   config.vm.provision "shell", inline: <<-SHELL
     set -eux -o pipefail
-    dnf install -y iptables jq time
+    dnf install -q -y conntrack findutils fuse3 git iproute iptables hostname procps-ng time which jq
 
     # Delegate cgroup v2 controllers
     mkdir -p /etc/systemd/system/user@.service.d
-    cp /vagrant/hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
+    cp -f /vagrant/hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
     systemctl daemon-reload
 
     # Load kernel modules
-    cat <<EOF >/etc/modules-load.d/usernetes.conf
-fuse
-tun
-tap
-bridge
-veth
-ip_tables
-ip6_tables
-iptable_nat
-ip6table_nat
-iptable_filter
-ip6table_filter
-nf_tables
-x_tables
-xt_MASQUERADE
-xt_addrtype
-xt_comment
-xt_conntrack
-xt_mark
-xt_multiport
-xt_nat
-xt_tcpudp
-EOF
+    cp -f /vagrant/config/modules-load.d/usernetes.conf /etc/modules-load.d/usernetes.conf
     systemctl restart systemd-modules-load.service
 
     # dmesg_restrict=1 is set for testing issue 204.
