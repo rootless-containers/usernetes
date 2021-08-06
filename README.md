@@ -11,8 +11,9 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
 - [How it works](#how-it-works)
 - [Restrictions](#restrictions)
 - [Requirements](#requirements)
+  - [cgroup v2](#cgroup-v2)
+    - [Enable cpu controller](#enable-cpu-controller)
   - [Distribution-specific hint](#distribution-specific-hint)
-    - [Ubuntu](#ubuntu)
     - [Debian GNU/Linux](#debian-gnulinux)
     - [Arch Linux](#arch-linux)
     - [openSUSE](#opensuse)
@@ -26,10 +27,6 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   - [Single node](#single-node)
   - [Multi node (Docker Compose)](#multi-node-docker-compose)
 - [Advanced guide](#advanced-guide)
-  - [Enabling cgroups](#enabling-cgroups)
-    - [Enable cgroup v2](#enable-cgroup-v2)
-    - [Enable cpu controller](#enable-cpu-controller)
-    - [Run Usernetes installer](#run-usernetes-installer)
   - [Expose netns ports to the host](#expose-netns-ports-to-the-host)
   - [Routing ping packets](#routing-ping-packets)
   - [IP addresses](#ip-addresses)
@@ -92,9 +89,7 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 
 * Kernel >= 4.18.
 
-* cgroup v2. See [Enabling cgroups](#enabling-cgroups).
-  On cgroup v1, the cgroup driver is set to "none" and the resource limitation configurations are ignored.
-  The "none" cgroup driver is deprecated and will be removed in a future release of Usernetes.
+* cgroup v2.
 
 * Recent version of systemd. Known to work with systemd >= 242.
 
@@ -116,6 +111,38 @@ exampleuser:231072:65536
 $ grep "^$(whoami):" /etc/subgid
 exampleuser:231072:65536
 ```
+
+### cgroup v2
+
+The host needs to be running with cgroup v2.
+
+If `/sys/fs/cgroup/cgroup.controllers` is present on your system, you are using v2, otherwise you are using v1.
+
+To enable cgroup v2, add `systemd.unified_cgroup_hierarchy=1` to the `GRUB_CMDLINE_LINUX` line in `/etc/default/grub` and run `sudo update-grub`.
+
+If `grubby` command is available on your system, this step can be also accomplished with `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=1"`.
+
+
+#### Enable cpu controller
+Typically, only `memory` and `pids` controllers are delegated to non-root users by default.
+```console
+$ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.subtree_control
+memory pids
+```
+
+
+To  allow delegation of all controllers, you need to change the systemd configuration as follows:
+
+```console
+# mkdir -p /etc/systemd/system/user@.service.d
+# cat > /etc/systemd/system/user@.service.d/delegate.conf << EOF
+[Service]
+Delegate=yes
+EOF
+# systemctl daemon-reload
+```
+
+You have to re-login or reboot the host after changing the systemd configuration. Rebooting is recommended.
 
 ### Distribution-specific hint
 Recommended host distributions are Ubuntu 21.04 and Fedora 34.
@@ -294,50 +321,6 @@ Connecting to 10.5.7.3 (10.5.7.3:80)
 ```
 
 ## Advanced guide
-
-### Enabling cgroups
-
-To enable cgroups (resource limits), the host needs to be running with cgroup v2.
-
-If `/sys/fs/cgroup/cgroup.controllers` is present on your system, you are using v2, otherwise you are using v1.
-
-#### Enable cgroup v2
-To enable cgroup v2, add `systemd.unified_cgroup_hierarchy=1` to the `GRUB_CMDLINE_LINUX` line in `/etc/default/grub` and run `sudo update-grub`.
-
-If `grubby` command is available on your system, this step can be also accomplished with `sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=1"`.
-
-
-#### Enable cpu controller
-Typically, only `memory` and `pids` controllers are delegated to non-root users by default.
-```console
-$ cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.subtree_control
-memory pids
-```
-
-
-To  allow delegation of all controllers, you need to change the systemd configuration as follows:
-
-```console
-# mkdir -p /etc/systemd/system/user@.service.d
-# cat > /etc/systemd/system/user@.service.d/delegate.conf << EOF
-[Service]
-Delegate=yes
-EOF
-# systemctl daemon-reload
-```
-
-You have to re-login or reboot the host after changing the systemd configuration. Rebooting is recommended.
-
-#### Run Usernetes installer
-
-The installer script (`install.sh`) does not need a special flag to enable rootless cgroup.
-
-Just run `install.sh`:
-```console
-$ ./install.sh
-```
-
-Both containerd (`--cri=containerd`) and CRI-O (`--cri=crio`) are supported.
 
 ### Expose netns ports to the host
 

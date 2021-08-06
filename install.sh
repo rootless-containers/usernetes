@@ -146,27 +146,22 @@ if [[ -z "$publish" ]]; then
 fi
 
 # check cgroup config
-U7S_CGROUP_ENABLED=
 if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
-	WARNING "Disabling Rootless cgroup: the system is using cgroup v1, you need to reboot the system with systemd.unified_cgroup_hierarchy=1"
+	ERROR "Needs cgroup v2, see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
+	exit 1
 else
-	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.subtree_control"
+	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
 	if [[ ! -f $f ]]; then
 		ERROR "systemd not running? file not found: $f"
 		exit 1
 	fi
 	if ! grep -q cpu $f; then
-		WARNING "Disabling Rootless cgroup: cpu controller is not enabled, you need to configure /etc/systemd/system/user@.service.d"
+		WARNING "cpu controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
 	elif ! grep -q memory $f; then
-		WARNING "Disabling Rootless cgroup: memory controller is not enabled, you need to configure /etc/systemd/system/user@.service.d"
+		WARNING "memory controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
 	else
 		INFO "Rootless cgroup (v2) is supported"
-		U7S_CGROUP_ENABLED="1"
 	fi
-fi
-
-if [[ -z "$U7S_CGROUP_ENABLED" ]]; then
-  WARNING "Cgroup is disabled. In future version of Usernetes, cgroup (v2) will be an essential requirement."
 fi
 
 # Delay for debugging
@@ -180,7 +175,6 @@ mkdir -p ${config_dir}/usernetes
 cat /dev/null >${config_dir}/usernetes/env
 cat <<EOF >>${config_dir}/usernetes/env
 U7S_ROOTLESSKIT_PORTS=${publish}
-U7S_CGROUP_ENABLED=${U7S_CGROUP_ENABLED}
 EOF
 if [ "$cni" = "flannel" ]; then
 	cat <<EOF >>${config_dir}/usernetes/env
