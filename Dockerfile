@@ -4,31 +4,32 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2021-08-04T07:26:52Z
-ARG ROOTLESSKIT_COMMIT=470297074c70f7ab58ce4de00dca58efeacaaf1e
-# 2021-08-06T04:47:00Z
-ARG CONTAINERD_COMMIT=b43d9502c27c0105f47d9ec257e23d716c4756be
-# 2021-08-06T08:17:32Z
-ARG CRIO_COMMIT=126b893885d7ba47e66453420f3390238e54ee23
+# 2021-08-22T13:41:52Z
+ARG ROOTLESSKIT_COMMIT=c5481c1cfd6f6c42c8ec1868fbc543f2b0a916a5
+# 2021-09-27T00:35:00Z
+ARG CONTAINERD_COMMIT=5162238c7da04d6bdd771d0aa43f8e34c91ea2ca
+# 2021-09-25T02:52:25Z
+ARG CRIO_COMMIT=41f6de6c4154dbc560ccf8aac6e2c0a0a3744485
 
-ARG KUBE_NODE_COMMIT=v1.22.0
+ARG KUBE_NODE_COMMIT=v1.23.0-alpha.2
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.1.12
-ARG CONMON_RELEASE=2.0.29
-ARG CRUN_RELEASE=0.21
-ARG FUSE_OVERLAYFS_RELEASE=v1.7
+ARG CONMON_RELEASE=2.0.30
+ARG CRUN_RELEASE=1.0
+ARG FUSE_OVERLAYFS_RELEASE=v1.7.1
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.3
-ARG KUBE_MASTER_RELEASE=v1.22.0
+ARG KUBE_MASTER_RELEASE=v1.23.0-alpha.2
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.22.0-usernetes
-ARG CNI_PLUGINS_RELEASE=v0.9.1
+ARG KUBE_GIT_VERSION=v1.23.0-usernetes
+ARG CNI_PLUGINS_RELEASE=v1.0.1
+ARG FLANNEL_CNI_PLUGIN_RELEASE=v1.0
 ARG FLANNEL_RELEASE=v0.14.0
 ARG ETCD_RELEASE=v3.5.0
-ARG CFSSL_RELEASE=1.6.0
+ARG CFSSL_RELEASE=1.6.1
 
 ARG ALPINE_RELEASE=3.14
-ARG GO_RELEASE=1.16
+ARG GO_RELEASE=1.17
 ARG FEDORA_RELEASE=34
 
 ### Common base images (common-*)
@@ -89,6 +90,7 @@ RUN make --quiet EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS='-linkmode external 
 
 ### CRI-O (crio-build)
 FROM common-golang-alpine-heavy AS crio-build
+RUN apk add -q --no-cache gpgme gpgme-dev
 RUN git clone -q https://github.com/cri-o/cri-o.git /go/src/github.com/cri-o/cri-o
 WORKDIR /go/src/github.com/cri-o/cri-o
 ARG CRIO_COMMIT
@@ -111,7 +113,10 @@ FROM busybox AS cniplugins-build
 ARG CNI_PLUGINS_RELEASE
 RUN mkdir -p /out/cni && \
  wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
- cd /out/cni && ls | egrep -vx "(host-local|loopback|bridge|flannel|portmap)" | xargs rm -f
+ cd /out/cni && ls | egrep -vx "(host-local|loopback|bridge|portmap)" | xargs rm -f
+ARG FLANNEL_CNI_PLUGIN_RELEASE
+RUN wget -q -O /out/cni/flannel https://github.com/flannel-io/cni-plugin/releases/download/${FLANNEL_CNI_PLUGIN_RELEASE}/flannel-amd64 && \
+  chmod +x /out/cni/flannel
 
 ### Kubernetes master (kube-master-build)
 FROM busybox AS kube-master-build
