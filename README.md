@@ -145,7 +145,7 @@ EOF
 You have to re-login or reboot the host after changing the systemd configuration. Rebooting is recommended.
 
 ### Distribution-specific hint
-Recommended host distributions are Ubuntu 21.04 and Fedora 34.
+Recommended host distributions are Ubuntu 21.10 and Fedora 35.
 
 #### Debian GNU/Linux
 * Add `kernel.unprivileged_userns_clone=1` to `/etc/sysctl.conf` (or `/etc/sysctl.d`) and run `sudo sysctl -p`
