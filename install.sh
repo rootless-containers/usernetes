@@ -164,6 +164,13 @@ else
 	fi
 fi
 
+# check kernel modules
+for f in $(cat ${base}/config/modules-load.d/usernetes.conf); do
+	if ! grep -qw "^$f" /proc/modules; then
+		WARNING "Kernel module $f not loaded"
+	fi
+done
+
 # Delay for debugging
 if [[ -n "$delay" ]]; then
 	INFO "Delay: $delay seconds..."
