@@ -441,8 +441,30 @@ systemctl --user -T enable $start
 time systemctl --user -T start $start
 systemctl --user --all --no-pager list-units 'u7s-*'
 set +x
+
+KUBECONFIG=
+if systemctl --user -q is-active u7s-master.target; then
+	PATH="${base}/bin:$PATH"
+	KUBECONFIG="${config_dir}/usernetes/master/admin-localhost.kubeconfig"
+	export PATH KUBECONFIG
+	INFO "Installing CoreDNS"
+	set -x
+	# sleep for waiting the node to be available
+	sleep 3
+	kubectl get nodes -o wide
+	kubectl apply -f ${base}/manifests/coredns.yaml
+	set +x
+	INFO "Waiting for CoreDNS pods to be available"
+	set -x
+	# sleep for waiting the pod object to be created
+	sleep 3
+	kubectl -n kube-system wait --for=condition=ready pod -l k8s-app=kube-dns
+	kubectl get pods -A -o wide
+	set +x
+fi
+
+INFO "Installation complete."
 INFO 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
-INFO "Hint: To enable addons including CoreDNS, run: kubectl apply -f ${base}/manifests/*.yaml"
-if [[ -f ${config_dir}/usernetes/master/admin-localhost.kubeconfig ]]; then
-	INFO "Hint: export KUBECONFIG=${config_dir}/usernetes/master/admin-localhost.kubeconfig"
+if [[ -n "${KUBECONFIG}" ]]; then
+	INFO "Hint: export KUBECONFIG=${KUBECONFIG}"
 fi
