@@ -21,9 +21,6 @@ function util::wait_for_pod() {
 }
 
 function smoketest_dns() {
-	INFO "Installing CoreDNS"
-	kubectl apply -f manifests/coredns.yaml
-
 	INFO "Creating StatefulSet \"dnstest\" and headless Service \"dnstest\""
 	kubectl apply -f - <<EOF
 apiVersion: v1
