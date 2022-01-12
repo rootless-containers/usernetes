@@ -202,6 +202,7 @@ COPY --chown=user:user . /home/user/usernetes
 COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
 RUN ln -sf /home/user/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo
 VOLUME /home/user/.local
+VOLUME /home/user/.config
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
   CMD ["unsudo", "systemctl", "--user", "is-system-running"]
 ENTRYPOINT ["/docker-entrypoint.sh", "unsudo", "/home/user/usernetes/boot/docker-2ndboot.sh"]
