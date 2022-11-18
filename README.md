@@ -82,7 +82,7 @@ No SETUID/SETCAP binary is needed, except [`newuidmap(1)`](http://man7.org/linux
 
 ## Requirements
 
-Recommended host distributions are Ubuntu 22.04 and Fedora 36.
+Recommended host distributions are Ubuntu 22.04 and Fedora 37.
 
 The following requirements have to be satisfied:
 
