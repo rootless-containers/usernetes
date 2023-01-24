@@ -19,7 +19,6 @@ clusterDNS:
   - "10.0.0.53"
 failSwapOn: false
 featureGates:
-  DevicePlugins: false
   KubeletInUserNamespace: true
 evictionHard:
   nodefs.available: "3%"
@@ -32,7 +31,6 @@ EOF
 exec $(dirname $0)/nsenter.sh kubelet \
 	--cert-dir $XDG_CONFIG_HOME/usernetes/pki \
 	--root-dir $XDG_DATA_HOME/usernetes/kubelet \
-	--log-dir $XDG_DATA_HOME/usernetes/kubelet-log \
 	--kubeconfig $XDG_CONFIG_HOME/usernetes/node/node.kubeconfig \
 	--config $XDG_RUNTIME_DIR/usernetes/kubelet-config.yaml \
 	$@
