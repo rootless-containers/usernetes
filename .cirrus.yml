@@ -20,14 +20,6 @@ template: &TASK_TEMPLATE
     - uname -a
     - cat /proc/cpuinfo
     - docker info
-# Upgrade Docker to 20.10.10 or later.
-# https://medium.com/nttlabs/ubuntu-21-10-and-fedora-35-do-not-work-on-docker-20-10-9-1cd439d9921
-# Workaround until cirrus-images gets updated.
-  upgrade_docker_script:
-    - apt-get update
-    - apt-get upgrade -y docker-ce docker-ce-cli containerd.io
-    - systemctl restart docker
-    - docker info
   build_script:
     - make
   install_libvirt_vagrant_script:
