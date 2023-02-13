@@ -1,5 +1,3 @@
-# We use Vagrant to prepare cgroup v2 env.
-
 compute_engine_instance:
   image_project: cirrus-images
   image: family/docker-kvm
@@ -10,7 +8,8 @@ compute_engine_instance:
   # Memory limit: `4GB * NCPU`
   memory: 16G
 
-template: &TASK_TEMPLATE
+vagrant_task:
+  name: "Vagrant"
   timeout_in: 30m
   env:
     DEBIAN_FRONTEND: noninteractive
@@ -41,34 +40,7 @@ template: &TASK_TEMPLATE
   vagrant_ssh_config_script:
     - mkdir -p -m 0700 /root/.ssh
     - vagrant ssh-config >> /root/.ssh/config
-
-task:
-  << : *TASK_TEMPLATE
-  name: "Single node"
   containerd_test_script:
     - ssh default /vagrant/hack/smoketest-binaries.sh --cri=containerd
   crio_test_script:
     - ssh default /vagrant/hack/smoketest-binaries.sh --cri=crio
-
-docker_template: &DOCKER_TASK_TEMPLATE
-  << : *TASK_TEMPLATE
-  install_docker_script:
-    - ssh default sudo dnf install -y moby-engine docker-compose make
-    - ssh default sudo usermod -aG docker vagrant
-    - ssh default sudo systemctl enable --now docker
-  load_image_script:
-    - docker save ghcr.io/rootless-containers/usernetes:latest | ssh default docker load
-
-task:
-  << : *DOCKER_TASK_TEMPLATE
-  name: "Single node (in Docker)"
-  containerd_test_script:
-    - ssh default /vagrant/hack/smoketest-docker.sh test-containerd ghcr.io/rootless-containers/usernetes:latest --cri=containerd
-  crio_test_script:
-    - ssh default /vagrant/hack/smoketest-docker.sh test-crio ghcr.io/rootless-containers/usernetes:latest --cri=crio
-
-task:
-  << : *DOCKER_TASK_TEMPLATE
-  name: "Multi node with Flannel (in Docker Compose)"
-  compose_test_script:
-    - ssh default /vagrant/hack/smoketest-docker-compose.sh
