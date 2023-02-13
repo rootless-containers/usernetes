@@ -34,7 +34,7 @@ ARG FEDORA_RELEASE=37
 
 ### Common base images (common-*)
 FROM alpine:${ALPINE_RELEASE} AS common-alpine
-RUN apk add -q --no-cache git build-base autoconf automake libtool
+RUN apk add -q --no-cache git build-base autoconf automake libtool wget
 
 FROM golang:${GO_RELEASE}-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
@@ -54,25 +54,25 @@ RUN mkdir /out && \
   go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
-FROM busybox AS slirp4netns-build
+FROM common-alpine AS slirp4netns-build
 ARG SLIRP4NETNS_RELEASE
 ADD https://github.com/rootless-containers/slirp4netns/releases/download/${SLIRP4NETNS_RELEASE}/slirp4netns-x86_64 /out/slirp4netns
 RUN chmod +x /out/slirp4netns
 
 ### fuse-overlayfs (fuse-overlayfs-build)
-FROM busybox AS fuse-overlayfs-build
+FROM common-alpine AS fuse-overlayfs-build
 ARG FUSE_OVERLAYFS_RELEASE
 ADD https://github.com/containers/fuse-overlayfs/releases/download/${FUSE_OVERLAYFS_RELEASE}/fuse-overlayfs-x86_64 /out/fuse-overlayfs
 RUN chmod +x /out/fuse-overlayfs
 
 ### containerd-fuse-overlayfs (containerd-fuse-overlayfs-build)
-FROM busybox AS containerd-fuse-overlayfs-build
+FROM common-alpine AS containerd-fuse-overlayfs-build
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE
 RUN mkdir -p /out && \
  wget -q -O - https://github.com/containerd/fuse-overlayfs-snapshotter/releases/download/v${CONTAINERD_FUSE_OVERLAYFS_RELEASE}/containerd-fuse-overlayfs-${CONTAINERD_FUSE_OVERLAYFS_RELEASE}-linux-amd64.tar.gz | tar xz -C /out
 
 ### crun (crun-build)
-FROM busybox AS crun-build
+FROM common-alpine AS crun-build
 ARG CRUN_RELEASE
 ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-linux-amd64 /out/crun
 RUN chmod +x /out/crun
@@ -109,7 +109,7 @@ RUN make PKG_CONFIG='pkg-config --static' CFLAGS='-static' LDFLAGS='-s -w -stati
   mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
-FROM busybox AS cniplugins-build
+FROM common-alpine AS cniplugins-build
 ARG CNI_PLUGINS_RELEASE
 RUN mkdir -p /out/cni && \
  wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
@@ -119,7 +119,7 @@ RUN wget -q -O /out/cni/flannel https://github.com/flannel-io/cni-plugin/release
   chmod +x /out/cni/flannel
 
 ### Kubernetes master (kube-master-build)
-FROM busybox AS kube-master-build
+FROM common-alpine AS kube-master-build
 ARG KUBE_MASTER_RELEASE
 RUN mkdir /out && \
   wget -q -O - https://dl.k8s.io/${KUBE_MASTER_RELEASE}/kubernetes-server-linux-amd64.tar.gz | tar xz -C / && \
@@ -151,14 +151,14 @@ RUN make dist/flanneld && \
   mkdir /out && cp dist/flanneld /out
 
 #### etcd (etcd-build)
-FROM busybox AS etcd-build
+FROM common-alpine AS etcd-build
 ARG ETCD_RELEASE
 RUN mkdir /tmp-etcd /out && \
   wget -q -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
 #### cfssl (cfssl-build)
-FROM busybox AS cfssl-build
+FROM common-alpine AS cfssl-build
 ARG CFSSL_RELEASE
 RUN mkdir -p /out && \
   wget -q -O /out/cfssl https://github.com/cloudflare/cfssl/releases/download/v${CFSSL_RELEASE}/cfssl_${CFSSL_RELEASE}_linux_amd64 && \
