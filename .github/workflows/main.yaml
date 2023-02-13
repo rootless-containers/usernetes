@@ -1,0 +1,25 @@
+name: Main
+on: [push, pull_request]
+env:
+  DOCKER_BUILDKIT: 1
+jobs:
+  docker:
+    name: "Docker"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - name: "System info"
+        run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
+      - uses: actions/checkout@v3
+      - name: "Make"
+        run: make image
+      - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
+        run: |
+          make clean
+          docker builder prune -a -f
+      - name: "Smoke test (containerd)"
+        run: ./hack/smoketest-docker.sh u7s-test-containerd ghcr.io/rootless-containers/usernetes --cri=containerd
+      - name: "Smoke test (CRI-O)"
+        run: ./hack/smoketest-docker.sh u7s-test-crio ghcr.io/rootless-containers/usernetes --cri=crio
+      - name: "Smoke test (multi-node cluster with Flannel)"
+        run: ./hack/smoketest-docker-compose.sh

@@ -4,28 +4,28 @@
 ### Version definitions
 # use ./hack/show-latest-commits.sh to get the latest commits
 
-# 2022-11-15T11:18:45Z
-ARG ROOTLESSKIT_COMMIT=88c5e0cc484705362ff90d060d05b1ef71f20d66
-# 2022-11-30T00:42:02Z
-ARG CONTAINERD_COMMIT=40a94641eddab2568650af0fca1835148db1d7a9
-# 2022-11-23T20:55:33Z
-ARG CRIO_COMMIT=ce3f05f4b4d9fc8e977c80d23e48195b82f9de40
+# 2023-02-08T04:43:24Z
+ARG ROOTLESSKIT_COMMIT=807c668cd5382ee2f514130477e8e8cc780d2fc0
+# 2023-02-07T09:54:38Z
+ARG CONTAINERD_COMMIT=97480afdac09c947d48f5e3a134db86c78f4bfa6
+# 2023-02-08T08:20:07Z
+ARG CRIO_COMMIT=3a691b1ff5bfea808893734dd74155c757d984a5
 
-ARG KUBE_NODE_COMMIT=v1.26.0-alpha.0
+ARG KUBE_NODE_COMMIT=v1.26.1
 
 # Version definitions (cont.)
 ARG SLIRP4NETNS_RELEASE=v1.2.0
-ARG CONMON_RELEASE=2.1.5
-ARG CRUN_RELEASE=1.7.2
-ARG FUSE_OVERLAYFS_RELEASE=v1.9
+ARG CONMON_RELEASE=2.1.6
+ARG CRUN_RELEASE=1.8
+ARG FUSE_OVERLAYFS_RELEASE=v1.10
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE=1.0.5
-ARG KUBE_MASTER_RELEASE=v1.26.0-alpha.0
+ARG KUBE_MASTER_RELEASE=v1.26.1
 # Kube's build script requires KUBE_GIT_VERSION to be set to a semver string
-ARG KUBE_GIT_VERSION=v1.26.0-alpha.0+usernetes
-ARG CNI_PLUGINS_RELEASE=v1.1.1
-ARG FLANNEL_CNI_PLUGIN_RELEASE=v1.2.0
-ARG FLANNEL_RELEASE=v0.20.1
-ARG ETCD_RELEASE=v3.5.6
+ARG KUBE_GIT_VERSION=v1.26.1
+ARG CNI_PLUGINS_RELEASE=v1.2.0
+ARG FLANNEL_CNI_PLUGIN_RELEASE=v1.1.2
+ARG FLANNEL_RELEASE=v0.21.1
+ARG ETCD_RELEASE=v3.5.7
 ARG CFSSL_RELEASE=1.6.3
 
 ARG ALPINE_RELEASE=3.17
@@ -34,7 +34,7 @@ ARG FEDORA_RELEASE=37
 
 ### Common base images (common-*)
 FROM alpine:${ALPINE_RELEASE} AS common-alpine
-RUN apk add -q --no-cache git build-base autoconf automake libtool
+RUN apk add -q --no-cache git build-base autoconf automake libtool wget
 
 FROM golang:${GO_RELEASE}-alpine AS common-golang-alpine
 RUN apk add -q --no-cache git
@@ -54,25 +54,25 @@ RUN mkdir /out && \
   go build -o /out/rootlessctl github.com/rootless-containers/rootlesskit/cmd/rootlessctl
 
 #### slirp4netns (slirp4netns-build)
-FROM busybox AS slirp4netns-build
+FROM common-alpine AS slirp4netns-build
 ARG SLIRP4NETNS_RELEASE
 ADD https://github.com/rootless-containers/slirp4netns/releases/download/${SLIRP4NETNS_RELEASE}/slirp4netns-x86_64 /out/slirp4netns
 RUN chmod +x /out/slirp4netns
 
 ### fuse-overlayfs (fuse-overlayfs-build)
-FROM busybox AS fuse-overlayfs-build
+FROM common-alpine AS fuse-overlayfs-build
 ARG FUSE_OVERLAYFS_RELEASE
 ADD https://github.com/containers/fuse-overlayfs/releases/download/${FUSE_OVERLAYFS_RELEASE}/fuse-overlayfs-x86_64 /out/fuse-overlayfs
 RUN chmod +x /out/fuse-overlayfs
 
 ### containerd-fuse-overlayfs (containerd-fuse-overlayfs-build)
-FROM busybox AS containerd-fuse-overlayfs-build
+FROM common-alpine AS containerd-fuse-overlayfs-build
 ARG CONTAINERD_FUSE_OVERLAYFS_RELEASE
 RUN mkdir -p /out && \
  wget -q -O - https://github.com/containerd/fuse-overlayfs-snapshotter/releases/download/v${CONTAINERD_FUSE_OVERLAYFS_RELEASE}/containerd-fuse-overlayfs-${CONTAINERD_FUSE_OVERLAYFS_RELEASE}-linux-amd64.tar.gz | tar xz -C /out
 
 ### crun (crun-build)
-FROM busybox AS crun-build
+FROM common-alpine AS crun-build
 ARG CRUN_RELEASE
 ADD https://github.com/containers/crun/releases/download/${CRUN_RELEASE}/crun-${CRUN_RELEASE}-linux-amd64 /out/crun
 RUN chmod +x /out/crun
@@ -109,7 +109,7 @@ RUN make PKG_CONFIG='pkg-config --static' CFLAGS='-static' LDFLAGS='-s -w -stati
   mkdir /out && cp bin/conmon /out
 
 ### CNI Plugins (cniplugins-build)
-FROM busybox AS cniplugins-build
+FROM common-alpine AS cniplugins-build
 ARG CNI_PLUGINS_RELEASE
 RUN mkdir -p /out/cni && \
  wget -q -O - https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_RELEASE}/cni-plugins-linux-amd64-${CNI_PLUGINS_RELEASE}.tgz | tar xz -C /out/cni && \
@@ -119,7 +119,7 @@ RUN wget -q -O /out/cni/flannel https://github.com/flannel-io/cni-plugin/release
   chmod +x /out/cni/flannel
 
 ### Kubernetes master (kube-master-build)
-FROM busybox AS kube-master-build
+FROM common-alpine AS kube-master-build
 ARG KUBE_MASTER_RELEASE
 RUN mkdir /out && \
   wget -q -O - https://dl.k8s.io/${KUBE_MASTER_RELEASE}/kubernetes-server-linux-amd64.tar.gz | tar xz -C / && \
@@ -151,14 +151,14 @@ RUN make dist/flanneld && \
   mkdir /out && cp dist/flanneld /out
 
 #### etcd (etcd-build)
-FROM busybox AS etcd-build
+FROM common-alpine AS etcd-build
 ARG ETCD_RELEASE
 RUN mkdir /tmp-etcd /out && \
   wget -q -O - https://github.com/etcd-io/etcd/releases/download/${ETCD_RELEASE}/etcd-${ETCD_RELEASE}-linux-amd64.tar.gz | tar xz -C /tmp-etcd && \
   cp /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcd /tmp-etcd/etcd-${ETCD_RELEASE}-linux-amd64/etcdctl /out
 
 #### cfssl (cfssl-build)
-FROM busybox AS cfssl-build
+FROM common-alpine AS cfssl-build
 ARG CFSSL_RELEASE
 RUN mkdir -p /out && \
   wget -q -O /out/cfssl https://github.com/cloudflare/cfssl/releases/download/v${CFSSL_RELEASE}/cfssl_${CFSSL_RELEASE}_linux_amd64 && \
