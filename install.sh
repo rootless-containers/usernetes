@@ -242,7 +242,7 @@ Requires=u7s-master-with-etcd.target u7s-node.target
 After=u7s-master-with-etcd.target u7s-node.target
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 EOF
 
 cat <<EOF | x u7s-master-with-etcd.target
