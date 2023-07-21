@@ -429,6 +429,13 @@ EOF
 	fi
 fi
 
+### Secret encryption
+if [ ! -f ${config_dir}/usernetes/master/secrets-encryption.yaml.template ]; then
+	INFO "Enabling secrets encryption"
+	export ENCRYPTION_SECRET=$(cat /dev/urandom | head -c 32 | base64 -w 0)
+	(envsubst '$ENCRYPTION_SECRET' < manifests/secrets-encryption.yaml.template) > ${config_dir}/usernetes/master/secrets-encryption.yml
+fi
+
 ### Finish installation
 systemctl --user daemon-reload
 if [ -z $start ]; then
