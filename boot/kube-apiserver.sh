@@ -19,6 +19,5 @@ exec $(dirname $0)/nsenter.sh kube-apiserver \
 	--service-account-signing-key-file=$XDG_CONFIG_HOME/usernetes/master/service-account-key.pem \
 	--advertise-address=$(cat $XDG_RUNTIME_DIR/usernetes/parent_ip) \
 	--allow-privileged \
+	--authorization-mode=Node,RBAC \
 	$@
-
-# TODO: enable --authorization-mode=Node,RBAC \
