@@ -51,7 +51,7 @@ function usage() {
 	echo
 	echo "  --start=UNIT        Enable and start the specified target after the installation, e.g. \"u7s.target\". Set to an empty to disable autostart. (Default: \"$start\")"
 	echo "  --cri=RUNTIME       Specify CRI runtime, \"containerd\" or \"crio\". (Default: \"$cri\")"
-	echo '  --cni=RUNTIME       Specify CNI, an empty string (none) or "flannel". (Default: none)'
+	echo '  --cni=RUNTIME       Specify CNI, an empty string (none), \"calico\" or "flannel". (Default: none)'
 	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: \"${publish_default}\")"
 	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: \"$cidr\")"
 	echo
@@ -107,7 +107,7 @@ while true; do
 	--cni)
 		cni="$2"
 		case "$cni" in
-		"" | "flannel") ;;
+		"" | "flannel" | "calico") ;;
 
 		*)
 			ERROR "Unknown CNI \"$cni\". Supported values: \"\" (default) \"flannel\" ."
@@ -429,6 +429,13 @@ EOF
 	fi
 fi
 
+# Need to enable calico before starting rootlesskit
+if [ "$cni" = "calico" ]; then
+	cat <<EOF >>${config_dir}/usernetes/env
+U7S_CALICO=1
+EOF
+fi
+
 ### Secret encryption
 if [ ! -f ${config_dir}/usernetes/master/secrets-encryption.yaml.template ]; then
 	INFO "Enabling secrets encryption"
@@ -491,6 +498,14 @@ subjects:
     kind: User
     name: kubernetes
 EOF
+	if [ "$cni" = "calico" ]; then
+		INFO "Installing calico"
+		set -x
+		kubectl create -f ${base}/manifests/calico/tigera-operator.yaml
+		${base}/manifests/calico/custom-resources.sh
+		set +x
+		sleep 30
+	fi
 	INFO "Installing CoreDNS"
 	set -x
 	# sleep for waiting the node to be available
@@ -501,7 +516,7 @@ EOF
 	INFO "Waiting for CoreDNS pods to be available"
 	set -x
 	# sleep for waiting the pod object to be created
-	sleep 3
+	sleep 10
 	kubectl -n kube-system wait --for=condition=ready pod -l k8s-app=kube-dns
 	kubectl get pods -A -o wide
 	set +x

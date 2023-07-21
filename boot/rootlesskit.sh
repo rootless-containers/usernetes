@@ -12,6 +12,7 @@ rk_state_dir=$XDG_RUNTIME_DIR/usernetes/rootlesskit
 : ${U7S_ROOTLESSKIT_FLAGS=}
 : ${U7S_ROOTLESSKIT_PORTS=}
 : ${U7S_FLANNEL=}
+: ${U7S_CALICO=0}
 
 : ${_U7S_CHILD=0}
 if [[ $_U7S_CHILD == 0 ]]; then
@@ -64,7 +65,11 @@ else
 
 	# Copy CNI config to /etc/cni/net.d (Likely to be hardcoded in CNI installers)
 	mkdir -p /etc/cni/net.d
-	cp -f $U7S_BASE_DIR/config/cni_net.d/* /etc/cni/net.d
+
+	# Disable bridge cni when using calico
+	if [[ $U7S_CALICO == 0 ]]; then
+		cp -f $U7S_BASE_DIR/config/cni_net.d/* /etc/cni/net.d
+	fi
 	if [[ $U7S_FLANNEL == 1 ]]; then
 		cp -f $U7S_BASE_DIR/config/flannel/cni_net.d/* /etc/cni/net.d
 		mkdir -p /run/flannel
