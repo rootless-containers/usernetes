@@ -139,6 +139,7 @@ xt_multiport
 xt_nat
 xt_tcpudp
 ```
+On older kernels, `xt_MASQUERADE` should be `ipt_MASQUERADE` and `ip6t_MASQUERADE`.
 
 ### cgroup v2
 
