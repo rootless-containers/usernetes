@@ -10,6 +10,7 @@ _binaries:
 	$(eval cid := $(shell docker create $(IMAGE)))
 	docker cp $(cid):/home/user/usernetes/bin ./bin
 	docker rm $(cid)
+	curl https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/tigera-operator.yaml --show-error --output manifests/calico/tigera-operator.yaml
 
 image:
 ifeq ($(DOCKER_BUILDKIT),1)

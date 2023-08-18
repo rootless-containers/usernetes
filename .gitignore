@@ -4,3 +4,4 @@ _artifact/
 *.pem
 *.csr
 *.kubeconfig
+manifests/calico/tigera-operator.yaml

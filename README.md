@@ -43,6 +43,7 @@ Usernetes aims to provide a reference distribution of Kubernetes that can be ins
   * crun
 * Multi-node CNI
   * Flannel (VXLAN)
+  * Calico (VXLAN)
 * CoreDNS
 
 Installer scripts are in POC status.
@@ -138,6 +139,7 @@ xt_multiport
 xt_nat
 xt_tcpudp
 ```
+On older kernels, `xt_MASQUERADE` should be `ipt_MASQUERADE` and `ip6t_MASQUERADE`.
 
 ### cgroup v2
 
@@ -366,7 +368,7 @@ $ sudo sh -c "echo 0   2147483647  > /proc/sys/net/ipv4/ping_group_range"
 
 * 10.5.0.0/16: The CIDR for Flannel
 
-* 10.88.0.0/16: The CIDR for single-node CNI
+* 10.88.0.0/16: The CIDR for single-node CNI and Calico
 
 ### Install Usernetes from source
 
