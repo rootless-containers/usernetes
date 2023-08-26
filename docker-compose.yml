@@ -1,97 +1,45 @@
-version: "3"
-
+# Use `make up`, not `docker compose up`,
+# as this YAML requires ${U7S_...} variables to be set.
+---
 services:
-  init-certs:
-    image: ghcr.io/rootless-containers/usernetes
-    entrypoint: /docker-entrypoint.sh
-    command:
-      - unsudo
-      - /home/user/usernetes/common/cfssl.sh
-      - --dir=/home/user/.config/usernetes
-      - --master=master
-      - --node=node-crio
-      - --node=node-containerd
+  node:
+    build: .
+    hostname: ${U7S_NODE_NAME}
     privileged: true
-    tty: true
-    hostname: master
-    volumes:
-      - tls-master:/home/user/.config/usernetes/master
-      - tls-node-crio:/home/user/.config/usernetes/nodes.node-crio
-      - tls-node-containerd:/home/user/.config/usernetes/nodes.node-containerd
-  master:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-master-with-etcd.target
-      - --cidr=10.0.100.0/24
-# 2379/tcp: etcd, 6443/tcp: kube-apiserver
-      - --publish=0.0.0.0:2379:2379/tcp
-      - --publish=0.0.0.0:6443:6443/tcp
-      - --cni=flannel
-      - --cri=
-    privileged: true
+    restart: on-failure
     tty: true
     ports:
-      - 127.0.0.1:6443:6443
-    hostname: master
-    networks:
-      - usernetes
+      # etcd
+      - 2379:2379
+      # kube-apiserver
+      - 6443:6443
+      # kubelet
+      - 10250:10250
+      # flannel
+      - 8472:8472/udp
     volumes:
-      - tls-master:/home/user/.config/usernetes/master
-  node-crio:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-node.target
-      - --cidr=10.0.101.0/24
-# 10250/tcp: kubelet, 8472/udp: flannel
-      - --publish=0.0.0.0:10250:10250/tcp
-      - --publish=0.0.0.0:8472:8472/udp
-      - --cni=flannel
-      - --cri=crio
-    privileged: true
-    tty: true
-    networks:
-      - usernetes
-    hostname: node-crio
-    volumes:
-      - tls-node-crio:/home/user/.config/usernetes/node
-# FIXME: flanneld should not require tls-master
-# (currently required because master and flanneld share the same etcd cluster)
-      - tls-master:/home/user/.config/usernetes/master
-  node-containerd:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-node.target
-      - --cidr=10.0.102.0/24
-      - --publish=0.0.0.0:10250:10250/tcp
-      - --publish=0.0.0.0:8472:8472/udp
-      - --cni=flannel
-      - --cri=containerd
-    privileged: true
-    tty: true
-    networks:
-      - usernetes
-    hostname: node-containerd
-    volumes:
-      - tls-node-containerd:/home/user/.config/usernetes/node
-      - tls-master:/home/user/.config/usernetes/master
+      - .:/usernetes:ro
+      - /boot:/boot:ro
+      - /lib/modules:/lib/modules:ro
+      - node-var:/var
+      - node-opt:/opt
+      - node-etc:/etc
+      - type: tmpfs
+        target: /run
+      - type: tmpfs
+        target: /tmp
+    working_dir: /usernetes
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin.conf
+      U7S_HOST_IP: ${U7S_HOST_IP}
 networks:
-  usernetes:
+  default:
+    ipam:
+      config:
+        # Each of the nodes has to have a different IP.
+        # The node IP here is not accessible from other nodes.
+        - subnet: ${U7S_NODE_SUBNET}
 volumes:
-  tls-master:
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: "uid=1000"
-  tls-node-crio:
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: "uid=1000"
-  tls-node-containerd:
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: "uid=1000"
+  node-var: {}
+  node-opt: {}
+  node-etc: {}

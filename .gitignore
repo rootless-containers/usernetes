@@ -1,6 +1,2 @@
-bin/
-_artifact/
-.vagrant/
-*.pem
-*.csr
-*.kubeconfig
+/kubeconfig
+/join-command

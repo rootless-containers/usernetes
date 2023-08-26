@@ -1,25 +1,60 @@
+---
 name: Main
 on: [push, pull_request]
 env:
   DOCKER_BUILDKIT: 1
+  KUBECONFIG: ./kubeconfig
 jobs:
-  docker:
-    name: "Docker"
+  single-node:
+    name: "Single node"
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
-      - name: "System info"
-        run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
       - uses: actions/checkout@v3
-      - name: "Make"
-        run: make image
-      - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
+      - name: Set up cgroup v2 delegation
         run: |
-          make clean
-          docker builder prune -a -f
-      - name: "Smoke test (containerd)"
-        run: ./hack/smoketest-docker.sh u7s-test-containerd ghcr.io/rootless-containers/usernetes --cri=containerd
-      - name: "Smoke test (CRI-O)"
-        run: ./hack/smoketest-docker.sh u7s-test-crio ghcr.io/rootless-containers/usernetes --cri=crio
-      - name: "Smoke test (multi-node cluster with Flannel)"
-        run: ./hack/smoketest-docker-compose.sh
+          sudo mkdir -p /etc/systemd/system/user@.service.d
+          cat <<EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+          [Service]
+          Delegate=cpu cpuset io memory pids
+          EOF
+          sudo systemctl daemon-reload
+      - name: Set up Rootless Docker
+        run: |
+          set -eux -o pipefail
+          sudo apt-get remove moby-engine-*
+          curl https://get.docker.com | sudo sh
+          sudo systemctl disable --now docker.socket docker.service
+          sudo rm -rf /var/run/docker*
+          dockerd-rootless-setuptool.sh install
+          docker info
+      - run: make up
+      - run: sleep 5
+      - run: make kubeadm-init
+      - run: make install-flannel
+      - run: make kubeconfig
+      - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+      - run: ./hack/test-smoke.sh
+      - name: "Test data persistency after restarting the node"
+        run: |
+          make down
+          make up
+          sleep 30
+          ./hack/test-smoke.sh
+
+  multi-node:
+    name: "Multi node (emulated using LXD)"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - run: sudo modprobe vxlan
+      - uses: actions/checkout@v3
+      - uses: canonical/setup-lxd@v0.1.1
+      - run: ./hack/create-cluster-lxd.sh
+      - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+      - run: ./hack/test-smoke.sh
+      - name: "Test data persistency after restarting the node"
+        run: |
+          lxc restart host0 host1
+          sleep 30
+          ./hack/test-smoke.sh

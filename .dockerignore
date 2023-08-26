@@ -1,1 +1,2 @@
-.gitignore
+/kubeconfig
+/join-command
