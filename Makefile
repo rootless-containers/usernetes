@@ -19,7 +19,7 @@ export U7S_NODE_SUBNET := $(NODE_SUBNET)
 
 DOCKER ?= docker
 COMPOSE := $(DOCKER) compose
-NODE_SERVICE_NAME := $(shell $(COMPOSE) config --services | head -n1)
+NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
 	-e U7S_HOST_IP=$(U7S_HOST_IP) \
 	-e U7S_NODE_NAME=$(U7S_NODE_NAME) \
