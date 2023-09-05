@@ -18,6 +18,9 @@ export U7S_NODE_NAME:= $(NODE_NAME)
 export U7S_NODE_SUBNET := $(NODE_SUBNET)
 
 DOCKER ?= docker
+
+export DOCKER := $(DOCKER)
+
 COMPOSE := $(DOCKER) compose
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
@@ -49,8 +52,12 @@ help:
 	@echo 'make down-v'
 	@echo 'kubectl taint nodes --all node-role.kubernetes.io/control-plane-'
 
+.PHONY: check-preflight
+check-preflight:
+	./Makefile.d/check-preflight.sh
+
 .PHONY: up
-up:
+up: check-preflight
 	$(COMPOSE) up --build -d
 
 .PHONY: down
