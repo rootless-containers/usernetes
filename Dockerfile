@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=kindest/node:v1.27.3
+ARG BASE_IMAGE=kindest/node:v1.28.0
 
 # TODO: use `ADD --checksum=sha256...`
 FROM scratch AS cni-plugins-amd64
