@@ -86,6 +86,9 @@ kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 - Most of host files are not visible with `hostPath` mounts. Edit [`docker-compose.yaml`](./docker-compose.yaml) for mounting additional files.
 - Some [volume drivers](https://kubernetes.io/docs/concepts/storage/volumes/) such as `nfs` do not work.
 
+<!--
 ## Advanced topics
 - Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
   This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
+-->
+<!-- ↑FIXME: "rootful" support is broken: https://github.com/rootless-containers/usernetes/issues/297 -->
