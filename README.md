@@ -1,11 +1,12 @@
 # Usernetes: Kubernetes without the root privileges (Generation 2)
 
-Usernetes (Gen2) deploys a Kubernetes cluster on [Rootless Docker hosts](https://rootlesscontaine.rs/getting-started/docker/).
+Usernetes (Gen2) deploys a Kubernetes cluster inside [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/),
+so as to mitigate potential container-breakout vulnerabilities.
 
 > **Note**
 >
 > Usernetes (Gen2) has *significantly* diverged from the original Usernetes (Gen1),
-> which did not rely on Rootless Docker hosts.
+> which did not require Rootless Docker to be installed on hosts.
 >
 > See the [`gen1`](https://github.com/rootless-containers/usernetes/tree/gen1) branch for
 > the original Usernetes (Gen1).
@@ -21,7 +22,21 @@ but Usernetes (Gen 2) supports creating a cluster with multiple hosts.
 
 ## Requirements
 
-- [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/)
+> **Note**
+>
+> Using Ubuntu 22.04 hosts is recommended.
+
+- [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/):
+```bash
+curl -o install.sh -fsSL https://get.docker.com
+sudo sh install.sh
+dockerd-rootless-setuptool.sh install
+```
+
+- systemd lingering:
+```bash
+sudo loginctl enable-linger $(whoami)
+```
 
 - cgroup v2 delegation:
 ```bash
@@ -39,8 +54,6 @@ sudo systemctl daemon-reload
 ```
 sudo modprobe vxlan
 ```
-
-Using Ubuntu 22.04 hosts is recommended.
 
 ## Usage
 See `make help`.
@@ -67,3 +80,12 @@ make shell
 make down-v
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 ```
+
+## Limitations
+- Node ports cannot be exposed automatically. Edit [`docker-compose.yaml`](./docker-compose.yaml) for exposing additional node ports.
+- Most of host files are not visible with `hostPath` mounts. Edit [`docker-compose.yaml`](./docker-compose.yaml) for mounting additional files.
+- Some [volume drivers](https://kubernetes.io/docs/concepts/storage/volumes/) such as `nfs` do not work.
+
+## Advanced topics
+- Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
+  This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
