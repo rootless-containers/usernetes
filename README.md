@@ -70,6 +70,8 @@ EOF
 sudo sysctl --system
 ```
 
+Use scripts in [`./init-host`](./init-host) for automating these steps.
+
 ## Usage
 See `make help`.
 
