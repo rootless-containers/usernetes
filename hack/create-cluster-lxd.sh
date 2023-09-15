@@ -7,9 +7,9 @@ SCP="scp -F ${HOME}/.u7s-ci-hosts/ssh_config"
 SSH="ssh -F ${HOME}/.u7s-ci-hosts/ssh_config"
 for host in host0 host1; do
 	$SCP -r "$(pwd)" "${host}:~/usernetes"
-	$SSH "${USER}-sudo@${host}" sudo "~${USER}/usernetes/hack/init-host.root.sh"
+	$SSH "${USER}-sudo@${host}" sudo "~${USER}/usernetes/init-host/init-host.root.sh"
 	$SSH "${USER}-sudo@${host}" sudo loginctl enable-linger "${USER}"
-	$SSH "${host}" ~/usernetes/hack/init-host.rootless.sh
+	$SSH "${host}" ~/usernetes/init-host/init-host.rootless.sh
 done
 
 # Launch a Kubernetes node inside a Rootless Docker host
