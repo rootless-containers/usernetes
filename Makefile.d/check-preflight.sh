@@ -10,6 +10,8 @@ function ERROR() {
 }
 
 : "${DOCKER:=docker}"
+: "${QUICK:=0}"
+: "${BUSYBOX_IMAGE:=busybox}"
 
 # Check hard dependency commands
 for f in make jq "${DOCKER}"; do
@@ -59,8 +61,17 @@ else
 fi
 
 # Check kernel modules
-for f in ip6_tables ip6table_nat ip_tables iptable_nat vxlan; do
+for f in br_netfilter ip6_tables ip6table_nat ip_tables iptable_nat vxlan; do
 	if ! grep -qw "^$f" /proc/modules; then
 		WARNING "Kernel module \"${f}\" does not seem loaded? (negligible if built-in to the kernel)"
 	fi
 done
+
+if [ "$QUICK" != "1" ]; then
+	# Check net.ipv4.conf.default.rp_filter in the daemon's network namespace.
+	# The value can be 0 (disabled) or 2 (loose), must not be 1 (strict).
+	if [ "$(${DOCKER} run --rm --net=host "${BUSYBOX_IMAGE}" sysctl -n net.ipv4.conf.default.rp_filter)" == "1" ]; then
+		ERROR "sysctl value \"net.ipv4.conf.default.rp_filter\" must be 0 (disabled) or 2 (loose) in the daemon's network namespace"
+		exit 1
+	fi
+fi

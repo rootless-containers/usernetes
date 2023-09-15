@@ -32,6 +32,11 @@ services:
     environment:
       KUBECONFIG: /etc/kubernetes/admin.conf
       U7S_HOST_IP: ${U7S_HOST_IP}
+    sysctls:
+      - net.ipv4.ip_forward=1
+      # In addition, `net.ipv4.conf.default.rp_filter`
+      # has to be set to 0 (disabled) or 2 (loose)
+      # in the daemon's network namespace.
 networks:
   default:
     ipam:

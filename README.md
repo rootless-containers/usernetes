@@ -22,9 +22,10 @@ but Usernetes (Gen 2) supports creating a cluster with multiple hosts.
 
 ## Requirements
 
-> **Note**
->
-> Using Ubuntu 22.04 hosts is recommended.
+- Host OS should be one of the following:
+  - Ubuntu 22.04 (recommended)
+  - Rocky Linux 9
+  - AlmaLinux 9
 
 - [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/):
 ```bash
@@ -52,7 +53,21 @@ sudo systemctl daemon-reload
 
 - Kernel modules:
 ```
-sudo modprobe vxlan
+sudo tee /etc/modules-load.d/usernetes.conf <<EOF >/dev/null
+br_netfilter
+vxlan
+EOF
+
+sudo systemctl restart systemd-modules-load.service
+```
+
+- sysctl:
+```
+cat tee /etc/sysctl.d/99-usernetes.conf <<EOF >/dev/null
+net.ipv4.conf.default.rp_filter = 2
+EOF
+
+sudo sysctl --system
 ```
 
 ## Usage
