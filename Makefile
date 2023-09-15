@@ -81,6 +81,17 @@ kubeconfig:
 	$(COMPOSE) cp $(NODE_SERVICE_NAME):/etc/kubernetes/admin.conf ./kubeconfig
 	@echo "# Run the following command by yourself:"
 	@echo "export KUBECONFIG=$(shell pwd)/kubeconfig"
+ifeq ($(shell command -v kubectl 2> /dev/null),)
+	@echo "# To install kubectl, run the following command too:"
+	@echo "make kubectl"
+endif
+
+.PHONY: kubectl
+kubectl:
+	$(COMPOSE) cp $(NODE_SERVICE_NAME):/usr/bin/kubectl ./kubectl
+	@echo "# Run the following command by yourself:"
+	@echo "export PATH=$(shell pwd):\$$PATH"
+	@echo "source <(kubectl completion bash)"
 
 .PHONY: join-command
 join-command:
