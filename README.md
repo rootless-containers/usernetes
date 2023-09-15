@@ -43,7 +43,7 @@ sudo loginctl enable-linger $(whoami)
 ```bash
 sudo mkdir -p /etc/systemd/system/user@.service.d
 
-cat <<EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+sudo tee /etc/systemd/system/user@.service.d/delegate.conf <<EOF >/dev/null
 [Service]
 Delegate=cpu cpuset io memory pids
 EOF
@@ -63,7 +63,7 @@ sudo systemctl restart systemd-modules-load.service
 
 - sysctl:
 ```
-cat tee /etc/sysctl.d/99-usernetes.conf <<EOF >/dev/null
+sudo tee /etc/sysctl.d/99-usernetes.conf <<EOF >/dev/null
 net.ipv4.conf.default.rp_filter = 2
 EOF
 
