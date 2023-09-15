@@ -17,11 +17,14 @@ export U7S_NODE_NAME:= $(NODE_NAME)
 # Not accessible from other hosts.
 export U7S_NODE_SUBNET := $(NODE_SUBNET)
 
-DOCKER ?= docker
+CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE)
+export CONTAINER_ENGINE := $(CONTAINER_ENGINE)
 
-export DOCKER := $(DOCKER)
+CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE_TYPE)
+export CONTAINER_ENGINE_TYPE := $(CONTAINER_ENGINE_TYPE)
 
-COMPOSE := $(DOCKER) compose
+COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh COMPOSE)
+
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
 	-e U7S_HOST_IP=$(U7S_HOST_IP) \
@@ -78,7 +81,7 @@ logs:
 
 .PHONY: kubeconfig
 kubeconfig:
-	$(COMPOSE) cp $(NODE_SERVICE_NAME):/etc/kubernetes/admin.conf ./kubeconfig
+	$(COMPOSE) exec -T $(NODE_SERVICE_NAME) cat /etc/kubernetes/admin.conf >kubeconfig
 	@echo "# Run the following command by yourself:"
 	@echo "export KUBECONFIG=$(shell pwd)/kubeconfig"
 ifeq ($(shell command -v kubectl 2> /dev/null),)
@@ -88,7 +91,7 @@ endif
 
 .PHONY: kubectl
 kubectl:
-	$(COMPOSE) cp $(NODE_SERVICE_NAME):/usr/bin/kubectl ./kubectl
+	$(COMPOSE) exec -T --workdir=/usr/bin $(NODE_SERVICE_NAME) tar c kubectl | tar xv
 	@echo "# Run the following command by yourself:"
 	@echo "export PATH=$(shell pwd):\$$PATH"
 	@echo "source <(kubectl completion bash)"

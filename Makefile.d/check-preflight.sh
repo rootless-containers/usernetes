@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eu
 
+function INFO() {
+	echo >&2 -e "\e[104m\e[97m[INFO]\e[49m\e[39m $@"
+}
 function WARNING() {
 	echo >&2 -e "\e[101m\e[97m[WARNING]\e[49m\e[39m $@"
 }
@@ -9,12 +12,21 @@ function ERROR() {
 	echo >&2 -e "\e[101m\e[97m[ERROR]\e[49m\e[39m $@"
 }
 
-: "${DOCKER:=docker}"
+script_dir="$(dirname "$0")"
+detect_engine="${script_dir}"/detect_container_engine.sh
+: "${CONTAINER_ENGINE:=$("${detect_engine}" CONTAINER_ENGINE)}"
+: "${CONTAINER_ENGINE_TYPE:=$("${detect_engine}" CONTAINER_ENGINE_TYPE)}"
 : "${QUICK:=0}"
-: "${BUSYBOX_IMAGE:=busybox}"
+: "${BUSYBOX_IMAGE:=docker.io/library/busybox:latest}"
+
+if [ -z "${CONTAINER_ENGINE}" ] || [ -z "${CONTAINER_ENGINE_TYPE}" ]; then
+	ERROR "No container engine was detected"
+	exit 1
+fi
+INFO "Detected container engine type: ${CONTAINER_ENGINE_TYPE}"
 
 # Check hard dependency commands
-for f in make jq "${DOCKER}"; do
+for f in make jq "${CONTAINER_ENGINE}"; do
 	if ! command -v "${f}" >/dev/null 2>&1; then
 		ERROR "Command \"${f}\" is not installed"
 		exit 1
@@ -28,9 +40,22 @@ for f in kubectl; do
 	fi
 done
 
-# Check if Docker is running in Rootless mode
-# TODO: support Podman?
-if "${DOCKER}" info --format '{{json .SecurityOptions}}' | grep -q "name=rootless"; then
+rootless=
+case "${CONTAINER_ENGINE_TYPE}" in
+"podman")
+	if [ "$(${CONTAINER_ENGINE} info --format '{{.Host.Security.Rootless}}')" = "true" ]; then
+		rootless=1
+	fi
+	;;
+*)
+	if ${CONTAINER_ENGINE} info --format '{{json .SecurityOptions}}' | grep -q "name=rootless"; then
+		rootless=1
+	fi
+	;;
+esac
+
+# Check if the container engine is running in Rootless mode
+if [ "${rootless}" = "1" ]; then
 	# Check systemd lingering: https://rootlesscontaine.rs/getting-started/common/login/
 	if command -v loginctl >/dev/null 2>&1; then
 		if [ "$(loginctl list-users --output json | jq ".[] | select(.uid == "${UID}").linger")" != "true" ]; then
@@ -57,7 +82,7 @@ if "${DOCKER}" info --format '{{json .SecurityOptions}}' | grep -q "name=rootles
 		fi
 	fi
 else
-	WARNING "Docker does not seem running in Rootless mode"
+	WARNING "Container engine (${CONTAINER_ENGINE}) does not seem running in Rootless mode"
 fi
 
 # Check kernel modules
@@ -68,10 +93,10 @@ for f in br_netfilter ip6_tables ip6table_nat ip_tables iptable_nat vxlan; do
 done
 
 if [ "$QUICK" != "1" ]; then
-	# Check net.ipv4.conf.default.rp_filter in the daemon's network namespace.
+	# Check net.ipv4.conf.default.rp_filter in the container engine's network namespace. (e.g., netns of dockerd)
 	# The value can be 0 (disabled) or 2 (loose), must not be 1 (strict).
-	if [ "$(${DOCKER} run --rm --net=host "${BUSYBOX_IMAGE}" sysctl -n net.ipv4.conf.default.rp_filter)" == "1" ]; then
-		ERROR "sysctl value \"net.ipv4.conf.default.rp_filter\" must be 0 (disabled) or 2 (loose) in the daemon's network namespace"
+	if [ "$(${CONTAINER_ENGINE} run --rm --net=host "${BUSYBOX_IMAGE}" sysctl -n net.ipv4.conf.default.rp_filter)" == "1" ]; then
+		ERROR "sysctl value \"net.ipv4.conf.default.rp_filter\" must be 0 (disabled) or 2 (loose) in the container engine's network namespace"
 		exit 1
 	fi
 fi

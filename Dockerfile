@@ -1,19 +1,11 @@
-ARG BASE_IMAGE=kindest/node:v1.28.0
-
-# TODO: use `ADD --checksum=sha256...`
-FROM scratch AS cni-plugins-amd64
-ADD https://github.com/containernetworking/plugins/releases/download/v1.3.0/cni-plugins-linux-amd64-v1.3.0.tgz /cni-plugins.tgz
-
-FROM scratch AS cni-plugins-arm64
-ADD https://github.com/containernetworking/plugins/releases/download/v1.3.0/cni-plugins-linux-arm64-v1.3.0.tgz /cni-plugins.tgz
-
-ARG TARGETARCH
-FROM cni-plugins-$TARGETARCH AS cni-plugins
-
-ARG BASE_IMAGE
+ARG BASE_IMAGE=docker.io/kindest/node:v1.28.0
+ARG CNI_PLUGINS_VERSION=v1.3.0
 FROM ${BASE_IMAGE}
-RUN --mount=type=bind,from=cni-plugins,dst=/mnt/tmp \
-  tar Cxzvf /opt/cni/bin /mnt/tmp/cni-plugins.tgz
+# TODO: check SHA256SUMS of cni-plugins
+ARG CNI_PLUGINS_VERSION
+RUN arch="$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)" && \
+  curl -fsSL https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_VERSION}/cni-plugins-linux-${arch}-${CNI_PLUGINS_VERSION}.tgz \
+  | tar Cxzv /opt/cni/bin
 # gettext-base: for `envsubst`
 # moreutils: for `sponge`
 # socat: for `socat` (to silence "[WARNING FileExisting-socat]" from kubeadm)

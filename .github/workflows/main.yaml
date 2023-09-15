@@ -9,6 +9,12 @@ jobs:
     name: "Single node"
     runs-on: ubuntu-22.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, podman]
+    env:
+      CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
       - uses: actions/checkout@v3
       - name: Set up cgroup v2 delegation
@@ -19,15 +25,26 @@ jobs:
           Delegate=cpu cpuset io memory pids
           EOF
           sudo systemctl daemon-reload
+      - name: Remove preinstalled Moby
+        # Preinstalled Moby does not contain dockerd-rootless-setuptool.sh
+        run: sudo apt-get remove moby-engine-*
       - name: Set up Rootless Docker
+        if: ${{ matrix.engine == 'docker' }}
         run: |
           set -eux -o pipefail
-          sudo apt-get remove moby-engine-*
           curl https://get.docker.com | sudo sh
           sudo systemctl disable --now docker.socket docker.service
           sudo rm -rf /var/run/docker*
           dockerd-rootless-setuptool.sh install
           docker info
+      - name: Set up Rootless Podman
+        if: ${{ matrix.engine == 'podman' }}
+        run: |
+          set -eux -o pipefail
+          # Preinstalled Podman is too old (v3.4.4)
+          sudo apt-get remove podman*
+          sudo ./init-host/init-host.root.d/install-podman.sh
+          podman info
       - run: make up
       - run: sleep 5
       - run: make kubeadm-init
@@ -46,6 +63,17 @@ jobs:
     name: "Multi node (emulated using LXD)"
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lxc-image: ubuntu:22.04
+            engine: docker
+          - lxc-image: images:fedora/38/cloud
+            engine: podman
+    env:
+      LXC_IMAGE: "${{ matrix.lxc-image }}"
+      CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
       - run: sudo modprobe vxlan
       - uses: actions/checkout@v3

@@ -8,6 +8,7 @@ dir=$1
 shift
 names=$*
 
+: "${LXC_IMAGE:="ubuntu:22.04"}"
 LXC="sudo lxc"
 
 echo "USER=${USER}"
@@ -42,7 +43,7 @@ EOF
 fi
 
 for name in ${names}; do
-	${LXC} init ubuntu:22.04 "${name}" -c security.privileged=true -c security.nesting=true
+	${LXC} init "${LXC_IMAGE}" "${name}" -c security.privileged=true -c security.nesting=true
 	${LXC} config device add "${name}" bind-boot disk source=/boot path=/boot readonly=true
 	${LXC} config set "${name}" user.user-data - <"${userdata}"
 	${LXC} start "${name}"
