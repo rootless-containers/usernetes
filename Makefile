@@ -95,17 +95,18 @@ kubectl:
 
 .PHONY: join-command
 join-command:
-	$(NODE_SHELL) kubeadm token create --print-join-command >join-command
+	$(NODE_SHELL) kubeadm token create --print-join-command | tr -d '\r' >join-command
 	@echo "# Copy the 'join-command' file to another host, and run 'make kubeadm-join' on that host (not on this host)"
 
 .PHONY: kubeadm-init
 kubeadm-init:
 	$(NODE_SHELL) sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
-	$(NODE_SHELL) kubeadm init --config /tmp/kubeadm-config.yaml
+	$(NODE_SHELL) kubeadm init --config /tmp/kubeadm-config.yaml --skip-token-print
+	@echo "# Run 'make join-command' to print the join command"
 
 .PHONY: kubeadm-join
 kubeadm-join:
-	$(NODE_SHELL) $(shell cat join-command)
+	$(NODE_SHELL) sh -euc '$$(cat /usernetes/join-command)'
 
 .PHONY: install-flannel
 install-flannel:
