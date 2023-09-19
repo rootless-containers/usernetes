@@ -6,5 +6,17 @@ if [ "$(id -u)" == "0" ]; then
 	exit 1
 fi
 
-dockerd-rootless-setuptool.sh install
-docker info
+: "${CONTAINER_ENGINE:=docker}"
+case "${CONTAINER_ENGINE}" in
+"docker")
+	dockerd-rootless-setuptool.sh install
+	;;
+"podman")
+	systemctl --user enable --now podman-restart
+	;;
+*)
+	# NOP
+	;;
+esac
+
+${CONTAINER_ENGINE} info

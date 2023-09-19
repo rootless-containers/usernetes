@@ -6,6 +6,9 @@ if [ "$(id -u)" != "0" ]; then
 	exit 1
 fi
 
+: "${CONTAINER_ENGINE:=docker}"
+script_dir="$(dirname "$0")"
+
 if [ ! -e /etc/systemd/system/user@.service.d/delegate.conf ]; then
 	mkdir -p /etc/systemd/system/user@.service.d
 	cat <<EOF >/etc/systemd/system/user@.service.d/delegate.conf
@@ -19,7 +22,8 @@ cat >/etc/modules-load.d/usernetes.conf <<EOF
 br_netfilter
 vxlan
 EOF
-systemctl restart systemd-modules-load.service
+# systemd-modules-load.service may fail inside LXC
+systemctl restart systemd-modules-load.service || true
 
 cat >/etc/sysctl.d/99-usernetes.conf <<EOF
 # For VXLAN, net.ipv4.conf.default.rp_filter must not be 1 (strict) in the daemon's netns.
@@ -27,21 +31,39 @@ cat >/etc/sysctl.d/99-usernetes.conf <<EOF
 # configure sysctl for the daemon's netns. So we are configuring it globally here.
 net.ipv4.conf.default.rp_filter = 2
 EOF
-sysctl --system
-
-if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
-	if grep -q centos /etc/os-release; then
-		# Works with Rocky and Alma too
-		dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-		dnf -y install docker-ce
-	else
-		curl https://get.docker.com | sh
-	fi
-fi
-systemctl disable --now docker
+# sysctl may fail inside LXC
+sysctl --system || true
 
 if command -v dnf >/dev/null 2>&1; then
 	dnf install -y git shadow-utils make jq
+	# Workaround: SUID bit on newuidmap is dropped on LXC images:fedora/38/cloud,
+	# so it has to be reinstalled
+	dnf reinstall -y shadow-utils
 else
+  apt-get update
 	apt-get install -y git uidmap make jq
 fi
+
+case "${CONTAINER_ENGINE}" in
+"docker")
+	if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
+		if grep -q centos /etc/os-release; then
+			# Works with Rocky and Alma too
+			dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+			dnf -y install docker-ce
+		else
+			curl https://get.docker.com | sh
+		fi
+	fi
+	systemctl disable --now docker
+	;;
+"podman")
+	if ! command -v podman >/dev/null 2>&1; then
+		"${script_dir}"/init-host.root.d/install-podman.sh
+	fi
+	;;
+*)
+	echo >&2 "Unsupported container engine: ${CONTAINER_ENGINE}"
+	exit 1
+	;;
+esac

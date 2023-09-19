@@ -6,8 +6,7 @@ services:
     build: .
     hostname: ${U7S_NODE_NAME}
     privileged: true
-    restart: on-failure
-    tty: true
+    restart: always
     ports:
       # etcd
       - 2379:2379

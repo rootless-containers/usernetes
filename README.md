@@ -22,12 +22,23 @@ but Usernetes (Gen 2) supports creating a cluster with multiple hosts.
 
 ## Requirements
 
-- Host OS should be one of the following:
-  - Ubuntu 22.04 (recommended)
-  - Rocky Linux 9
-  - AlmaLinux 9
+- One of the following host operating system:
 
-- [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/):
+|Host operating system|Minimum version|
+|---------------------|---------------|
+|Ubuntu (recommended) |22.04          |
+|Rocky Linux          |9              |
+|AlmaLinux            |9              |
+|Fedora               |(?)            |
+
+- One of the following container engines:
+
+|Container Engine                                                                    |Minimum version|
+|------------------------------------------------------------------------------------|---------------|
+|[Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/) (recommended)|v20.10         |
+|[Rootless Podman](https://rootlesscontaine.rs/getting-started/podman/)              |v4.x           |
+|[Rootless nerdctl](https://rootlesscontaine.rs/getting-started/containerd/)         |v1.6           |
+
 ```bash
 curl -o install.sh -fsSL https://get.docker.com
 sudo sh install.sh
@@ -97,6 +108,9 @@ make shell
 make down-v
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 ```
+
+The container engine defaults to Docker.
+To change the container engine, set `export CONTAINER_ENGINE=podman` or `export CONTAINER_ENGINE=nerdctl`.
 
 ## Limitations
 - Node ports cannot be exposed automatically. Edit [`docker-compose.yaml`](./docker-compose.yaml) for exposing additional node ports.
