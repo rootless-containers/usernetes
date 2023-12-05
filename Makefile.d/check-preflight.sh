@@ -58,7 +58,7 @@ esac
 if [ "${rootless}" = "1" ]; then
 	# Check systemd lingering: https://rootlesscontaine.rs/getting-started/common/login/
 	if command -v loginctl >/dev/null 2>&1; then
-		if [ "$(loginctl list-users --output json | jq ".[] | select(.uid == "${UID}").linger")" != "true" ]; then
+		if [ "$(loginctl show-user --property Linger "${UID}")" != "Linger=yes" ]; then
 			WARNING 'systemd lingering is not enabled. Run `sudo loginctl enable-linger $(whoami)` to enable it, otherwise Kubernetes will exit on logging out.'
 		fi
 	else
