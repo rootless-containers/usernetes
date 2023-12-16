@@ -69,7 +69,7 @@ jobs:
         include:
           - lxc-image: ubuntu:22.04
             engine: docker
-          - lxc-image: images:fedora/38/cloud
+          - lxc-image: images:fedora/39/cloud
             engine: podman
     env:
       LXC_IMAGE: "${{ matrix.lxc-image }}"
