@@ -46,7 +46,7 @@ jobs:
           sudo ./init-host/init-host.root.d/install-podman.sh
           podman info
       - run: make up
-      - run: sleep 5
+      - run: sleep 30
       - run: make kubeadm-init
       - run: make install-flannel
       - run: make kubeconfig
