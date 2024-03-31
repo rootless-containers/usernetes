@@ -36,6 +36,13 @@ NODE_SHELL := $(COMPOSE) exec \
 	-e U7S_NODE_IP=$(U7S_NODE_IP) \
 	$(NODE_SERVICE_NAME)
 
+ifeq ($(CONTAINER_ENGINE),nerdctl)
+ifneq (,$(wildcard $(XDG_RUNTIME_DIR)/bypass4netnsd.sock))
+	export U7S_B4NN := true
+	export U7S_B4NN_IGNORE_SUBNETS := ["10.96.0.0/16", "10.244.0.0/16", "$(U7S_NODE_SUBNET)"]
+endif
+endif
+
 .PHONY: help
 help:
 	@echo '# Bootstrap a cluster'
@@ -63,6 +70,10 @@ help:
 .PHONY: check-preflight
 check-preflight:
 	./Makefile.d/check-preflight.sh
+
+.PHONY: render
+render: check-preflight
+	$(COMPOSE) config
 
 .PHONY: up
 up: check-preflight

@@ -119,5 +119,16 @@ To change the container engine, set `export CONTAINER_ENGINE=podman` or `export 
 - Some [volume drivers](https://kubernetes.io/docs/concepts/storage/volumes/) such as `nfs` do not work.
 
 ## Advanced topics
+### Network
+When `CONTAINER_ENGINE` is set to `nerdctl`, [bypass4netns](https://github.com/rootless-containers/bypass4netns) can be enabled for accelerating `connect(2)` syscalls.
+The acceleration currently does not apply to VXLAN packets.
+
+```bash
+containerd-rootless-setuptool.sh install-bypass4netnsd
+export CONTAINER_ENGINE=nerdctl
+make up
+```
+
+### Misc
 - Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
   This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
