@@ -1,16 +1,27 @@
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
-localAPIEndpoint:
-  advertiseAddress: "${U7S_HOST_IP}"
-  bindPort: 6443
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 networking:
   serviceSubnet: "10.96.0.0/16"
   podSubnet: "10.244.0.0/16"
-controlPlaneEndpoint: "${U7S_HOST_IP}:6443"
+controlPlaneEndpoint: "${U7S_NODE_NAME}:6443"
+apiServer:
+  extraArgs:
+    advertise-address: "${U7S_HOST_IP}"
+    cloud-provider: external
+    # Default: "Hostname,InternalDNS,InternalIP,ExternalDNS,ExternalIP"
+    kubelet-preferred-address-types: "ExternalIP"
+  certSANs:
+    - localhost
+    - 127.0.0.1
+    - "${U7S_NODE_NAME}"
+    - "${U7S_HOST_IP}"
+controllerManager:
+  extraArgs:
+    cloud-provider: external
 ---
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1

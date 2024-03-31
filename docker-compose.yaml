@@ -7,6 +7,9 @@ services:
     hostname: ${U7S_NODE_NAME}
     privileged: true
     restart: always
+    networks:
+      default:
+        ipv4_address: ${U7S_NODE_IP}
     ports:
       # etcd
       - 2379:2379

@@ -13,5 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   gettext-base \
   moreutils \
   socat
+ADD Dockerfile.d/etc_udev_rules.d_90-flannel.rules /etc/udev/rules.d/90-flannel.rules
 ADD Dockerfile.d/u7s-entrypoint.sh /
 ENTRYPOINT ["/u7s-entrypoint.sh", "/usr/local/bin/entrypoint", "/sbin/init"]
