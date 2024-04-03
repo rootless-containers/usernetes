@@ -40,7 +40,7 @@ if command -v dnf >/dev/null 2>&1; then
 	# so it has to be reinstalled
 	dnf reinstall -y shadow-utils
 else
-  apt-get update
+	apt-get update
 	apt-get install -y git uidmap make jq
 fi
 
