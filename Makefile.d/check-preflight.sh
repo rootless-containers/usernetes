@@ -13,7 +13,7 @@ function ERROR() {
 }
 
 script_dir="$(dirname "$0")"
-detect_engine="${script_dir}"/detect_container_engine.sh
+detect_engine="${script_dir}"/detect-container-engine.sh
 : "${CONTAINER_ENGINE:=$("${detect_engine}" CONTAINER_ENGINE)}"
 : "${CONTAINER_ENGINE_TYPE:=$("${detect_engine}" CONTAINER_ENGINE_TYPE)}"
 : "${QUICK:=0}"

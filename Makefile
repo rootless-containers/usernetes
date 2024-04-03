@@ -20,13 +20,13 @@ export U7S_NODE_SUBNET := $(NODE_SUBNET)
 # Not accessible from other hosts.
 export U7S_NODE_IP := $(subst .0/24,.100,$(U7S_NODE_SUBNET))
 
-CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE)
+CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE)
 export CONTAINER_ENGINE := $(CONTAINER_ENGINE)
 
-CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE_TYPE)
+CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE_TYPE)
 export CONTAINER_ENGINE_TYPE := $(CONTAINER_ENGINE_TYPE)
 
-COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh COMPOSE)
+COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh COMPOSE)
 
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
