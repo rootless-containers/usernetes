@@ -7,7 +7,7 @@ export HOSTNAME := $(HOSTNAME)
 
 HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
 NODE_NAME ?= u7s-$(HOSTNAME)
-NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node_subnet.sh)
+NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node-subnet.sh)
 # U7S_HOST_IP is the IP address of the physical host. Accessible from other hosts.
 export U7S_HOST_IP := $(HOST_IP)
 # U7S_NODE_NAME is the host name of the Kubernetes node running in Rootless Docker.
