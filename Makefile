@@ -7,29 +7,33 @@ export HOSTNAME := $(HOSTNAME)
 
 HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
 NODE_NAME ?= u7s-$(HOSTNAME)
-NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node_subnet.sh)
+NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node-subnet.sh)
 # U7S_HOST_IP is the IP address of the physical host. Accessible from other hosts.
 export U7S_HOST_IP := $(HOST_IP)
-# U7S_NODE_NAME is the IP address of the Kubernetes node running in Rootless Docker.
+# U7S_NODE_NAME is the host name of the Kubernetes node running in Rootless Docker.
 # Not accessible from other hosts.
 export U7S_NODE_NAME:= $(NODE_NAME)
 # U7S_NODE_NAME is the subnet of the Kubernetes node running in Rootless Docker.
 # Not accessible from other hosts.
 export U7S_NODE_SUBNET := $(NODE_SUBNET)
+# U7S_NODE_IP is the IP address of the Kubernetes node running in Rootless Docker.
+# Not accessible from other hosts.
+export U7S_NODE_IP := $(subst .0/24,.100,$(U7S_NODE_SUBNET))
 
-CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE)
+CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE)
 export CONTAINER_ENGINE := $(CONTAINER_ENGINE)
 
-CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh CONTAINER_ENGINE_TYPE)
+CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE_TYPE)
 export CONTAINER_ENGINE_TYPE := $(CONTAINER_ENGINE_TYPE)
 
-COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect_container_engine.sh COMPOSE)
+COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh COMPOSE)
 
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
 	-e U7S_HOST_IP=$(U7S_HOST_IP) \
 	-e U7S_NODE_NAME=$(U7S_NODE_NAME) \
 	-e U7S_NODE_SUBNET=$(U7S_NODE_SUBNET) \
+	-e U7S_NODE_IP=$(U7S_NODE_IP) \
 	$(NODE_SERVICE_NAME)
 
 .PHONY: help
@@ -48,6 +52,7 @@ help:
 	@echo 'make join-command'
 	@echo 'scp join-command another-host:~/usernetes'
 	@echo 'ssh another-host make -C ~/usernetes up kubeadm-join'
+	@echo 'make sync-external-ip'
 	@echo
 	@echo '# Debug'
 	@echo 'make logs'
@@ -81,7 +86,7 @@ logs:
 
 .PHONY: kubeconfig
 kubeconfig:
-	$(COMPOSE) exec -T $(NODE_SERVICE_NAME) cat /etc/kubernetes/admin.conf >kubeconfig
+	$(COMPOSE) exec -T $(NODE_SERVICE_NAME) sed -e "s/$(NODE_NAME)/127.0.0.1/g" /etc/kubernetes/admin.conf >kubeconfig
 	@echo "# Run the following command by yourself:"
 	@echo "export KUBECONFIG=$(shell pwd)/kubeconfig"
 ifeq ($(shell command -v kubectl 2> /dev/null),)
@@ -98,19 +103,35 @@ kubectl:
 
 .PHONY: join-command
 join-command:
-	$(NODE_SHELL) kubeadm token create --print-join-command | tr -d '\r' >join-command
-	@echo "# Copy the 'join-command' file to another host, and run 'make kubeadm-join' on that host (not on this host)"
+	echo "#!/bin/bash" >join-command
+	echo "set -eux -o pipefail" >>join-command
+	echo "echo \"$(HOST_IP)  $(NODE_NAME)\" >/etc/hosts.u7s" >>join-command
+	echo "cat /etc/hosts.u7s >>/etc/hosts" >>join-command
+	$(NODE_SHELL) kubeadm token create --print-join-command | tr -d '\r' >>join-command
+	chmod +x join-command
+	@echo "# Copy the 'join-command' file to another host, and run the following commands:"
+	@echo "# On the other host (the new worker):"
+	@echo "#   make kubeadm-join"
+	@echo "# On this host (the control plane):"
+	@echo "#   make sync-external-ip"
 
 .PHONY: kubeadm-init
 kubeadm-init:
 	$(NODE_SHELL) sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
 	$(NODE_SHELL) kubeadm init --config /tmp/kubeadm-config.yaml --skip-token-print
+	$(MAKE) sync-external-ip
 	@echo "# Run 'make join-command' to print the join command"
+
+.PHONY: sync-external-ip
+sync-external-ip:
+	$(NODE_SHELL) /usernetes/Makefile.d/sync-external-ip.sh
 
 .PHONY: kubeadm-join
 kubeadm-join:
-	$(NODE_SHELL) sh -euc '$$(cat /usernetes/join-command)'
+	$(NODE_SHELL) sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
+	$(NODE_SHELL) /usernetes/join-command
+	@echo "# Run 'make sync-external-ip' on the control plane"
 
 .PHONY: install-flannel
 install-flannel:
-	$(NODE_SHELL) kubectl apply -f /usernetes/manifests/kube-flannel.yml
+	$(NODE_SHELL) kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.24.4/kube-flannel.yml

@@ -25,9 +25,11 @@ $SSH host0 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C ~/usernetes kubeadm-in
 # Let host1 join the cluster
 $SCP host0:~/usernetes/join-command host1:~/usernetes/join-command
 $SSH host1 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C ~/usernetes kubeadm-join
+$SSH host0 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C ~/usernetes sync-external-ip
 
 # Enable kubectl
 $SCP host0:~/usernetes/kubeconfig ./kubeconfig
+sed -i -e "s/127.0.0.1/$($SSH host0 ip --json route get 1 | jq -r .[0].prefsrc)/g" ./kubeconfig
 KUBECONFIG="$(pwd)/kubeconfig"
 export KUBECONFIG
 kubectl get nodes -o wide
