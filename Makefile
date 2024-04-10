@@ -64,6 +64,7 @@ help:
 	@echo '# Debug'
 	@echo 'make logs'
 	@echo 'make shell'
+	@echo 'make kubeadm-reset'
 	@echo 'make down-v'
 	@echo 'kubectl taint nodes --all node-role.kubernetes.io/control-plane-'
 
@@ -142,6 +143,10 @@ kubeadm-join:
 	$(NODE_SHELL) sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
 	$(NODE_SHELL) /usernetes/join-command
 	@echo "# Run 'make sync-external-ip' on the control plane"
+
+.PHONY: kubeadm-reset
+kubeadm-reset:
+	$(NODE_SHELL) kubeadm reset --force
 
 .PHONY: install-flannel
 install-flannel:
