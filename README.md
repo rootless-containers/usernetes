@@ -106,6 +106,7 @@ make sync-external-ip
 # Debug
 make logs
 make shell
+make kubeadm-reset
 make down-v
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 ```
