@@ -57,9 +57,9 @@ case "${CONTAINER_ENGINE}" in
 	fi
 	systemctl disable --now docker
 	;;
-"podman")
-	if ! command -v podman >/dev/null 2>&1; then
-		"${script_dir}"/init-host.root.d/install-podman.sh
+"podman" | "nerdctl")
+	if ! command -v "${CONTAINER_ENGINE}" >/dev/null 2>&1; then
+		"${script_dir}"/init-host.root.d/install-"${CONTAINER_ENGINE}".sh
 	fi
 	;;
 *)
