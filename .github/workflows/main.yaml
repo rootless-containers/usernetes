@@ -69,8 +69,10 @@ jobs:
         include:
           - lxc-image: ubuntu:22.04
             engine: docker
-          - lxc-image: images:fedora/39/cloud
-            engine: podman
+# LXD is now banned from pulling images:fedora from https://images.linuxcontainers.org/
+# TODO: switch away from LXD to Incus: https://github.com/rootless-containers/usernetes/pull/332
+#          - lxc-image: images:fedora/39/cloud
+#            engine: podman
     env:
       LXC_IMAGE: "${{ matrix.lxc-image }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"
