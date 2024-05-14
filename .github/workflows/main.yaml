@@ -59,32 +59,30 @@ jobs:
           ./hack/test-smoke.sh
 
   multi-node:
-    name: "Multi node (emulated using LXD)"
+    name: "Multi node (emulated using Incus)"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - lxc-image: ubuntu:24.04
+          - incus-image: images:ubuntu/24.04/cloud
             engine: docker
-# LXD is now banned from pulling images:fedora from https://images.linuxcontainers.org/
-# TODO: switch away from LXD to Incus: https://github.com/rootless-containers/usernetes/pull/332
-#          - lxc-image: images:fedora/39/cloud
-#            engine: podman
+          - incus-image: images:fedora/39/cloud
+            engine: podman
     env:
-      LXC_IMAGE: "${{ matrix.lxc-image }}"
+      INCUS_IMAGE: "${{ matrix.incus-image }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
       - run: sudo modprobe vxlan
       - uses: actions/checkout@v3
-      - uses: canonical/setup-lxd@v0.1.1
+      - uses: maxwell-k/setup-incus@main
       - name: "Relax disk pressure limit"
         run: |
           set -x
           sudo snap install yq
           yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
-      - run: ./hack/create-cluster-lxd.sh
+      - run: ./hack/create-cluster-incus.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
       - if: failure()
@@ -103,6 +101,6 @@ jobs:
           ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host0 -- journalctl --user --no-pager --since "10 min ago"
       - name: "Test data persistency after restarting the node"
         run: |
-          lxc restart host0 host1
+          incus restart host0 host1
           sleep 30
           ./hack/test-smoke.sh

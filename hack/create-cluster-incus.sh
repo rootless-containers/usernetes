@@ -4,7 +4,7 @@ set -eux -o pipefail
 : "${CONTAINER_ENGINE:=docker}"
 
 # Create Rootless Docker hosts
-./hack/create-hosts-lxd.sh "${HOME}/.u7s-ci-hosts" host0 host1
+./hack/create-hosts-incus.sh "${HOME}/.u7s-ci-hosts" host0 host1
 SCP="scp -F ${HOME}/.u7s-ci-hosts/ssh_config"
 SSH="ssh -F ${HOME}/.u7s-ci-hosts/ssh_config"
 for host in host0 host1; do

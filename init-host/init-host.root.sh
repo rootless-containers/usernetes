@@ -22,7 +22,7 @@ cat >/etc/modules-load.d/usernetes.conf <<EOF
 br_netfilter
 vxlan
 EOF
-# systemd-modules-load.service may fail inside LXC
+# systemd-modules-load.service may fail inside Incus
 systemctl restart systemd-modules-load.service || true
 
 cat >/etc/sysctl.d/99-usernetes.conf <<EOF
@@ -31,12 +31,12 @@ cat >/etc/sysctl.d/99-usernetes.conf <<EOF
 # configure sysctl for the daemon's netns. So we are configuring it globally here.
 net.ipv4.conf.default.rp_filter = 2
 EOF
-# sysctl may fail inside LXC
+# sysctl may fail inside Incus
 sysctl --system || true
 
 if command -v dnf >/dev/null 2>&1; then
 	dnf install -y git shadow-utils make jq
-	# Workaround: SUID bit on newuidmap is dropped on LXC images:fedora/38/cloud,
+	# Workaround: SUID bit on newuidmap is dropped on Incus images:fedora/38/cloud,
 	# so it has to be reinstalled
 	dnf reinstall -y shadow-utils
 else
