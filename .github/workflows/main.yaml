@@ -60,31 +60,30 @@ jobs:
           ./hack/test-smoke.sh
 
   multi-node:
-    name: "Multi node (emulated using LXD)"
+    name: "Multi node (emulated using Incus)"
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - lxc-image: ubuntu:22.04
+          - incus-image: images:ubuntu/22.04/cloud
             engine: docker
-# LXD is now banned from pulling images:fedora from https://images.linuxcontainers.org/
-# TODO: switch away from LXD to Incus: https://github.com/rootless-containers/usernetes/pull/332
-#          - lxc-image: images:fedora/39/cloud
-#            engine: podman
+          - incus-image: images:fedora/39/cloud
+            engine: podman
     env:
-      LXC_IMAGE: "${{ matrix.lxc-image }}"
+      INCUS_IMAGE: "${{ matrix.incus-image }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
       - run: sudo modprobe vxlan
       - uses: actions/checkout@v3
-      - uses: canonical/setup-lxd@v0.1.1
-      - run: ./hack/create-cluster-lxd.sh
+      - uses: maxwell-k/setup-incus@main
+      - run: sudo incus admin init --auto
+      - run: ./hack/create-cluster-incus.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
       - name: "Test data persistency after restarting the node"
         run: |
-          lxc restart host0 host1
+          sudo incus restart host0 host1
           sleep 30
           ./hack/test-smoke.sh

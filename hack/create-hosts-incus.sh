@@ -8,8 +8,8 @@ dir=$1
 shift
 names=$*
 
-: "${LXC_IMAGE:="ubuntu:22.04"}"
-LXC="sudo lxc"
+: "${INCUS_IMAGE:="images:ubuntu/22.04/cloud"}"
+INCUS="sudo incus"
 
 echo "USER=${USER}"
 ssh_config="${dir}/ssh_config"
@@ -29,6 +29,8 @@ userdata="${dir}/user-data"
 if [ ! -e "${userdata}" ]; then
 	cat <<EOF >"${userdata}"
 #cloud-config
+packages:
+  - openssh-server
 users:
   - name: "${USER}"
     shell: /bin/bash
@@ -43,12 +45,12 @@ EOF
 fi
 
 for name in ${names}; do
-	${LXC} init "${LXC_IMAGE}" "${name}" -c security.privileged=true -c security.nesting=true
-	${LXC} config device add "${name}" bind-boot disk source=/boot path=/boot readonly=true
-	${LXC} config set "${name}" user.user-data - <"${userdata}"
-	${LXC} start "${name}"
+	${INCUS} init "${INCUS_IMAGE}" "${name}" -c security.privileged=true -c security.nesting=true
+	${INCUS} config device add "${name}" bind-boot disk source=/boot path=/boot readonly=true
+	${INCUS} config set "${name}" user.user-data - <"${userdata}"
+	${INCUS} start "${name}"
 	sleep 10
-	ip="$(${LXC} exec "${name}" -- ip --json route get 1 | jq -r .[0].prefsrc)"
+	ip="$(${INCUS} exec "${name}" -- ip --json route get 1 | jq -r .[0].prefsrc)"
 	echo "Host ${name}" >>"${ssh_config}"
 	echo "  Hostname ${ip}" >>"${ssh_config}"
 	echo "  # For a test env, the host key can be just ignored"
