@@ -7,7 +7,7 @@ env:
 jobs:
   single-node:
     name: "Single node"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -41,9 +41,8 @@ jobs:
         if: ${{ matrix.engine == 'podman' }}
         run: |
           set -eux -o pipefail
-          # Preinstalled Podman is too old (v3.4.4)
-          sudo apt-get remove podman*
-          sudo ./init-host/init-host.root.d/install-podman.sh
+          sudo apt-get update
+          sudo apt-get install -y podman-compose
           podman info
       - run: make up
       - run: sleep 5
@@ -61,13 +60,13 @@ jobs:
 
   multi-node:
     name: "Multi node (emulated using LXD)"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - lxc-image: ubuntu:22.04
+          - lxc-image: ubuntu:24.04
             engine: docker
 # LXD is now banned from pulling images:fedora from https://images.linuxcontainers.org/
 # TODO: switch away from LXD to Incus: https://github.com/rootless-containers/usernetes/pull/332

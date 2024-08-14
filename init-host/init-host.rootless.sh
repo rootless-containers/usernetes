@@ -9,7 +9,7 @@ fi
 : "${CONTAINER_ENGINE:=docker}"
 case "${CONTAINER_ENGINE}" in
 "docker")
-	dockerd-rootless-setuptool.sh install
+	dockerd-rootless-setuptool.sh install || (journalctl --user --since "10 min ago"; exit 1)
 	;;
 "podman")
 	systemctl --user enable --now podman-restart
