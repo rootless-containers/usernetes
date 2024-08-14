@@ -80,9 +80,28 @@ jobs:
       - run: sudo modprobe vxlan
       - uses: actions/checkout@v3
       - uses: canonical/setup-lxd@v0.1.1
+      - name: "Relax disk pressure limit"
+        run: |
+          set -x
+          sudo snap install yq
+          yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
       - run: ./hack/create-cluster-lxd.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
+      - if: failure()
+        name: "kubectl get nodes"
+        run: |
+          set -x
+          kubectl get nodes -o wide
+          kubectl get nodes -o yaml
+          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host0 -- df -h
+          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host1 -- df -h
+      - if: failure()
+        name: "kubectl get pods"
+        run: |
+          set -x
+          kubectl get pods -A -o yaml
+          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host0 -- journalctl --user --no-pager --since "10 min ago"
       - name: "Test data persistency after restarting the node"
         run: |
           lxc restart host0 host1
