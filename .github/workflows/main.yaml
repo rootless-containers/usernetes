@@ -80,6 +80,11 @@ jobs:
       - run: sudo modprobe vxlan
       - uses: actions/checkout@v3
       - uses: canonical/setup-lxd@v0.1.1
+      - name: "Relax disk pressure limit"
+        run: |
+          set -x
+          sudo snap install yq
+          yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
       - run: ./hack/create-cluster-lxd.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
