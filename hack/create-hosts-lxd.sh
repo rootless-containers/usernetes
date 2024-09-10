@@ -55,8 +55,9 @@ for name in ${names}; do
 	# runc requires pivot_root:
 	# > runc run failed: unable to start container process: error during container init: error jailing process inside rootfs: pivot_root .: permission denied
 	${LXC} shell "${name}" -- bash -c 'echo "pivot_root," >>/etc/apparmor.d/local/runc'
-	# Propagate the profile for /usr/sbin/runc (Canonical's package) to /usr/bin/runc (Docker's package)
+	# Propagate the profile for /usr/sbin/runc (Canonical's package) to /usr/bin/runc (Docker's package) and /usr/local/bin/runc (nerdctl-full package)
 	${LXC} shell "${name}" -- bash -c 'sed -e s@/usr/sbin/runc@/usr/bin/runc@g /etc/apparmor.d/runc > /etc/apparmor.d/usr.bin.runc'
+	${LXC} shell "${name}" -- bash -c 'sed -e s@/usr/sbin/runc@/usr/local/bin/runc@g /etc/apparmor.d/runc > /etc/apparmor.d/usr.local.bin.runc'
 	${LXC} shell "${name}" -- bash -c 'systemctl restart apparmor'
 
 	sleep 10
