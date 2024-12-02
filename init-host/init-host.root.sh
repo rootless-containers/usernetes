@@ -58,7 +58,7 @@ case "${CONTAINER_ENGINE}" in
 	systemctl disable --now docker
 	;;
 "podman")
-	if ! command -v podman >/dev/null 2>&1; then
+	if ! command -v podman-compose >/dev/null 2>&1; then
 		"${script_dir}"/init-host.root.d/install-podman.sh
 	fi
 	;;
