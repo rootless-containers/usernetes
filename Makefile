@@ -150,4 +150,4 @@ kubeadm-reset:
 
 .PHONY: install-flannel
 install-flannel:
-	$(NODE_SHELL) kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.25.5/kube-flannel.yml
+	$(NODE_SHELL) kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.26.1/kube-flannel.yml
