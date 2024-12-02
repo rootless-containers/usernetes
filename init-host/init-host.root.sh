@@ -19,7 +19,27 @@ EOF
 fi
 
 cat >/etc/modules-load.d/usernetes.conf <<EOF
+tun
+tap
+bridge
 br_netfilter
+veth
+ip_tables
+ip6_tables
+iptable_nat
+ip6table_nat
+iptable_filter
+ip6table_filter
+nf_tables
+x_tables
+xt_MASQUERADE
+xt_addrtype
+xt_comment
+xt_conntrack
+xt_mark
+xt_multiport
+xt_nat
+xt_tcpudp
 vxlan
 EOF
 # systemd-modules-load.service may fail inside LXC
