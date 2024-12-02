@@ -54,6 +54,11 @@ sysctl --system
 
 if command -v dnf >/dev/null 2>&1; then
 	dnf install -y git shadow-utils make jq
+	# podman-compose requires EPEL
+	if grep -q centos /etc/os-release; then
+		# Works with Rocky and Alma too
+		dnf -y install epel-release
+	fi
 else
 	apt-get update
 	apt-get install -y git uidmap make jq
