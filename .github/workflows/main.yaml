@@ -16,7 +16,7 @@ jobs:
     env:
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up cgroup v2 delegation
         run: |
           sudo mkdir -p /etc/systemd/system/user@.service.d
@@ -76,7 +76,7 @@ jobs:
       LIMA_TEMPLATE: "${{ matrix.lima-template }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: "Install QEMU"
         run: |
           set -eux
