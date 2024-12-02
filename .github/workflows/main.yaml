@@ -68,13 +68,10 @@ jobs:
         include:
           - lima-template: template://ubuntu-24.04
             engine: docker
-          - lima-template: template://ubuntu-24.04
+          - lima-template: template://centos-stream-9
             engine: podman
-          # FIXME: Flannel seems to fail with Fedora + Podman:
-          # https://github.com/rootless-containers/usernetes/pull/339#issuecomment-2511139718
-          # > plugin type=\\\"flannel\\\" failed (add): loadFlannelSubnetEnv failed:
-          # > open /run/flannel/subnet.env: no such file or directory\""
-          # > pod="kube-system/coredns-6f6b679f8f-p9spl"
+          - lima-template: template://fedora
+            engine: podman
     env:
       LIMA_TEMPLATE: "${{ matrix.lima-template }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"

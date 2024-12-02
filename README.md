@@ -81,6 +81,25 @@ EOF
 sudo sysctl --system
 ```
 
+- slirp4netns, not Pasta:
+```
+# Podman v5 (or later) users have to change the network mode from pasta to slirp4netns.
+# This step is not needed for Docker, nerdctl, and Podman v4.
+
+mkdir -p "$HOME/.config/containers/containers.conf.d"
+cat <<EOF >"$HOME/.config/containers/containers.conf.d/slirp4netns.conf"
+[network]
+default_rootless_network_cmd="slirp4netns"
+EOF
+```
+<!--
+pasta does not seem to work well
+
+> 2024-12-02T17:15:40.070018488Z stderr F E1202 17:15:40.068621       1 main.go:228] Failed to create SubnetManager:
+> error retrieving pod spec for 'kube-flannel/kube-flannel-ds-ms2d9': Get "https://10.96.0.1:443/api/v1/namespaces/kube-flannel/pods/kube-flannel-ds-ms2d9":
+> dial tcp 10.96.0.1:443: i/o timeout
+-->
+
 Use scripts in [`./init-host`](./init-host) for automating these steps.
 
 ## Usage
