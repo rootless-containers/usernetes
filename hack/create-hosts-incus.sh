@@ -50,17 +50,6 @@ for name in ${names}; do
 	${INCUS} config set "${name}" user.user-data - <"${userdata}"
 	${INCUS} start "${name}"
 
-	# Apply fixes for AppArmor (apparantely only needed on LXD/Incus)
-	# `slirp4netns --enable-sandbox` inside LXD/Incus (Ubuntu 24.04) requires amending the AppArmor rule.
-	# https://github.com/rootless-containers/slirp4netns/issues/348#issuecomment-2288124206
-	${INCUS} shell "${name}" -- bash -c 'echo "pivot_root," >>/etc/apparmor.d/local/slirp4netns'
-	# runc requires pivot_root:
-	# > runc run failed: unable to start container process: error during container init: error jailing process inside rootfs: pivot_root .: permission denied
-	${INCUS} shell "${name}" -- bash -c 'echo "pivot_root," >>/etc/apparmor.d/local/runc'
-	# Propagate the profile for /usr/sbin/runc (Canonical's package) to /usr/bin/runc (Docker's package)
-	${INCUS} shell "${name}" -- bash -c 'sed -e s@/usr/sbin/runc@/usr/bin/runc@g /etc/apparmor.d/runc > /etc/apparmor.d/usr.bin.runc'
-	${INCUS} shell "${name}" -- bash -c 'systemctl restart apparmor'
-
 	sleep 10
 	ip="$(${INCUS} exec "${name}" -- ip --json route get 1 | jq -r .[0].prefsrc)"
 	echo "Host ${name}" >>"${ssh_config}"
