@@ -59,32 +59,54 @@ jobs:
           ./hack/test-smoke.sh
 
   multi-node:
-    name: "Multi node (emulated using LXD)"
+    name: "Multi node (emulated using Lima)"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - lxc-image: ubuntu:24.04
+          - lima-template: template://ubuntu-24.04
             engine: docker
-# LXD is now banned from pulling images:fedora from https://images.linuxcontainers.org/
-# TODO: switch away from LXD to Incus: https://github.com/rootless-containers/usernetes/pull/332
-#          - lxc-image: images:fedora/39/cloud
-#            engine: podman
+          - lima-template: template://ubuntu-24.04
+            engine: podman
+          # FIXME: Flannel seems to fail with Fedora + Podman:
+          # https://github.com/rootless-containers/usernetes/pull/339#issuecomment-2511139718
+          # > plugin type=\\\"flannel\\\" failed (add): loadFlannelSubnetEnv failed:
+          # > open /run/flannel/subnet.env: no such file or directory\""
+          # > pod="kube-system/coredns-6f6b679f8f-p9spl"
     env:
-      LXC_IMAGE: "${{ matrix.lxc-image }}"
+      LIMA_TEMPLATE: "${{ matrix.lima-template }}"
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
-      - run: sudo modprobe vxlan
       - uses: actions/checkout@v3
-      - uses: canonical/setup-lxd@v0.1.1
+      - name: "Install QEMU"
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ovmf qemu-system-x86 qemu-utils
+          sudo modprobe kvm
+          # `sudo usermod -aG kvm $(whoami)` does not take an effect on GHA
+          sudo chown $(whoami) /dev/kvm
+
+      - name: "Install Lima"
+        run: |
+          set -eux
+          LIMA_VERSION=$(curl -fsSL https://api.github.com/repos/lima-vm/lima/releases/latest | jq -r .tag_name)
+          curl -fsSL https://github.com/lima-vm/lima/releases/download/${LIMA_VERSION}/lima-${LIMA_VERSION:1}-Linux-x86_64.tar.gz | sudo tar Cxzvf /usr/local -
+
+      - name: "Cache ~/.cache/lima"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lima
+          key: lima-${{ env.LIMA_VERSION }}
+
       - name: "Relax disk pressure limit"
         run: |
           set -x
           sudo snap install yq
           yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
-      - run: ./hack/create-cluster-lxd.sh
+      - run: ./hack/create-cluster-lima.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
       - if: failure()
@@ -93,16 +115,21 @@ jobs:
           set -x
           kubectl get nodes -o wide
           kubectl get nodes -o yaml
-          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host0 -- df -h
-          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host1 -- df -h
+          limactl shell host0 df -h
+          limactl shell host1 df -h
       - if: failure()
         name: "kubectl get pods"
         run: |
           set -x
           kubectl get pods -A -o yaml
-          ssh -F ${HOME}/.u7s-ci-hosts/ssh_config host0 -- journalctl --user --no-pager --since "10 min ago"
+          limactl shell host0 journalctl --user --no-pager --since "10 min ago"
       - name: "Test data persistency after restarting the node"
         run: |
-          lxc restart host0 host1
+          limactl stop host0
+          limactl stop host1
+          limactl start host0
+          limactl start host1
+          # The plain mode of Lima disables automatic port forwarding
+          ssh -q -f -N -L 6443:127.0.0.1:6443 -F ~/.lima/host0/ssh.config lima-host0
           sleep 30
           ./hack/test-smoke.sh

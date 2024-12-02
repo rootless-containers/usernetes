@@ -19,11 +19,30 @@ EOF
 fi
 
 cat >/etc/modules-load.d/usernetes.conf <<EOF
+tun
+tap
+bridge
 br_netfilter
+veth
+ip_tables
+ip6_tables
+iptable_nat
+ip6table_nat
+iptable_filter
+ip6table_filter
+nf_tables
+x_tables
+xt_MASQUERADE
+xt_addrtype
+xt_comment
+xt_conntrack
+xt_mark
+xt_multiport
+xt_nat
+xt_tcpudp
 vxlan
 EOF
-# systemd-modules-load.service may fail inside LXC
-systemctl restart systemd-modules-load.service || true
+systemctl restart systemd-modules-load.service
 
 cat >/etc/sysctl.d/99-usernetes.conf <<EOF
 # For VXLAN, net.ipv4.conf.default.rp_filter must not be 1 (strict) in the daemon's netns.
@@ -31,14 +50,10 @@ cat >/etc/sysctl.d/99-usernetes.conf <<EOF
 # configure sysctl for the daemon's netns. So we are configuring it globally here.
 net.ipv4.conf.default.rp_filter = 2
 EOF
-# sysctl may fail inside LXC
-sysctl --system || true
+sysctl --system
 
 if command -v dnf >/dev/null 2>&1; then
 	dnf install -y git shadow-utils make jq
-	# Workaround: SUID bit on newuidmap is dropped on LXC images:fedora/38/cloud,
-	# so it has to be reinstalled
-	dnf reinstall -y shadow-utils
 else
 	apt-get update
 	apt-get install -y git uidmap make jq
@@ -58,7 +73,7 @@ case "${CONTAINER_ENGINE}" in
 	systemctl disable --now docker
 	;;
 "podman")
-	if ! command -v podman >/dev/null 2>&1; then
+	if ! command -v podman-compose >/dev/null 2>&1; then
 		"${script_dir}"/init-host.root.d/install-podman.sh
 	fi
 	;;
