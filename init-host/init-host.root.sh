@@ -82,6 +82,11 @@ case "${CONTAINER_ENGINE}" in
 		"${script_dir}"/init-host.root.d/install-podman.sh
 	fi
 	;;
+"nerdctl")
+	if ! command -v nerdctl >/dev/null 2>&1; then
+		"${script_dir}"/init-host.root.d/install-nerdctl.sh
+	fi
+	;;
 *)
 	echo >&2 "Unsupported container engine: ${CONTAINER_ENGINE}"
 	exit 1
