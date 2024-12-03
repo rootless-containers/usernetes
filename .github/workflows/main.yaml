@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [docker, podman]
+        engine: [docker, nerdctl, podman]
     env:
       CONTAINER_ENGINE: "${{ matrix.engine }}"
     steps:
@@ -37,6 +37,13 @@ jobs:
           sudo rm -rf /var/run/docker*
           dockerd-rootless-setuptool.sh install
           docker info
+      - name: Set up Rootless nerdctl
+        if: ${{ matrix.engine == 'nerdctl' }}
+        run: |
+          set -eux -o pipefail
+          sudo ./init-host/init-host.root.d/install-nerdctl.sh
+          ./init-host/init-host.rootless.sh
+          nerdctl info
       - name: Set up Rootless Podman
         if: ${{ matrix.engine == 'podman' }}
         run: |
@@ -68,6 +75,8 @@ jobs:
         include:
           - lima-template: template://ubuntu-24.04
             engine: docker
+          - lima-template: template://ubuntu-24.04
+            engine: nerdctl
           - lima-template: template://centos-stream-9
             engine: podman
           - lima-template: template://fedora

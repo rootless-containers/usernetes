@@ -149,6 +149,10 @@ export CONTAINER_ENGINE=nerdctl
 make up
 ```
 
+> [!NOTE]
+>
+> The support for bypass4netns is still experimental
+
 ### Misc
 - Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
   This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
