@@ -30,6 +30,18 @@ mkdir -p /root/nerdctl.tmp
 	[ "$(sha256sum SHA256SUMS | awk '{print $1}')" = "${SHASHA}" ]
 	sha256sum --check --ignore-missing SHA256SUMS
 	tar Cxzvvf /usr/local nerdctl-full-${VERSION}-linux-${arch}.tar.gz
+
+	# <TMP>
+	# https://github.com/containerd/nerdctl/pull/3724
+	(
+		snap install --classic go
+		git clone https://github.com/apostasie/nerdctl.git
+		cd nerdctl
+		git checkout 32ab7472f3e535c3317e6522205abe64e2864227
+		make
+		make install
+	)
+	# </TMP>
 )
 rm -rf /root/nerdctl.tmp
 
