@@ -11,14 +11,15 @@ services:
       default:
         ipv4_address: ${U7S_NODE_IP}
     ports:
-      # etcd
-      - 2379:2379
-      # kube-apiserver
-      - 6443:6443
-      # kubelet
-      - 10250:10250
-      # flannel
-      - 8472:8472/udp
+      # <host>:<container>
+      # etcd (default: 2379)
+      - ${U7S_PORT_ETCD}:${U7S_PORT_ETCD}
+      # kube-apiserver (default: 6443)
+      - ${U7S_PORT_KUBE_APISERVER}:${U7S_PORT_KUBE_APISERVER}
+      # kubelet (default: 10250)
+      - ${U7S_PORT_KUBELET}:${U7S_PORT_KUBELET}
+      # flannel (default: 8472)
+      - ${U7S_PORT_FLANNEL}:${U7S_PORT_FLANNEL}/udp
     volumes:
       - .:/usernetes:ro
       - /boot:/boot:ro

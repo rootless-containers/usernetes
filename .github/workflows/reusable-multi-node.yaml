@@ -1,0 +1,114 @@
+name: Multi Node
+on:  
+  workflow_call:
+    # allow reuse of this workflow in other files here
+    inputs:
+      kubelet_port:
+        description: kubelet serving port
+        type: string
+        default: "10250"
+      flannel_port:
+        description: flannel vxlan port
+        type: string
+        default: "8472"
+      etcd_port:
+        description: etcd service port
+        type: string
+        default: "2379"
+      kube_apiserver_port:
+        description: Kubernetes API server port
+        # Using string, might be bug with number
+        # https://github.com/orgs/community/discussions/67182
+        type: string
+        default: "6443"
+
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idpermissions
+permissions: read-all
+
+jobs:
+  multi-node:
+    name: "Multi node (emulated using Lima)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lima-template: template://ubuntu-24.04
+            engine: docker
+          - lima-template: template://ubuntu-24.04
+            engine: nerdctl
+          - lima-template: template://centos-stream-9
+            engine: podman
+          - lima-template: template://fedora
+            engine: podman
+    env:
+      LIMA_TEMPLATE: "${{ matrix.lima-template }}"
+      CONTAINER_ENGINE: "${{ matrix.engine }}"
+      U7S_PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
+      U7S_PORT_FLANNEL: "${{ inputs.flannel_port }}"
+      U7S_PORT_KUBELET: "${{ inputs.kubelet_port }}"
+      U7S_PORT_ETCD: "${{ inputs.etcd_port }}"
+      DOCKER_BUILDKIT: 1
+      KUBECONFIG: ./kubeconfig
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Install QEMU"
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ovmf qemu-system-x86 qemu-utils
+          sudo modprobe kvm
+          # `sudo usermod -aG kvm $(whoami)` does not take an effect on GHA
+          sudo chown $(whoami) /dev/kvm
+
+      - name: "Install Lima"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}  # required by `gh attestation verify`
+        run: |
+          set -eux
+          LIMA_VERSION=$(curl -fsSL https://api.github.com/repos/lima-vm/lima/releases/latest | jq -r .tag_name)
+          FILE="lima-${LIMA_VERSION:1}-Linux-x86_64.tar.gz"
+          curl -fOSL https://github.com/lima-vm/lima/releases/download/${LIMA_VERSION}/${FILE}
+          gh attestation verify --owner=lima-vm "${FILE}"
+          sudo tar Cxzvf /usr/local "${FILE}"
+          rm -f "${FILE}"
+
+      - name: "Cache ~/.cache/lima"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lima
+          key: lima-${{ env.LIMA_VERSION }}
+
+      - name: "Relax disk pressure limit"
+        run: |
+          set -x
+          sudo snap install yq
+          yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
+      - run: ./hack/create-cluster-lima.sh
+      - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+      - run: ./hack/test-smoke.sh
+      - if: failure()
+        name: "kubectl get nodes"
+        run: |
+          set -x
+          kubectl get nodes -o wide
+          kubectl get nodes -o yaml
+          limactl shell host0 df -h
+          limactl shell host1 df -h
+      - if: failure()
+        name: "kubectl get pods"
+        run: |
+          set -x
+          kubectl get pods -A -o yaml
+          limactl shell host0 journalctl --user --no-pager --since "10 min ago"
+      - name: "Test data persistency after restarting the node"
+        run: |
+          limactl stop host0
+          limactl stop host1
+          limactl start host0
+          limactl start host1
+          # The plain mode of Lima disables automatic port forwarding
+          ssh -q -f -N -L ${{ inputs.kube_apiserver_port }}:127.0.0.1:${{ inputs.kube_apiserver_port }} -F ~/.lima/host0/ssh.config lima-host0
+          sleep 30
+          ./hack/test-smoke.sh
