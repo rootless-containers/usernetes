@@ -5,143 +5,39 @@ env:
   DOCKER_BUILDKIT: 1
   KUBECONFIG: ./kubeconfig
 jobs:
+  # This uses the reusable-single-node.yaml template
   single-node:
-    name: "Single node"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        engine: [docker, nerdctl, podman]
-    env:
-      CONTAINER_ENGINE: "${{ matrix.engine }}"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up cgroup v2 delegation
-        run: |
-          sudo mkdir -p /etc/systemd/system/user@.service.d
-          cat <<EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
-          [Service]
-          Delegate=cpu cpuset io memory pids
-          EOF
-          sudo systemctl daemon-reload
-      - name: Remove preinstalled Moby
-        # Preinstalled Moby does not contain dockerd-rootless-setuptool.sh
-        run: sudo apt-get remove moby-engine-*
-      - name: Set up Rootless Docker
-        if: ${{ matrix.engine == 'docker' }}
-        run: |
-          set -eux -o pipefail
-          curl https://get.docker.com | sudo sh
-          sudo systemctl disable --now docker.socket docker.service
-          sudo rm -rf /var/run/docker*
-          dockerd-rootless-setuptool.sh install
-          docker info
-      - name: Set up Rootless nerdctl
-        if: ${{ matrix.engine == 'nerdctl' }}
-        run: |
-          set -eux -o pipefail
-          sudo ./init-host/init-host.root.d/install-nerdctl.sh
-          ./init-host/init-host.rootless.sh
-          nerdctl info
-      - name: Set up Rootless Podman
-        if: ${{ matrix.engine == 'podman' }}
-        run: |
-          set -eux -o pipefail
-          sudo apt-get update
-          sudo apt-get install -y podman-compose
-          podman info
-      - run: make up
-      - run: sleep 5
-      - run: make kubeadm-init
-      - run: make install-flannel
-      - run: make kubeconfig
-      - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-      - run: ./hack/test-smoke.sh
-      - name: "Test data persistency after restarting the node"
-        run: |
-          make down
-          make up
-          sleep 30
-          ./hack/test-smoke.sh
+    name: "Single node with defaults"
+    uses: ./.github/workflows/reusable-single-node.yaml
 
+  single-node-custom-ports:
+    name: "Single node with custom service ports"
+    uses: ./.github/workflows/reusable-single-node.yaml
+    with:
+      # Defaults to 6443
+      kube_apiserver_port: "8080"
+      # Defaults to 8472
+      flannel_port: "9072"
+      # Defaults to 10250
+      kubelet_port: "20250"
+      # Defaults to 2379
+      etcd_port: "9090"
+
+  # This uses the reusable-multi-node.yaml template
   multi-node:
-    name: "Multi node (emulated using Lima)"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lima-template: template://ubuntu-24.04
-            engine: docker
-          - lima-template: template://ubuntu-24.04
-            engine: nerdctl
-          - lima-template: template://centos-stream-9
-            engine: podman
-          - lima-template: template://fedora
-            engine: podman
-    env:
-      LIMA_TEMPLATE: "${{ matrix.lima-template }}"
-      CONTAINER_ENGINE: "${{ matrix.engine }}"
-    steps:
-      - uses: actions/checkout@v4
-      - name: "Install QEMU"
-        run: |
-          set -eux
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ovmf qemu-system-x86 qemu-utils
-          sudo modprobe kvm
-          # `sudo usermod -aG kvm $(whoami)` does not take an effect on GHA
-          sudo chown $(whoami) /dev/kvm
+    name: "Multi node with defaults"
+    uses: ./.github/workflows/reusable-multi-node.yaml
 
-      - name: "Install Lima"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}  # required by `gh attestation verify`
-        run: |
-          set -eux
-          LIMA_VERSION=$(curl -fsSL https://api.github.com/repos/lima-vm/lima/releases/latest | jq -r .tag_name)
-          FILE="lima-${LIMA_VERSION:1}-Linux-x86_64.tar.gz"
-          curl -fOSL https://github.com/lima-vm/lima/releases/download/${LIMA_VERSION}/${FILE}
-          gh attestation verify --owner=lima-vm "${FILE}"
-          sudo tar Cxzvf /usr/local "${FILE}"
-          rm -f "${FILE}"
+  multi-node-custom-ports:
+    name: "Multi node with custom service ports"
+    uses: ./.github/workflows/reusable-multi-node.yaml
+    with:
+      # Defaults to 6443
+      kube_apiserver_port: "8080"
+      # Defaults to 8472
+      flannel_port: "9072"
+      # Defaults to 10250
+      kubelet_port: "20250"
+      # Defaults to 2379
+      etcd_port: "9090"
 
-      - name: "Cache ~/.cache/lima"
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/lima
-          key: lima-${{ env.LIMA_VERSION }}
-
-      - name: "Relax disk pressure limit"
-        run: |
-          set -x
-          sudo snap install yq
-          yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
-      - run: ./hack/create-cluster-lima.sh
-      - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
-      - run: ./hack/test-smoke.sh
-      - if: failure()
-        name: "kubectl get nodes"
-        run: |
-          set -x
-          kubectl get nodes -o wide
-          kubectl get nodes -o yaml
-          limactl shell host0 df -h
-          limactl shell host1 df -h
-      - if: failure()
-        name: "kubectl get pods"
-        run: |
-          set -x
-          kubectl get pods -A -o yaml
-          limactl shell host0 journalctl --user --no-pager --since "10 min ago"
-      - name: "Test data persistency after restarting the node"
-        run: |
-          limactl stop host0
-          limactl stop host1
-          limactl start host0
-          limactl start host1
-          # The plain mode of Lima disables automatic port forwarding
-          ssh -q -f -N -L 6443:127.0.0.1:6443 -F ~/.lima/host0/ssh.config lima-host0
-          sleep 30
-          ./hack/test-smoke.sh
