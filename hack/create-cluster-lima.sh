@@ -5,6 +5,7 @@ set -eux -o pipefail
 : "${LIMA_TEMPLATE:=template://default}"
 : "${CONTAINER_ENGINE:=docker}"
 : "${LOCKDOWN_SUDO:=1}"
+: "${U7S_PORT_KUBE_APISERVER:=6443}"
 
 guest_home="/home/${USER}.linux"
 
@@ -26,19 +27,22 @@ done
 
 # Launch a Kubernetes node inside a Rootless Docker host
 for host in host0 host1; do
-	${LIMACTL} shell "${host}" CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" up
+	${LIMACTL} shell "${host}" U7S_PORT_KUBE_APISERVER=${U7S_PORT_KUBE_APISERVER} CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" up
 done
 
 # Bootstrap a cluster with host0
-${LIMACTL} shell host0 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-init install-flannel kubeconfig join-command
+${LIMACTL} shell host0 U7S_PORT_KUBE_APISERVER=${U7S_PORT_KUBE_APISERVER} \
+                       CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-init install-flannel kubeconfig join-command
 
 # Let host1 join the cluster
 ${LIMACTL} copy host0:~/usernetes/join-command host1:~/usernetes/join-command
-${LIMACTL} shell host1 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-join
-${LIMACTL} shell host0 CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" sync-external-ip
+${LIMACTL} shell host1 U7S_PORT_KUBE_APISERVER=${U7S_PORT_KUBE_APISERVER} \
+                       CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-join
+${LIMACTL} shell host0 U7S_PORT_KUBE_APISERVER=${U7S_PORT_KUBE_APISERVER} \
+                       CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" sync-external-ip
 
 # Enable kubectl
-ssh -q -f -N -L 6443:127.0.0.1:6443 -F ~/.lima/host0/ssh.config lima-host0
+ssh -q -f -N -L ${U7S_PORT_KUBE_APISERVER}:127.0.0.1:${U7S_PORT_KUBE_APISERVER} -F ~/.lima/host0/ssh.config lima-host0
 ${LIMACTL} copy host0:${guest_home}/usernetes/kubeconfig ./kubeconfig
 KUBECONFIG="$(pwd)/kubeconfig"
 export KUBECONFIG
