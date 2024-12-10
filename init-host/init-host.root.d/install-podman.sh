@@ -13,7 +13,7 @@ fi
 # > dial tcp 10.96.0.1:443: i/o timeout
 
 if command -v dnf >/dev/null 2>&1; then
-	dnf install -y podman podman-compose slirp4netns
+	dnf install -y --best podman podman-compose slirp4netns
 else
 	apt-get update -qq
 	apt-get -qq -y install podman podman-compose slirp4netns
