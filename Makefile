@@ -6,10 +6,15 @@ HOSTNAME ?= $(shell hostname)
 export HOSTNAME := $(HOSTNAME)
 
 # Change ports for different kubernetes services
-export U7S_PORT_ETCD ?= 2379
-export U7S_PORT_KUBELET ?= 10250
-export U7S_PORT_FLANNEL ?= 8472
-export U7S_PORT_KUBE_APISERVER ?= 6443
+PORT_ETCD ?= 2379
+PORT_KUBELET ?= 10250
+PORT_FLANNEL ?= 8472
+PORT_KUBE_APISERVER ?= 6443
+
+export U7S_PORT_ETCD := $(PORT_ETCD)
+export U7S_PORT_KUBELET := $(PORT_KUBELET)
+export U7S_PORT_FLANNEL := $(PORT_FLANNEL)
+export U7S_PORT_KUBE_APISERVER := $(PORT_KUBE_APISERVER)
 
 HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
 NODE_NAME ?= u7s-$(HOSTNAME)
