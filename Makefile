@@ -5,6 +5,12 @@ HOSTNAME ?= $(shell hostname)
 # HOSTNAME is the name of the physical host
 export HOSTNAME := $(HOSTNAME)
 
+# Change ports for different kubernetes services
+export U7S_PORT_ETCD ?= 2379
+export U7S_PORT_KUBELET ?= 10250
+export U7S_PORT_FLANNEL ?= 8472
+export U7S_PORT_KUBE_APISERVER ?= 6443
+
 HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
 NODE_NAME ?= u7s-$(HOSTNAME)
 NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node-subnet.sh)
@@ -34,6 +40,10 @@ NODE_SHELL := $(COMPOSE) exec \
 	-e U7S_NODE_NAME=$(U7S_NODE_NAME) \
 	-e U7S_NODE_SUBNET=$(U7S_NODE_SUBNET) \
 	-e U7S_NODE_IP=$(U7S_NODE_IP) \
+	-e U7S_PORT_KUBE_APISERVER=$(U7S_PORT_KUBE_APISERVER) \
+        -e U7S_PORT_FLANNEL=$(U7S_PORT_FLANNEL) \
+        -e U7S_PORT_KUBELET=$(U7S_PORT_KUBELET) \
+        -e U7S_PORT_ETCD=$(U7S_PORT_ETCD) \
 	$(NODE_SERVICE_NAME)
 
 ifeq ($(CONTAINER_ENGINE),nerdctl)
@@ -120,7 +130,6 @@ join-command:
 	echo "echo \"$(HOST_IP)  $(NODE_NAME)\" >/etc/hosts.u7s" >>join-command
 	echo "cat /etc/hosts.u7s >>/etc/hosts" >>join-command
 	$(NODE_SHELL) kubeadm token create --print-join-command | tr -d '\r' >>join-command
-	chmod +x join-command
 	@echo "# Copy the 'join-command' file to another host, and run the following commands:"
 	@echo "# On the other host (the new worker):"
 	@echo "#   make kubeadm-join"
@@ -140,8 +149,7 @@ sync-external-ip:
 
 .PHONY: kubeadm-join
 kubeadm-join:
-	$(NODE_SHELL) sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
-	$(NODE_SHELL) /usernetes/join-command
+	$(NODE_SHELL) /bin/bash /usernetes/join-command
 	@echo "# Run 'make sync-external-ip' on the control plane"
 
 .PHONY: kubeadm-reset
@@ -150,4 +158,4 @@ kubeadm-reset:
 
 .PHONY: install-flannel
 install-flannel:
-	$(NODE_SHELL) kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.26.1/kube-flannel.yml
+	$(NODE_SHELL) /usernetes/Makefile.d/install-flannel.sh
