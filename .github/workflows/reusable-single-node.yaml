@@ -2,6 +2,10 @@ name: Single Node
 on:  
   workflow_call:
     inputs:
+      container_engine:
+        description: container engine
+        type: string
+        default: "docker"
       kubelet_port:
         description: kubelet serving port
         type: string
@@ -29,17 +33,12 @@ jobs:
     name: "Single node"
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        engine: [docker, nerdctl, podman]
     env:
-      CONTAINER_ENGINE: "${{ matrix.engine }}"
+      CONTAINER_ENGINE: "${{ inputs.container_engine }}"
       U7S_PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       U7S_PORT_FLANNEL: "${{ inputs.flannel_port }}"
       U7S_PORT_KUBELET: "${{ inputs.kubelet_port }}"
       U7S_PORT_ETCD: "${{ inputs.etcd_port }}"
-      DOCKER_BUILDKIT: 1
       KUBECONFIG: ./kubeconfig
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +54,7 @@ jobs:
         # Preinstalled Moby does not contain dockerd-rootless-setuptool.sh
         run: sudo apt-get remove moby-engine-*
       - name: Set up Rootless Docker
-        if: ${{ matrix.engine == 'docker' }}
+        if: ${{ inputs.container_engine == 'docker' }}
         run: |
           set -eux -o pipefail
           curl https://get.docker.com | sudo sh
@@ -64,14 +63,14 @@ jobs:
           dockerd-rootless-setuptool.sh install
           docker info
       - name: Set up Rootless nerdctl
-        if: ${{ matrix.engine == 'nerdctl' }}
+        if: ${{ inputs.container_engine == 'nerdctl' }}
         run: |
           set -eux -o pipefail
           sudo ./init-host/init-host.root.d/install-nerdctl.sh
           ./init-host/init-host.rootless.sh
           nerdctl info
       - name: Set up Rootless Podman
-        if: ${{ matrix.engine == 'podman' }}
+        if: ${{ inputs.container_engine == 'podman' }}
         run: |
           set -eux -o pipefail
           sudo apt-get update
