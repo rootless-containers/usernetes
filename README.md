@@ -133,6 +133,21 @@ kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 The container engine defaults to Docker.
 To change the container engine, set `export CONTAINER_ENGINE=podman` or `export CONTAINER_ENGINE=nerdctl`.
 
+### Customization
+
+The following environment variables are recognized:
+
+Name                  | Type    | Default value
+----------------------|---------|----------------------------------------------------------------
+`CONTAINER_ENGINE`    | String  | automatically resolved to "docker", "podman", or "nerdctl"
+`HOST_IP`             | String  | automatically resolved to the host's IP address
+`NODE_NAME`           | String  | "u7s-" + the host's hostname
+`NODE_SUBNET`         | String  | "10.100.%d.0/24" (%d is computed from the hash of the hostname)
+`PORT_ETCD`           | Integer | 2379
+`PORT_KUBELET`        | Integer | 10250
+`PORT_FLANNEL`        | Integer | 8472
+`PORT_KUBE_APISERVER` | Integer | 6443
+
 ## Limitations
 - Node ports cannot be exposed automatically. Edit [`docker-compose.yaml`](./docker-compose.yaml) for exposing additional node ports.
 - Most of host files are not visible with `hostPath` mounts. Edit [`docker-compose.yaml`](./docker-compose.yaml) for mounting additional files.
@@ -153,6 +168,23 @@ make up
 >
 > The support for bypass4netns is still experimental
 
-### Misc
+### Multi-tenancy
+
+Multiple users on the hosts may create their own instances of Usernetes, but the port numbers have to be changed to avoid conflicts.
+
+```bash
+# Default: 2379
+export PORT_ETCD=12379
+# Default: 10250
+export PORT_KUBELET=20250
+# Default: 8472
+export PORT_FLANNEL=18472
+# Default: 6443
+export PORT_KUBE_APISERVER=16443
+
+make up
+```
+
+### Rootful mode
 - Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
   This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).

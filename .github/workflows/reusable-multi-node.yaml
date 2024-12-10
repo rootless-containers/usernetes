@@ -41,10 +41,10 @@ jobs:
     env:
       LIMA_TEMPLATE: "${{ matrix.lima_template }}"
       CONTAINER_ENGINE: "${{ matrix.container_engine }}"
-      U7S_PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
-      U7S_PORT_FLANNEL: "${{ inputs.flannel_port }}"
-      U7S_PORT_KUBELET: "${{ inputs.kubelet_port }}"
-      U7S_PORT_ETCD: "${{ inputs.etcd_port }}"
+      PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
+      PORT_FLANNEL: "${{ inputs.flannel_port }}"
+      PORT_KUBELET: "${{ inputs.kubelet_port }}"
+      PORT_ETCD: "${{ inputs.etcd_port }}"
       KUBECONFIG: ./kubeconfig
     steps:
       - uses: actions/checkout@v4
