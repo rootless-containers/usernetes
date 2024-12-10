@@ -185,6 +185,8 @@ export PORT_KUBE_APISERVER=16443
 make up
 ```
 
+![docs/images/multi-tenancy.png](./docs/images/multi-tenancy.png)
+
 ### Rootful mode
 - Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
   This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
