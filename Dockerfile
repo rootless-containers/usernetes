@@ -1,8 +1,10 @@
 ARG BASE_IMAGE=docker.io/kindest/node:v1.31.2@sha256:18fbefc20a7113353c7b75b5c869d7145a6abd6269154825872dc59c1329912e
 ARG CNI_PLUGINS_VERSION=v1.6.1
+ARG HELM_VERSION=v3.16.3
 FROM ${BASE_IMAGE}
 COPY Dockerfile.d/SHA256SUMS.d/ /tmp/SHA256SUMS.d
 ARG CNI_PLUGINS_VERSION
+ARG HELM_VERSION
 RUN arch="$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)" && \
   fname="cni-plugins-linux-${arch}-${CNI_PLUGINS_VERSION}.tgz" && \
   curl -o "${fname}" -fSL "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_VERSION}/${fname}" && \
@@ -10,8 +12,11 @@ RUN arch="$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)" && \
   mkdir -p /opt/cni/bin && \
   tar xzf "${fname}" -C /opt/cni/bin && \
   rm -f "${fname}" && \
-  curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
-  chmod 700 get_helm.sh && ./get_helm.sh && rm -f get_helm.sh
+  fname="helm-${HELM_VERSION}-linux-${arch}.tar.gz" && \
+  curl -o "${fname}" -fSL "https://get.helm.sh/${fname}" && \
+  grep "${fname}" "/tmp/SHA256SUMS.d/helm-${HELM_VERSION}" | sha256sum -c && \
+  tar xzf "${fname}" -C /usr/local/bin --strip-components=1 -- "linux-${arch}/helm" && \
+  rm -f "${fname}"
 # gettext-base: for `envsubst`
 # moreutils: for `sponge`
 # socat: for `socat` (to silence "[WARNING FileExisting-socat]" from kubeadm)
