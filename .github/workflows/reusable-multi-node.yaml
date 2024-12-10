@@ -45,7 +45,6 @@ jobs:
       U7S_PORT_FLANNEL: "${{ inputs.flannel_port }}"
       U7S_PORT_KUBELET: "${{ inputs.kubelet_port }}"
       U7S_PORT_ETCD: "${{ inputs.etcd_port }}"
-      DOCKER_BUILDKIT: 1
       KUBECONFIG: ./kubeconfig
     steps:
       - uses: actions/checkout@v4

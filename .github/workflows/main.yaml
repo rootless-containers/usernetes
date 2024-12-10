@@ -1,9 +1,6 @@
 ---
 name: Main
 on: [push, pull_request]
-env:
-  DOCKER_BUILDKIT: 1
-  KUBECONFIG: ./kubeconfig
 jobs:
   single-node:
     name: "Single node"
