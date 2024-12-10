@@ -2,16 +2,23 @@
 set -eux -o pipefail
 
 : "${LIMACTL:=limactl --tty=false}"
+: "${LIMACTL_CREATE_ARGS:=}"
 : "${LIMA_TEMPLATE:=template://default}"
 : "${CONTAINER_ENGINE:=docker}"
 : "${LOCKDOWN_SUDO:=1}"
 
 guest_home="/home/${USER}.linux"
 
+if [ "$(id -u)" -le 1000 ]; then
+	# In --plain mode, UID has to be >= 1000 to populate subuids
+	# https://github.com/lima-vm/lima/issues/3001
+	LIMACTL_CREATE_ARGS="${LIMACTL_CREATE_ARGS} --set=.user.uid=1001"
+fi
+
 # Create Rootless Docker hosts
 for host in host0 host1; do
 	# Set --plain to minimize Limaism
-	${LIMACTL} start --plain --network lima:user-v2 --name="${host}" "${LIMA_TEMPLATE}"
+	${LIMACTL} start --plain --network lima:user-v2 --name="${host}" ${LIMACTL_CREATE_ARGS} "${LIMA_TEMPLATE}"
 	${LIMACTL} copy -r "$(pwd)" "${host}:${guest_home}/usernetes"
 	${LIMACTL} shell "${host}" sudo CONTAINER_ENGINE="${CONTAINER_ENGINE}" "${guest_home}/usernetes/init-host/init-host.root.sh"
 	# Terminate the current session so that the cgroup delegation takes an effect. This command exits with status 255 as SSH terminates.
