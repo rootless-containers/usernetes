@@ -3,6 +3,14 @@ on:
   workflow_call:
     # allow reuse of this workflow in other files here
     inputs:
+      lima_template:
+        description: lima template
+        type: string
+        default: "template://ubuntu-24.04"
+      container_engine:
+        description: container engine
+        type: string
+        default: "docker"
       kubelet_port:
         description: kubelet serving port
         type: string
@@ -30,21 +38,9 @@ jobs:
     name: "Multi node (emulated using Lima)"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lima-template: template://ubuntu-24.04
-            engine: docker
-          - lima-template: template://ubuntu-24.04
-            engine: nerdctl
-          - lima-template: template://centos-stream-9
-            engine: podman
-          - lima-template: template://fedora
-            engine: podman
     env:
-      LIMA_TEMPLATE: "${{ matrix.lima-template }}"
-      CONTAINER_ENGINE: "${{ matrix.engine }}"
+      LIMA_TEMPLATE: "${{ matrix.lima_template }}"
+      CONTAINER_ENGINE: "${{ matrix.container_engine }}"
       U7S_PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       U7S_PORT_FLANNEL: "${{ inputs.flannel_port }}"
       U7S_PORT_KUBELET: "${{ inputs.kubelet_port }}"

@@ -5,33 +5,42 @@ env:
   DOCKER_BUILDKIT: 1
   KUBECONFIG: ./kubeconfig
 jobs:
-  # This uses the reusable-single-node.yaml template
   single-node:
-    name: "Single node with defaults"
-    uses: ./.github/workflows/reusable-single-node.yaml
-
-  single-node-custom-ports:
-    name: "Single node with custom service ports"
+    name: "Single node"
+    strategy:
+      fail-fast: false
+      matrix:
+        container_engine: [docker, nerdctl, podman]
     uses: ./.github/workflows/reusable-single-node.yaml
     with:
-      # Defaults to 6443
-      kube_apiserver_port: "8080"
-      # Defaults to 8472
-      flannel_port: "9072"
-      # Defaults to 10250
-      kubelet_port: "20250"
-      # Defaults to 2379
-      etcd_port: "9090"
+      container_engine: ${{ matrix.container_engine }}
 
-  # This uses the reusable-multi-node.yaml template
   multi-node:
-    name: "Multi node with defaults"
+    name: "Multi node"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lima_template: template://ubuntu-24.04
+            container_engine: docker
+          - lima_template: template://ubuntu-24.04
+            container_engine: nerdctl
+          - lima_template: template://centos-stream-9
+            container_engine: podman
+          - lima_template: template://fedora
+            container_engine: podman
     uses: ./.github/workflows/reusable-multi-node.yaml
+    with:
+      lima_template: ${{ matrix.lima_template }}
+      container_engine: ${{ matrix.container_engine }}
 
+  # TODO: this test should create multiple instances of Usernetes on each of the hosts
   multi-node-custom-ports:
     name: "Multi node with custom service ports"
     uses: ./.github/workflows/reusable-multi-node.yaml
     with:
+      lima_template: "template://ubuntu-24.04"
+      container_engine: "docker"
       # Defaults to 6443
       kube_apiserver_port: "8080"
       # Defaults to 8472
@@ -40,4 +49,3 @@ jobs:
       kubelet_port: "20250"
       # Defaults to 2379
       etcd_port: "9090"
-
