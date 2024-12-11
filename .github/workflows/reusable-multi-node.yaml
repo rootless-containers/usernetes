@@ -39,8 +39,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      LIMA_TEMPLATE: "${{ matrix.lima_template }}"
-      CONTAINER_ENGINE: "${{ matrix.container_engine }}"
+      LIMA_TEMPLATE: "${{ inputs.lima_template }}"
+      CONTAINER_ENGINE: "${{ inputs.container_engine }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"
