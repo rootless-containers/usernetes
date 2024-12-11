@@ -68,12 +68,14 @@ jobs:
           gh attestation verify --owner=lima-vm "${FILE}"
           sudo tar Cxzvf /usr/local "${FILE}"
           rm -f "${FILE}"
+          # For the GHA cache key
+          echo "LIMA_VERSION=${LIMA_VERSION}" >>$GITHUB_ENV
 
       - name: "Cache ~/.cache/lima"
         uses: actions/cache@v4
         with:
           path: ~/.cache/lima
-          key: lima-${{ env.LIMA_VERSION }}
+          key: lima-${{ env.LIMA_VERSION }}-${{ inputs.lima_template }}
 
       - run: ./hack/create-cluster-lima.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
