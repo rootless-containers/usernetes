@@ -39,8 +39,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      LIMA_TEMPLATE: "${{ matrix.lima_template }}"
-      CONTAINER_ENGINE: "${{ matrix.container_engine }}"
+      LIMA_TEMPLATE: "${{ inputs.lima_template }}"
+      CONTAINER_ENGINE: "${{ inputs.container_engine }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"
@@ -68,18 +68,15 @@ jobs:
           gh attestation verify --owner=lima-vm "${FILE}"
           sudo tar Cxzvf /usr/local "${FILE}"
           rm -f "${FILE}"
+          # For the GHA cache key
+          echo "LIMA_VERSION=${LIMA_VERSION}" >>$GITHUB_ENV
 
       - name: "Cache ~/.cache/lima"
         uses: actions/cache@v4
         with:
           path: ~/.cache/lima
-          key: lima-${{ env.LIMA_VERSION }}
+          key: lima-${{ env.LIMA_VERSION }}-${{ inputs.lima_template }}
 
-      - name: "Relax disk pressure limit"
-        run: |
-          set -x
-          sudo snap install yq
-          yq -i 'select(.kind=="KubeletConfiguration").evictionHard."imagefs.available"="3Gi"' kubeadm-config.yaml
       - run: ./hack/create-cluster-lima.sh
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
       - run: ./hack/test-smoke.sh
