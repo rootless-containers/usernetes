@@ -3,7 +3,7 @@
 Usernetes (Gen2) deploys a Kubernetes cluster inside [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/),
 so as to mitigate potential container-breakout vulnerabilities.
 
-> **Note**
+> [!NOTE]
 >
 > Usernetes (Gen2) has *significantly* diverged from the original Usernetes (Gen1),
 > which did not require Rootless Docker to be installed on hosts.
@@ -188,5 +188,5 @@ make up
 ![docs/images/multi-tenancy.png](./docs/images/multi-tenancy.png)
 
 ### Rootful mode
-- Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
-  This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
+Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
+This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).
