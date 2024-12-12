@@ -1,25 +1,25 @@
 # Use `make up`, not `docker compose up`,
-# as this YAML requires ${U7S_...} variables to be set.
+# as this YAML requires ${...} variables to be set.
 ---
 services:
   node:
     build: .
-    hostname: ${U7S_NODE_NAME}
+    hostname: ${NODE_NAME}
     privileged: true
     restart: always
     networks:
       default:
-        ipv4_address: ${U7S_NODE_IP}
+        ipv4_address: ${NODE_IP}
     ports:
       # <host>:<container>
       # etcd (default: 2379)
-      - ${U7S_PORT_ETCD}:${U7S_PORT_ETCD}
+      - ${PORT_ETCD}:${PORT_ETCD}
       # kube-apiserver (default: 6443)
-      - ${U7S_PORT_KUBE_APISERVER}:${U7S_PORT_KUBE_APISERVER}
+      - ${PORT_KUBE_APISERVER}:${PORT_KUBE_APISERVER}
       # kubelet (default: 10250)
-      - ${U7S_PORT_KUBELET}:${U7S_PORT_KUBELET}
+      - ${PORT_KUBELET}:${PORT_KUBELET}
       # flannel (default: 8472)
-      - ${U7S_PORT_FLANNEL}:${U7S_PORT_FLANNEL}/udp
+      - ${PORT_FLANNEL}:${PORT_FLANNEL}/udp
     volumes:
       - .:/usernetes:ro
       - /boot:/boot:ro
@@ -34,7 +34,7 @@ services:
     working_dir: /usernetes
     environment:
       KUBECONFIG: /etc/kubernetes/admin.conf
-      U7S_HOST_IP: ${U7S_HOST_IP}
+      HOST_IP: ${HOST_IP}
     sysctls:
       - net.ipv4.ip_forward=1
       # In addition, `net.ipv4.conf.default.rp_filter`
@@ -42,16 +42,16 @@ services:
       # in the daemon's network namespace.
     annotations:
       # Accelerate network for nerdctl >= 2.0.0-beta.4 with bypass4netns >= 0.4.1
-      "nerdctl/bypass4netns": "${U7S_B4NN:-false}"
+      "nerdctl/bypass4netns": "${BYPASS4NETNS:-false}"
       "nerdctl/bypass4netns-ignore-bind": "true"
-      "nerdctl/bypass4netns-ignore-subnets": "${U7S_B4NN_IGNORE_SUBNETS:-}"
+      "nerdctl/bypass4netns-ignore-subnets": "${BYPASS4NETNS_IGNORE_SUBNETS:-}"
 networks:
   default:
     ipam:
       config:
         # Each of the nodes has to have a different IP.
         # The node IP here is not accessible from other nodes.
-        - subnet: ${U7S_NODE_SUBNET}
+        - subnet: ${NODE_SUBNET}
 volumes:
   node-var: {}
   node-opt: {}

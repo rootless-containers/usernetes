@@ -1,60 +1,48 @@
 # Run `make help` to show usage
 .DEFAULT_GOAL := help
 
-HOSTNAME ?= $(shell hostname)
-# HOSTNAME is the name of the physical host
-export HOSTNAME := $(HOSTNAME)
-
 # Change ports for different kubernetes services
-PORT_ETCD ?= 2379
-PORT_KUBELET ?= 10250
-PORT_FLANNEL ?= 8472
-PORT_KUBE_APISERVER ?= 6443
+export PORT_ETCD ?= 2379
+export PORT_KUBELET ?= 10250
+export PORT_FLANNEL ?= 8472
+export PORT_KUBE_APISERVER ?= 6443
 
-export U7S_PORT_ETCD := $(PORT_ETCD)
-export U7S_PORT_KUBELET := $(PORT_KUBELET)
-export U7S_PORT_FLANNEL := $(PORT_FLANNEL)
-export U7S_PORT_KUBE_APISERVER := $(PORT_KUBE_APISERVER)
-
-HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
-NODE_NAME ?= u7s-$(HOSTNAME)
-NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node-subnet.sh)
-# U7S_HOST_IP is the IP address of the physical host. Accessible from other hosts.
-export U7S_HOST_IP := $(HOST_IP)
-# U7S_NODE_NAME is the host name of the Kubernetes node running in Rootless Docker.
+# HOSTNAME is the name of the physical host
+export HOSTNAME ?= $(shell hostname)
+# HOST_IP is the IP address of the physical host. Accessible from other hosts.
+export HOST_IP ?= $(shell ip --json route get 1 | jq -r .[0].prefsrc)
+# NODE_NAME is the host name of the Kubernetes node running in Rootless Docker.
 # Not accessible from other hosts.
-export U7S_NODE_NAME:= $(NODE_NAME)
-# U7S_NODE_NAME is the subnet of the Kubernetes node running in Rootless Docker.
+export NODE_NAME ?= u7s-$(HOSTNAME)
+# NODE_SUBNET is the subnet of the Kubernetes node running in Rootless Docker.
 # Not accessible from other hosts.
-export U7S_NODE_SUBNET := $(NODE_SUBNET)
-# U7S_NODE_IP is the IP address of the Kubernetes node running in Rootless Docker.
+export NODE_SUBNET ?= $(shell $(CURDIR)/Makefile.d/node-subnet.sh)
+# NODE_IP is the IP address of the Kubernetes node running in Rootless Docker.
 # Not accessible from other hosts.
-export U7S_NODE_IP := $(subst .0/24,.100,$(U7S_NODE_SUBNET))
+export NODE_IP := $(subst .0/24,.100,$(NODE_SUBNET))
 
-CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE)
-export CONTAINER_ENGINE := $(CONTAINER_ENGINE)
+export CONTAINER_ENGINE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE)
 
-CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE_TYPE)
-export CONTAINER_ENGINE_TYPE := $(CONTAINER_ENGINE_TYPE)
+export CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh CONTAINER_ENGINE_TYPE)
 
 COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh COMPOSE)
 
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \
-	-e U7S_HOST_IP=$(U7S_HOST_IP) \
-	-e U7S_NODE_NAME=$(U7S_NODE_NAME) \
-	-e U7S_NODE_SUBNET=$(U7S_NODE_SUBNET) \
-	-e U7S_NODE_IP=$(U7S_NODE_IP) \
-	-e U7S_PORT_KUBE_APISERVER=$(U7S_PORT_KUBE_APISERVER) \
-        -e U7S_PORT_FLANNEL=$(U7S_PORT_FLANNEL) \
-        -e U7S_PORT_KUBELET=$(U7S_PORT_KUBELET) \
-        -e U7S_PORT_ETCD=$(U7S_PORT_ETCD) \
+	-e HOST_IP=$(HOST_IP) \
+	-e NODE_NAME=$(NODE_NAME) \
+	-e NODE_SUBNET=$(NODE_SUBNET) \
+	-e NODE_IP=$(NODE_IP) \
+	-e PORT_KUBE_APISERVER=$(PORT_KUBE_APISERVER) \
+	-e PORT_FLANNEL=$(PORT_FLANNEL) \
+	-e PORT_KUBELET=$(PORT_KUBELET) \
+	-e PORT_ETCD=$(PORT_ETCD) \
 	$(NODE_SERVICE_NAME)
 
 ifeq ($(CONTAINER_ENGINE),nerdctl)
 ifneq (,$(wildcard $(XDG_RUNTIME_DIR)/bypass4netnsd.sock))
-	export U7S_B4NN := true
-	export U7S_B4NN_IGNORE_SUBNETS := ["10.96.0.0/16", "10.244.0.0/16", "$(U7S_NODE_SUBNET)"]
+	export BYPASS4NETNS := true
+	export BYPASS4NETNS_IGNORE_SUBNETS := ["10.96.0.0/16", "10.244.0.0/16", "$(NODE_SUBNET)"]
 endif
 endif
 
