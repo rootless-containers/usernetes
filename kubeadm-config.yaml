@@ -1,24 +1,24 @@
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
-  bindPort: ${U7S_PORT_KUBE_APISERVER}
+  bindPort: ${PORT_KUBE_APISERVER}
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-controlPlaneEndpoint: "${U7S_NODE_NAME}:${U7S_PORT_KUBE_APISERVER}"
+controlPlaneEndpoint: "${NODE_NAME}:${PORT_KUBE_APISERVER}"
 apiServer:
   certSANs:
   - localhost
   - 127.0.0.1
-  - "${U7S_NODE_NAME}"
-  - "${U7S_HOST_IP}"
+  - "${NODE_NAME}"
+  - "${HOST_IP}"
   extraArgs:
   - name: etcd-servers
-    value: https://127.0.0.1:${U7S_PORT_ETCD}
+    value: https://127.0.0.1:${PORT_ETCD}
   - name: advertise-address
-    value: ${U7S_HOST_IP}
+    value: ${HOST_IP}
   - name: secure-port
-    value: "${U7S_PORT_KUBE_APISERVER}"
+    value: "${PORT_KUBE_APISERVER}"
   - name: cloud-provider
     value: external
     # Default: "Hostname,InternalDNS,InternalIP,ExternalDNS,ExternalIP"    
@@ -35,14 +35,14 @@ etcd:
   local:
     extraArgs:
       - name: listen-client-urls
-        value: "https://127.0.0.1:${U7S_PORT_ETCD},https://${U7S_NODE_IP}:${U7S_PORT_ETCD}"
+        value: "https://127.0.0.1:${PORT_ETCD},https://${NODE_IP}:${PORT_ETCD}"
       - name: advertise-client-urls
-        value: https://${U7S_NODE_IP}:${U7S_PORT_ETCD}
+        value: https://${NODE_IP}:${PORT_ETCD}
 ---
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
 failSwapOn: false
-port: ${U7S_PORT_KUBELET}
+port: ${PORT_KUBELET}
 featureGates:
   KubeletInUserNamespace: true
 ---
