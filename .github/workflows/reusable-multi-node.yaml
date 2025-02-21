@@ -19,6 +19,10 @@ on:
         description: flannel vxlan port
         type: string
         default: "8472"
+      rootful:
+        description: use rootful mode for a container technology
+        type: string
+        default: "false"
       etcd_port:
         description: etcd service port
         type: string
@@ -41,6 +45,7 @@ jobs:
     env:
       LIMA_TEMPLATE: "${{ inputs.lima_template }}"
       CONTAINER_ENGINE: "${{ inputs.container_engine }}"
+      CONTAINER_ROOTFUL: "${{ inputs.rootful }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"
