@@ -37,6 +37,12 @@ done
 
 SERVICE_PORTS="PORT_KUBE_APISERVER=${PORT_KUBE_APISERVER} PORT_ETCD=${PORT_ETCD} PORT_FLANNEL=${PORT_FLANNEL} PORT_KUBELET=${PORT_KUBELET}"
 
+# At this point, rootless / rootful Docker is setup
+if [[ "$CONTAINER_ENGINE" == "docker-rootful" ]]
+  then
+    CONTAINER_ENGINE="docker"  
+fi
+
 # Launch a Kubernetes node inside a Rootless Docker host
 for host in host0 host1; do
 	${LIMACTL} shell "${host}" ${SERVICE_PORTS} CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" up

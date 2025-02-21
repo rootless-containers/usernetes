@@ -12,6 +12,10 @@ case "${CONTAINER_ENGINE}" in
 "docker")
 	dockerd-rootless-setuptool.sh install || (journalctl --user --since "10 min ago"; exit 1)
 	;;
+"docker-rootful")
+	echo "Skipping rootless install of docker"
+	CONTAINER_ENGINE="docker"
+	;;
 "nerdctl")
 	containerd-rootless-setuptool.sh install
 	containerd-rootless-setuptool.sh install-buildkit-containerd

@@ -77,6 +77,9 @@ case "${CONTAINER_ENGINE}" in
 	fi
 	systemctl disable --now docker
 	;;
+"docker-rootful")
+	echo "Preparing to run docker in default rootful mode."
+	;;
 "podman")
 	if ! command -v podman-compose >/dev/null 2>&1; then
 		"${script_dir}"/init-host.root.d/install-podman.sh
