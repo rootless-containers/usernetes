@@ -20,6 +20,8 @@ jobs:
         include:
           - lima_template: template://ubuntu-24.04
             container_engine: docker
+          - lima_template: template://docker-rootful
+            container_engine: docker-rootful
           - lima_template: template://ubuntu-24.04
             container_engine: nerdctl
           - lima_template: template://centos-stream-9
