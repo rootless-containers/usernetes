@@ -7,10 +7,23 @@ if [ "$(id -u)" == "0" ]; then
 fi
 
 : "${CONTAINER_ENGINE:=docker}"
+: "${CONTAINER_ROOTFUL:=false}"
 : "${XDG_CONFIG_HOME:=${HOME}/.config}"
+
+setup_docker_rootless() {
+	if [ "${CONTAINER_ROOTFUL}" = "true" ]; then
+		return
+	fi
+	dockerd-rootless-setuptool.sh install || (journalctl --user --since "10 min ago"; exit 1)
+}
+
 case "${CONTAINER_ENGINE}" in
 "docker")
-	dockerd-rootless-setuptool.sh install || (journalctl --user --since "10 min ago"; exit 1)
+	setup_docker_rootless
+	;;
+"docker-rootful")
+	echo "Skipping rootless install of docker"
+	CONTAINER_ENGINE="docker"
 	;;
 "nerdctl")
 	containerd-rootless-setuptool.sh install
