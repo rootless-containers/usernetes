@@ -19,8 +19,6 @@ apiServer:
     value: ${HOST_IP}
   - name: secure-port
     value: "${PORT_KUBE_APISERVER}"
-  - name: cloud-provider
-    value: external
     # Default: "Hostname,InternalDNS,InternalIP,ExternalDNS,ExternalIP"    
   - name: kubelet-preferred-address-types
     value: ExternalIP
