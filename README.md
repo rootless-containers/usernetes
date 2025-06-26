@@ -103,7 +103,10 @@ pasta does not seem to work well
 Use scripts in [`./init-host`](./init-host) for automating these steps.
 
 ## Usage
+
 See `make help`.
+
+Here are instructions for control plane and worker nodes.
 
 ```bash
 # Bootstrap a cluster
