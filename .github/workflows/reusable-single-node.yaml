@@ -42,6 +42,11 @@ jobs:
       KUBECONFIG: ./kubeconfig
     steps:
       - uses: actions/checkout@v4
+      - name: Load kernel modules
+        run: |
+          sudo modprobe br_netfilter
+          sudo modprobe iptable_nat
+          sudo modprobe vxlan
       - name: Set up cgroup v2 delegation
         run: |
           sudo mkdir -p /etc/systemd/system/user@.service.d
