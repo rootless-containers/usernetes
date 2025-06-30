@@ -103,6 +103,7 @@ pasta does not seem to work well
 Use scripts in [`./init-host`](./init-host) for automating these steps.
 
 ## Usage
+
 See `make help`.
 
 ```bash
@@ -170,7 +171,7 @@ make up
 
 ### Multi-tenancy
 
-Multiple users on the hosts may create their own instances of Usernetes, but the port numbers have to be changed to avoid conflicts.
+Multiple users on the hosts may create their own instances of Usernetes. For systems that do not allow the lower port range, or for multiple usernetes deployments on the same physical node (experimental), the port numbers can be changed.
 
 ```bash
 # Default: 2379
@@ -186,6 +187,8 @@ make up
 ```
 
 ![docs/images/multi-tenancy.png](./docs/images/multi-tenancy.png)
+
+In addition, for multi-host, you will want to `make install-flannel` after `make sync-external-ip` when worker pods are up. The sync command adds an annotation `flannel.alpha.coreos.com/public-ip-overwrite` for flannel to direct the nodes to use the physical node host IP. If the flannel pod has already been created for a node, it would need to be restarted to recheck the annotation. The easiest approach is to install flannel after the annotations have been applied.
 
 ### Rootful mode
 Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
