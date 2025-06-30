@@ -103,7 +103,16 @@ pasta does not seem to work well
 Use scripts in [`./init-host`](./init-host) for automating these steps.
 
 ## Usage
+
 See `make help`.
+
+If you are running a multi-node setup with a shared filesystem and location for your network CNI files, you will want to create a non-shared location for each node's usernetes code (e.g., `/tmp` is usually not shared) and run this additional command for each of the control-plane and worker nodes before `make up`. It will give the network (and corresponding CNI files) unique names in the shared location, usually in `~/.config/cni`,
+
+```bash
+make multi-node
+```
+
+Here are instructions for control plane and worker nodes.
 
 ```bash
 # Bootstrap a cluster

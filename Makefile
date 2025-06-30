@@ -71,6 +71,10 @@ help:
 	@echo 'make down-v'
 	@echo 'kubectl taint nodes --all node-role.kubernetes.io/control-plane-'
 
+.PHONY: multi-node
+multi-node:
+	sed -i "s/default_network/$(HOSTNAME)/g" docker-compose.yaml
+
 .PHONY: check-preflight
 check-preflight:
 	./Makefile.d/check-preflight.sh
