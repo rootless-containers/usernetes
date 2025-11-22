@@ -7,6 +7,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 : "${CONTAINER_ENGINE:=docker}"
+: "${CONTAINER_ROOTFUL:=false}"
 script_dir="$(dirname "$0")"
 
 if [ ! -e /etc/systemd/system/user@.service.d/delegate.conf ]; then
@@ -64,8 +65,12 @@ else
 	apt-get install -y git uidmap make jq
 fi
 
-case "${CONTAINER_ENGINE}" in
-"docker")
+setup_docker() {
+	if [ "${CONTAINER_ROOTFUL}" = "true" ]; then
+		echo "Preparing to run docker in default rootful mode."	
+		return
+	fi
+	echo "Preparing to run docker in rootless mode."	
 	if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
 		if grep -q centos /etc/os-release; then
 			# Works with Rocky and Alma too
@@ -76,6 +81,11 @@ case "${CONTAINER_ENGINE}" in
 		fi
 	fi
 	systemctl disable --now docker
+}
+
+case "${CONTAINER_ENGINE}" in
+"docker")
+	setup_docker
 	;;
 "podman")
 	if ! command -v podman-compose >/dev/null 2>&1; then

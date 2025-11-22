@@ -3,3 +3,4 @@
 # https://github.com/kubernetes/kops/pull/9074
 # https://github.com/karmab/kcli/commit/b1a8eff658d17cf4e28162f0fa2c8b2b10e5ad00
 SUBSYSTEM=="net", ACTION=="add|change|move", ENV{INTERFACE}=="flannel.1", RUN+="/usr/sbin/ethtool -K flannel.1 tx-checksum-ip-generic off"
+SUBSYSTEM=="net", ACTION=="add|change|move", ENV{INTERFACE}=="eth0", RUN+="/usr/sbin/ethtool tx-checksum-ip-generic off"

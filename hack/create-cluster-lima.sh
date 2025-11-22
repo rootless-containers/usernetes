@@ -24,7 +24,7 @@ for host in host0 host1; do
 	# Set --plain to minimize Limaism
 	${LIMACTL} start --plain --network lima:user-v2 --name="${host}" ${LIMACTL_CREATE_ARGS} "${LIMA_TEMPLATE}"
 	${LIMACTL} copy -r "$(pwd)" "${host}:${guest_home}/usernetes"
-	${LIMACTL} shell "${host}" sudo CONTAINER_ENGINE="${CONTAINER_ENGINE}" "${guest_home}/usernetes/init-host/init-host.root.sh"
+	${LIMACTL} shell "${host}" sudo CONTAINER_ENGINE="${CONTAINER_ENGINE}" CONTAINER_ROOTFUL="${CONTAINER_ROOTFUL}" "${guest_home}/usernetes/init-host/init-host.root.sh"
 	# Terminate the current session so that the cgroup delegation takes an effect. This command exits with status 255 as SSH terminates.
 	${LIMACTL} shell "${host}" sudo loginctl terminate-user "${USER}" || true
 	${LIMACTL} shell "${host}" sudo loginctl enable-linger "${USER}"
@@ -32,7 +32,7 @@ for host in host0 host1; do
 		# Lockdown sudo to ensure rootless-ness
 		${LIMACTL} shell "${host}" sudo sh -euxc 'rm -rf /etc/sudoers.d/*-cloud-init-users'
 	fi
-	${LIMACTL} shell "${host}" CONTAINER_ENGINE="${CONTAINER_ENGINE}" "${guest_home}/usernetes/init-host/init-host.rootless.sh"
+	${LIMACTL} shell "${host}" CONTAINER_ENGINE="${CONTAINER_ENGINE}" CONTAINER_ROOTFUL="${CONTAINER_ROOTFUL}" "${guest_home}/usernetes/init-host/init-host.rootless.sh"
 done
 
 SERVICE_PORTS="PORT_KUBE_APISERVER=${PORT_KUBE_APISERVER} PORT_ETCD=${PORT_ETCD} PORT_FLANNEL=${PORT_FLANNEL} PORT_KUBELET=${PORT_KUBELET}"

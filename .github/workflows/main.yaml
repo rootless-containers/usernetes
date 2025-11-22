@@ -20,16 +20,23 @@ jobs:
         include:
           - lima_template: template://ubuntu-24.04
             container_engine: docker
+            rootful: "false"
+          - lima_template: template://docker-rootful
+            container_engine: docker
+            rootful: "true"
           - lima_template: template://ubuntu-24.04
             container_engine: nerdctl
+            rootful: "false"
           - lima_template: template://centos-stream-9
             container_engine: podman
           - lima_template: template://fedora
             container_engine: podman
+            rootful: "false"
     uses: ./.github/workflows/reusable-multi-node.yaml
     with:
       lima_template: ${{ matrix.lima_template }}
       container_engine: ${{ matrix.container_engine }}
+      rootful: ${{ matrix.rootful }}
 
   # TODO: this test should create multiple instances of Usernetes on each of the hosts
   multi-node-custom-ports:
