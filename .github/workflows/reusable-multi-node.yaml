@@ -7,6 +7,12 @@ on:
         description: lima template
         type: string
         default: "template://ubuntu-24.04"
+      lima_version:
+        description: lima version
+        type: string
+        # Pinned to v1.2, as a workaround for a regression of `limactl copy` in Lima v2.0
+        # https://github.com/lima-vm/lima/issues/4468
+        default: "v1.2.2"
       container_engine:
         description: container engine
         type: string
@@ -51,6 +57,8 @@ jobs:
 
       - uses: lima-vm/lima-actions/setup@v1
         id: lima-actions-setup
+        with:
+          version: "${{ inputs.lima_version }}"
 
       - name: "Cache ~/.cache/lima"
         uses: actions/cache@v4
