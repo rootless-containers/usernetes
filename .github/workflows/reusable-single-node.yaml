@@ -41,7 +41,7 @@ jobs:
       PORT_ETCD: "${{ inputs.etcd_port }}"
       KUBECONFIG: ./kubeconfig
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Load kernel modules
         run: |
           sudo modprobe br_netfilter
