@@ -1,24 +1,32 @@
-# Usernetes: Kubernetes without the root privileges (Generation 2)
+# Usernetes: Kubernetes without the root privileges (Generation 3)
 
-Usernetes (Gen2) deploys a Kubernetes cluster inside [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/),
+Usernetes deploys a Kubernetes cluster without requiring root privileges on the host,
 so as to mitigate potential container-breakout vulnerabilities.
 
-> [!NOTE]
->
-> Usernetes (Gen2) has *significantly* diverged from the original Usernetes (Gen1),
-> which did not require Rootless Docker to be installed on hosts.
->
-> See the [`gen1`](https://github.com/rootless-containers/usernetes/tree/gen1) branch for
-> the original Usernetes (Gen1).
+Two deployment modes are supported:
+- **Kubernetes-in-Docker** (default): Deploys a Kubernetes cluster inside [Rootless Docker](https://rootlesscontaine.rs/getting-started/docker/), [Rootless Podman](https://rootlesscontaine.rs/getting-started/podman/), or [Rootless nerdctl](https://rootlesscontaine.rs/getting-started/containerd/).
+  This mode is similar to [Rootless `kind`](https://kind.sigs.k8s.io/docs/user/rootless/) and [Rootless minikube](https://minikube.sigs.k8s.io/docs/drivers/docker/),
+  but Usernetes supports creating a cluster with multiple hosts.
+- [**Kubernetes-in-Kubernetes**](./kubernetes/README.md): Usernetes runs inside an existing Kubernetes cluster, as [UserNS-enabled pods](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/) (`hostUsers: false`).
 
-Usernetes (Gen2) is similar to [Rootless `kind`](https://kind.sigs.k8s.io/docs/user/rootless/) and [Rootless minikube](https://minikube.sigs.k8s.io/docs/drivers/docker/),
-but Usernetes (Gen 2) supports creating a cluster with multiple hosts.
+## Project history
+- **Generation 1** ([`gen1`](https://github.com/rootless-containers/usernetes/tree/gen1) branch, 2018-2023):
+  The original Usernetes, implemented in the style of ["Kubernetes The Hard Way"](https://github.com/kelseyhightower/kubernetes-the-hard-way).
+  This generation was hard to use due to lack of support for kubeadm.
+- **Generation 2** ([`gen2`](https://github.com/rootless-containers/usernetes/tree/gen2) branch, 2023-2026):
+  Switched to **Kubernetes-in-Docker** mode for simplicity. This switch enabled supporting kubeadm.
+- **Generation 3** (2026-present):
+  Additionally added support for **Kubernetes-in-Kubernetes** mode.
 
 ## Components
 - Cluster configuration: kubeadm
 - CRI: containerd
 - OCI: runc
 - CNI: Flannel
+
+> [!NOTE]
+> The documentation below is for the **Kubernetes-in-Docker** mode.
+> See [`./kubernetes`](./kubernetes/README.md) for the **Kubernetes-in-Kubernetes** mode.
 
 ## Requirements
 
@@ -147,6 +155,8 @@ Name                  | Type    | Default value
 `PORT_KUBELET`        | Integer | 10250
 `PORT_FLANNEL`        | Integer | 8472
 `PORT_KUBE_APISERVER` | Integer | 6443
+`POD_SUBNET`          | String  | "10.244.0.0/16"
+`SERVICE_SUBNET`      | String  | "10.96.0.0/16"
 
 ## Limitations
 - Node ports cannot be exposed automatically. Edit [`docker-compose.yaml`](./docker-compose.yaml) for exposing additional node ports.
@@ -188,5 +198,5 @@ make up
 ![docs/images/multi-tenancy.png](./docs/images/multi-tenancy.png)
 
 ### Rootful mode
-Although Usernetes (Gen2) is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
+Although Usernetes is designed to be used with Rootless Docker, it should work with the regular "rootful" Docker too.
 This might be useful for some people who are looking for "multi-host" version of [`kind`](https://kind.sigs.k8s.io/) and [minikube](https://minikube.sigs.k8s.io/).

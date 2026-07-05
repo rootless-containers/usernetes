@@ -33,4 +33,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   socat
 ADD Dockerfile.d/etc_udev_rules.d_90-flannel.rules /etc/udev/rules.d/90-flannel.rules
 ADD Dockerfile.d/u7s-entrypoint.sh /
+# Copy the source tree into the image, so that the image is usable without
+# bind-mounting the source tree from the host (e.g., when running inside
+# Kubernetes; see ./kubernetes). In the Docker Compose mode, this directory is
+# shadowed by a read-only bind mount of the current directory.
+COPY . /usernetes
 ENTRYPOINT ["/u7s-entrypoint.sh", "/usr/local/bin/entrypoint", "/sbin/init"]

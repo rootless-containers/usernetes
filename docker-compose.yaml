@@ -35,6 +35,8 @@ services:
     environment:
       KUBECONFIG: /etc/kubernetes/admin.conf
       HOST_IP: ${HOST_IP}
+      POD_SUBNET: ${POD_SUBNET}
+      SERVICE_SUBNET: ${SERVICE_SUBNET}
     sysctls:
       - net.ipv4.ip_forward=1
       # In addition, `net.ipv4.conf.default.rp_filter`

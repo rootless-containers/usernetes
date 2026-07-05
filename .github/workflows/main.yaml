@@ -48,3 +48,7 @@ jobs:
       kubelet_port: "20250"
       # Defaults to 2379
       etcd_port: "9090"
+
+  k8s-in-k8s:
+    name: "Kubernetes-in-Kubernetes"
+    uses: ./.github/workflows/reusable-k8s-in-k8s.yaml
