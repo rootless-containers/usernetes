@@ -71,6 +71,25 @@ Requirements for the "outer" (host) Kubernetes cluster:
     (untested).
 - The `vxlan` and `br_netfilter` kernel modules loaded on the nodes
   (see [`../init-host`](../init-host)).
+- (Optional) To create privileged pods in the inner cluster, the nodes have
+  to provide an extra read-write sysfs instance at `/run/usernetes/sysfs`:
+  ```bash
+  sudo mkdir -p /run/usernetes/sysfs
+  sudo unshare --net mount -t sysfs -o nosuid,nodev,noexec sysfs /run/usernetes/sysfs
+  ```
+  The kernel allows mounting a fresh read-write sysfs (as needed by runc for
+  a privileged pod of the inner cluster) in a mount namespace owned by a
+  user namespace only when the mount namespace already contains a
+  fully-visible read-write sysfs instance, while the `/sys` of the node pods
+  is mounted read-only by the CRI of the outer cluster. The instance is
+  provided by the host (mounted into the node pods via a `hostPath` volume;
+  see [`./usernetes.yaml`](./usernetes.yaml)), as the node pods cannot mount
+  it by themselves. `unshare --net` detaches the instance from the network
+  namespace of the host, so it does not expose the network devices of the
+  host; sysfs cannot be written by the node pods anyway, as the files are
+  owned by the "real" root. Without this mount, everything else still works;
+  only the creation of privileged pods in the inner cluster fails
+  (see [issue #396](https://github.com/rootless-containers/usernetes/issues/396)).
 - `net.ipv4.conf.default.rp_filter` should be 0 (disabled) or 2 (loose) on the
   nodes; the entrypoint of the node pods also tries to relax it by itself.
 - The Pod Security admission of the namespace must allow the `privileged`
@@ -201,6 +220,14 @@ make kubeadm-join
   the IP-dependent state on boot.
 - Node ports of the inner cluster are not exposed automatically.
   `kubectl port-forward` to the node pods can be used instead.
+- Privileged pods of the inner cluster need the extra sysfs instance on the
+  hosts (see the requirements above). Privileged pods with `hostNetwork`
+  get a read-only `/sys` (a bind mount of the `/sys` of the node pod,
+  created by runc in place of a fresh read-write sysfs): mounting a fresh
+  sysfs requires the network namespace to be owned by the user namespace,
+  while the network namespace of the node pod is created by the CRI of the
+  outer cluster (see also the comment on `patch-kube-proxy` in
+  [`./Makefile`](./Makefile)).
 - Most of the limitations of the Docker Compose mode
   (see the top-level [`README.md`](../README.md)) apply to this mode too.
 - The `/lib/modules` and `/boot` directories of the hosts are mounted into the
@@ -271,3 +298,9 @@ export U7S_IMAGE=usernetes:ci U7S_RUNTIME_CLASS_NAME=usernetes U7S_KUBE_APISERVE
   make sure that the `vxlan` kernel module is loaded on the hosts, and that
   the network policy of the outer cluster allows UDP port 8472 between the
   node pods.
+- A privileged pod of the inner cluster fails with
+  `error mounting "sysfs" to rootfs at "/sys": ... operation not permitted`:
+  make sure that the hosts provide the read-write sysfs instance at
+  `/run/usernetes/sysfs` (see the requirements above), and recreate the node
+  pods if the instance was mounted after them. For the `/sys` of privileged
+  pods with `hostNetwork`, see the limitations above.
