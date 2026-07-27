@@ -5,8 +5,8 @@ if [ "$(id -u)" != "0" ]; then
 	exit 1
 fi
 
-VERSION="2.3.1"
-SHASHA="8a0586ff11d4d5a5d19d59494a10af8c6d41dd95ca72ff347f62d5288bc5131a"
+VERSION="2.3.5"
+SHASHA="b2f76b8403c98402b015cd4836b8ea26c1529f77b8c4938c27b2928af4c9073f"
 
 arch=""
 case "$(uname -m)" in
