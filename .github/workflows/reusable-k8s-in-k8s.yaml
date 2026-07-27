@@ -1,0 +1,297 @@
+name: Kubernetes-in-Kubernetes
+on:
+  workflow_call:
+    inputs:
+      k3s_version:
+        description: k3s version for the outer Kubernetes cluster
+        type: string
+        default: "v1.36.2+k3s1"
+
+permissions:
+  contents: read
+
+jobs:
+  k8s-in-k8s:
+    name: "Usernetes inside Kubernetes (outer cluster using a single-node k3s)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      U7S_IMAGE: usernetes:ci
+      # 127.0.0.1:6443 is used by the API server of the outer cluster (k3s),
+      # so the API server of the inner cluster is forwarded to another port.
+      U7S_KUBE_APISERVER_LOCAL_PORT: "16443"
+      # The "usernetes" RuntimeClass is backed by a dedicated containerd
+      # runtime handler with cgroup_writable = true; see below.
+      U7S_RUNTIME_CLASS_NAME: usernetes
+      K3S_VERSION: "${{ inputs.k3s_version }}"
+      KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+    defaults:
+      run:
+        working-directory: kubernetes
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Load kernel modules
+        run: |
+          sudo modprobe br_netfilter
+          sudo modprobe vxlan
+
+      - name: Create the outer Kubernetes cluster (k3s)
+        run: |
+          set -eux -o pipefail
+          command -v envsubst >/dev/null 2>&1 || sudo apt-get install -y gettext-base
+          curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${K3S_VERSION}" K3S_KUBECONFIG_MODE=644 sh -s - server --disable=traefik,servicelb,metrics-server
+          timeout 120 bash -c 'until kubectl get nodes >/dev/null 2>&1; do sleep 2; done'
+          kubectl wait --for=condition=Ready node --all --timeout=5m
+          kubectl get nodes -o wide
+
+      - name: Define the "usernetes" runtime handler in the containerd of the outer cluster
+        run: |
+          set -eux -o pipefail
+          # systemd inside the node pods has to be able to manage its own
+          # (namespaced) cgroups: with `cgroup_writable = true`, containerd
+          # (>= 2.1) mounts /sys/fs/cgroup read-write, and runc chowns the
+          # cgroup of the container to the mapped root of the user namespace.
+          #
+          # cgroup_writable is enabled only for a dedicated "usernetes"
+          # runtime handler (exposed to the pods via the "usernetes"
+          # RuntimeClass below), not for the default "runc" handler.
+          conf_dir=/var/lib/rancher/k3s/agent/etc/containerd
+          sudo tee "${conf_dir}/config-v3.toml.tmpl" >/dev/null <<'EOF'
+          {{ template "base" . }}
+
+          [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.usernetes]
+            runtime_type = "io.containerd.runc.v2"
+            cgroup_writable = true
+            [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.usernetes.options]
+              SystemdCgroup = true
+          EOF
+          sudo systemctl restart k3s
+          timeout 120 bash -c 'until kubectl get nodes >/dev/null 2>&1; do sleep 2; done'
+          kubectl wait --for=condition=Ready node --all --timeout=5m
+          # k3s re-renders config.toml from the template on startup
+          sudo grep -A4 'runtimes.usernetes' "${conf_dir}/config.toml"
+
+      - name: Create the "usernetes" RuntimeClass
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: node.k8s.io/v1
+          kind: RuntimeClass
+          metadata:
+            name: usernetes
+          handler: usernetes
+          EOF
+
+      - name: Build the node image
+        working-directory: .
+        run: docker build -t "${U7S_IMAGE}" .
+
+      - name: Load the node image into the outer cluster
+        run: docker save "${U7S_IMAGE}" | sudo k3s ctr images import -
+
+      - run: make up
+
+      - name: Verify that the node pods are running in user namespaces
+        run: |
+          set -eux -o pipefail
+          uid_map="$(kubectl exec --namespace=usernetes u7s-control-plane-0 -c node -- cat /proc/1/uid_map)"
+          echo "uid_map of the control plane pod: ${uid_map}"
+          if echo "${uid_map}" | grep -qw 4294967295; then
+            echo >&2 "ERROR: the node pod does not seem to be running in a user namespace"
+            exit 1
+          fi
+
+      - run: make kubeadm-init
+      - run: make install-flannel
+      - run: make kubeadm-join
+
+      - name: make kubeconfig
+        run: |
+          set -eux -o pipefail
+          make kubeconfig
+          nohup bash -c 'while true; do make port-forward; sleep 1; done' >/tmp/port-forward.log 2>&1 &
+          timeout 60 bash -c 'until kubectl --kubeconfig=./kubeconfig version >/dev/null 2>&1; do sleep 2; done'
+
+      - name: Smoke test
+        working-directory: .
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+          ./hack/test-smoke.sh
+
+      # Multi-tenancy: multiple inner clusters can be created in the same
+      # outer cluster by using different namespaces.
+      - name: "Multi-tenancy: create a second inner cluster in another namespace"
+        env:
+          U7S_NAMESPACE: usernetes2
+          U7S_KUBE_APISERVER_LOCAL_PORT: "26443"
+        run: |
+          set -eux -o pipefail
+          make up
+          make kubeadm-init
+          make install-flannel
+          make kubeadm-join
+          # `make kubeconfig` writes to ./kubeconfig, which still holds the
+          # kubeconfig of the first tenant, so shelter the existing file.
+          mv kubeconfig kubeconfig1
+          make kubeconfig
+          mv kubeconfig kubeconfig2
+          mv kubeconfig1 kubeconfig
+          nohup bash -c 'while true; do make port-forward; sleep 1; done' >/tmp/port-forward2.log 2>&1 &
+          timeout 60 bash -c 'until kubectl --kubeconfig=./kubeconfig2 version >/dev/null 2>&1; do sleep 2; done'
+
+      - name: "Multi-tenancy: verify that the node pods of the two tenants do not share UID ranges"
+        run: |
+          set -eux -o pipefail
+          # The kubelet allocates a distinct UID range (65536 IDs) to every
+          # UserNS-enabled pod on the node; /etc/subuid is not involved.
+          uid_map_offsets="$(for ns in usernetes usernetes2; do
+            for pod in u7s-control-plane-0 u7s-worker-0; do
+              kubectl exec --namespace="${ns}" "${pod}" -c node -- awk '$1 == "0" {print $2}' /proc/1/uid_map
+            done
+          done)"
+          echo "${uid_map_offsets}"
+          test "$(echo "${uid_map_offsets}" | sort -u | wc -l)" -eq 4
+
+      - name: "Multi-tenancy: smoke test (the second inner cluster)"
+        working-directory: .
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig2"
+        run: |
+          kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+          ./hack/test-smoke.sh
+
+      - name: "Multi-tenancy: verify that the first inner cluster is still functional"
+        working-directory: .
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          set -eux -o pipefail
+          kubectl wait --for=condition=Ready node --all --timeout=1m
+          kubectl get nodes -o wide
+
+      - if: failure()
+        name: "Debug (outer cluster)"
+        run: |
+          set -x
+          kubectl get nodes -o wide
+          kubectl get pods -A -o wide
+          kubectl --namespace=usernetes describe pods
+          kubectl --namespace=usernetes logs u7s-control-plane-0 --all-containers --tail=100 || true
+          kubectl --namespace=usernetes exec u7s-control-plane-0 -- journalctl --no-pager | tail -n 300 || true
+          kubectl --namespace=usernetes2 describe pods || true
+          kubectl --namespace=usernetes2 logs u7s-control-plane-0 --all-containers --tail=100 || true
+          sudo journalctl -u k3s --no-pager | tail -n 100 || true
+          cat /tmp/port-forward.log || true
+          cat /tmp/port-forward2.log || true
+
+      - if: failure()
+        name: "Debug (inner cluster)"
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          set -x
+          kubectl get nodes -o wide || true
+          kubectl get nodes -o yaml || true
+          kubectl get pods -A -o wide || true
+
+  k8s-in-k8s-multi-node:
+    name: "Usernetes inside Kubernetes (multi-node outer cluster emulated using Lima)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      U7S_IMAGE: usernetes:ci
+      # 127.0.0.1:6443 is forwarded by Lima to the API server of the outer
+      # cluster, so the API server of the inner cluster is forwarded to
+      # another port.
+      U7S_KUBE_APISERVER_LOCAL_PORT: "16443"
+      U7S_RUNTIME_CLASS_NAME: usernetes
+    defaults:
+      run:
+        working-directory: kubernetes
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: lima-vm/lima-actions/setup@v1
+        id: lima-actions-setup
+
+      - name: "Cache ~/.cache/lima"
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/lima
+          key: lima-${{ steps.lima-actions-setup.outputs.version }}
+
+      - name: Create the outer Kubernetes cluster (two nodes)
+        working-directory: .
+        run: |
+          set -eux -o pipefail
+          command -v envsubst >/dev/null 2>&1 || sudo apt-get install -y gettext-base
+          ./hack/create-outer-cluster-lima.sh
+          echo "KUBECONFIG=${HOME}/.lima/host0/copied-from-guest/kubeconfig.yaml" >>"$GITHUB_ENV"
+
+      - name: Build the node image
+        working-directory: .
+        run: docker build -t "${U7S_IMAGE}" .
+
+      - name: Load the node image into the outer cluster
+        run: |
+          set -eux -o pipefail
+          docker save "${U7S_IMAGE}" -o /tmp/u7s-image.tar
+          for host in host0 host1; do
+            limactl copy /tmp/u7s-image.tar "${host}:/tmp/u7s-image.tar"
+            limactl shell "${host}" sudo nerdctl --namespace=k8s.io load -i /tmp/u7s-image.tar
+          done
+
+      - run: make up
+
+      - name: Verify that the node pods are spread across the outer nodes
+        run: |
+          set -eux -o pipefail
+          kubectl get pods --namespace=usernetes -o wide
+          test "$(kubectl get pods --namespace=usernetes -o jsonpath='{.items[*].spec.nodeName}' | tr ' ' '\n' | sort -u | wc -l)" -eq 2
+
+      - run: make kubeadm-init
+      - run: make install-flannel
+      - run: make kubeadm-join
+
+      - name: make kubeconfig
+        run: |
+          set -eux -o pipefail
+          make kubeconfig
+          nohup bash -c 'while true; do make port-forward; sleep 1; done' >/tmp/port-forward.log 2>&1 &
+          timeout 60 bash -c 'until kubectl --kubeconfig=./kubeconfig version >/dev/null 2>&1; do sleep 2; done'
+
+      # The DNS test of test-smoke.sh connects to the pods on both of the
+      # inner nodes, i.e., the inner Flannel VXLAN traffic crosses the
+      # outer nodes.
+      - name: Smoke test
+        working-directory: .
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+          ./hack/test-smoke.sh
+
+      - if: failure()
+        name: "Debug (outer cluster)"
+        run: |
+          set -x
+          kubectl get nodes -o wide
+          kubectl get pods -A -o wide
+          kubectl --namespace=usernetes describe pods
+          kubectl --namespace=usernetes logs u7s-control-plane-0 --all-containers --tail=100 || true
+          kubectl --namespace=usernetes logs u7s-worker-0 --all-containers --tail=100 || true
+          limactl shell host0 sudo journalctl --no-pager | tail -n 100 || true
+          limactl shell host1 sudo journalctl --no-pager | tail -n 100 || true
+          cat /tmp/port-forward.log || true
+
+      - if: failure()
+        name: "Debug (inner cluster)"
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          set -x
+          kubectl get nodes -o wide || true
+          kubectl get nodes -o yaml || true
+          kubectl get pods -A -o wide || true

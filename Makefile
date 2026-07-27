@@ -7,6 +7,13 @@ export PORT_KUBELET ?= 10250
 export PORT_FLANNEL ?= 8472
 export PORT_KUBE_APISERVER ?= 6443
 
+# POD_SUBNET and SERVICE_SUBNET are the subnets of the cluster,
+# referenced by kubeadm-config.yaml and Makefile.d/install-flannel.sh.
+# The Kubernetes-in-Kubernetes mode (./kubernetes/Makefile) uses different
+# defaults so as not to overlap with the subnets of the outer cluster.
+export POD_SUBNET ?= 10.244.0.0/16
+export SERVICE_SUBNET ?= 10.96.0.0/16
+
 # HOSTNAME is the name of the physical host
 export HOSTNAME ?= $(shell hostname)
 # HOST_IP is the IP address of the physical host. Accessible from other hosts.
@@ -37,12 +44,14 @@ NODE_SHELL := $(COMPOSE) exec \
 	-e PORT_FLANNEL=$(PORT_FLANNEL) \
 	-e PORT_KUBELET=$(PORT_KUBELET) \
 	-e PORT_ETCD=$(PORT_ETCD) \
+	-e POD_SUBNET=$(POD_SUBNET) \
+	-e SERVICE_SUBNET=$(SERVICE_SUBNET) \
 	$(NODE_SERVICE_NAME)
 
 ifeq ($(CONTAINER_ENGINE),nerdctl)
 ifneq (,$(wildcard $(XDG_RUNTIME_DIR)/bypass4netnsd.sock))
 	export BYPASS4NETNS := true
-	export BYPASS4NETNS_IGNORE_SUBNETS := ["10.96.0.0/16", "10.244.0.0/16", "$(NODE_SUBNET)"]
+	export BYPASS4NETNS_IGNORE_SUBNETS := ["$(SERVICE_SUBNET)", "$(POD_SUBNET)", "$(NODE_SUBNET)"]
 endif
 endif
 

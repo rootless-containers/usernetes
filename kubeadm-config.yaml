@@ -27,8 +27,11 @@ controllerManager:
     - name: cloud-provider
       value: external
 networking:
-  serviceSubnet: "10.96.0.0/16"
-  podSubnet: "10.244.0.0/16"
+  # The defaults (10.96.0.0/16 and 10.244.0.0/16) are set in ./Makefile;
+  # the Kubernetes-in-Kubernetes mode (./kubernetes/Makefile) uses different
+  # defaults so as not to overlap with the subnets of the outer cluster.
+  serviceSubnet: "${SERVICE_SUBNET}"
+  podSubnet: "${POD_SUBNET}"
 etcd:
   local:
     extraArgs:

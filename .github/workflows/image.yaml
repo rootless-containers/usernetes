@@ -1,0 +1,45 @@
+---
+# Push the node image to ghcr.io/rootless-containers/usernetes.
+# The image is consumed by the Kubernetes-in-Kubernetes mode (../../kubernetes)
+# as the default value of U7S_IMAGE; the Docker Compose mode builds the image
+# locally and does not use this.
+name: Image
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "gen*-v*"
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  push:
+    name: "Push the node image to GHCR"
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8  # v4.2.0
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
+      - uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7  # v4.5.1
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

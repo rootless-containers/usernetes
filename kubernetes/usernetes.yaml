@@ -1,0 +1,401 @@
+# Usernetes inside Kubernetes, as UserNS-enabled pods (hostUsers: false).
+#
+# Use `make render` / `make up`, not `kubectl apply -f`,
+# as this YAML requires ${...} variables to be set.
+#
+# The node pods do NOT run with `privileged: true`.
+# Instead, they run inside their own user namespaces with all the capabilities,
+# an unmasked procfs, and unconfined seccomp/AppArmor profiles.
+# "Root" in a node pod is not the root on the host: this is analogous to
+# running Usernetes inside Rootless Docker.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${U7S_NAMESPACE}
+  labels:
+    # The node pods opt out of the restrictions of the "baseline" profile
+    # (capabilities, procMount, seccomp/AppArmor), although they are still
+    # isolated by user namespaces.
+    pod-security.kubernetes.io/enforce: privileged
+---
+# Headless service that provides stable DNS names for the node pods:
+# <pod>.u7s.<namespace>.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: u7s
+  namespace: ${U7S_NAMESPACE}
+  labels:
+    app.kubernetes.io/part-of: usernetes
+spec:
+  clusterIP: None
+  # Keep resolving the DNS names of the node pods even while they are not
+  # Ready yet (readiness is gated on containerd; see the StatefulSets below),
+  # as the node names of the inner cluster must stay resolvable.
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/part-of: usernetes
+  ports:
+    - name: kube-apiserver
+      port: 6443
+      protocol: TCP
+    - name: etcd
+      port: 2379
+      protocol: TCP
+    - name: kubelet
+      port: 10250
+      protocol: TCP
+    - name: flannel
+      port: 8472
+      protocol: UDP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: u7s-control-plane
+  namespace: ${U7S_NAMESPACE}
+  labels:
+    app.kubernetes.io/part-of: usernetes
+    app.kubernetes.io/component: control-plane
+spec:
+  serviceName: u7s
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: usernetes
+      app.kubernetes.io/component: control-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: usernetes
+        app.kubernetes.io/component: control-plane
+      annotations:
+        # For CRI-O: mount /sys/fs/cgroup read-write, so that systemd inside
+        # the node pod can manage its own (namespaced) cgroups.
+        # The annotation has to be listed in `allowed_annotations` of the
+        # CRI-O runtime config; ignored otherwise, and by containerd
+        # (containerd needs `cgroup_writable = true` instead; see ./README.md).
+        # The second one is the deprecated name for older CRI-O releases.
+        cgroup2-mount-hierarchy-rw.crio.io: "true"
+        io.kubernetes.cri-o.cgroup2-mount-hierarchy-rw: "true"
+    spec:
+      # Run the node in a user namespace (KEP-127).
+      hostUsers: false
+      # The RuntimeClass is expected to be backed by a runtime handler with
+      # `cgroup_writable = true` (containerd >= 2.1); see ./README.md.
+      # Renders as null (i.e., the default runtime handler) when
+      # U7S_RUNTIME_CLASS_NAME is empty.
+      runtimeClassName: ${U7S_RUNTIME_CLASS_NAME}
+      # Prefer spreading the node pods across the nodes of the outer
+      # cluster, so that the inner cluster can remain available when a
+      # single outer node goes down. The inner Flannel then runs VXLAN
+      # across the outer nodes.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: usernetes
+      # The inner cluster must not inherit credentials of the outer cluster.
+      automountServiceAccountToken: false
+      initContainers:
+        # Kubernetes emptyDir volumes are created empty, unlike Docker named
+        # volumes that are initialized with the image content on the first
+        # use. So, /etc, /opt, and /var have to be populated manually before
+        # mounting the volumes over them.
+        - name: populate-volumes
+          image: ${U7S_IMAGE}
+          command:
+            - /bin/sh
+            - -euc
+            - |
+              for d in etc opt var; do
+                if [ ! -f "/u7s-vol/${d}/.u7s-populated" ]; then
+                  cp -a "/${d}/." "/u7s-vol/${d}/"
+                  touch "/u7s-vol/${d}/.u7s-populated"
+                fi
+              done
+          volumeMounts:
+            - name: node-etc
+              mountPath: /u7s-vol/etc
+            - name: node-opt
+              mountPath: /u7s-vol/opt
+            - name: node-var
+              mountPath: /u7s-vol/var
+      containers:
+        - name: node
+          image: ${U7S_IMAGE}
+          workingDir: /usernetes
+          env:
+            - name: U7S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: U7S_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # HOST_IP is the IP address that is accessible from the other
+            # node pods. Unlike in the Docker Compose mode, this is just the
+            # IP address of the pod itself.
+            - name: HOST_IP
+              value: "$(U7S_POD_IP)"
+            - name: NODE_IP
+              value: "$(U7S_POD_IP)"
+            # NODE_NAME must be resolvable from the other node pods.
+            # "<pod>.u7s" resolves via the headless service "u7s".
+            - name: NODE_NAME
+              value: "$(U7S_POD_NAME).u7s"
+            - name: PORT_ETCD
+              value: "2379"
+            - name: PORT_KUBELET
+              value: "10250"
+            - name: PORT_FLANNEL
+              value: "8472"
+            - name: PORT_KUBE_APISERVER
+              value: "6443"
+            # The subnets of the inner cluster; must not overlap with the
+            # subnets of the outer cluster (see ../kubeadm-config.yaml and
+            # ../Makefile.d/install-flannel.sh).
+            - name: POD_SUBNET
+              value: "${U7S_POD_SUBNET}"
+            - name: SERVICE_SUBNET
+              value: "${U7S_SERVICE_SUBNET}"
+            - name: KUBECONFIG
+              value: /etc/kubernetes/admin.conf
+          ports:
+            - name: kube-apiserver
+              containerPort: 6443
+              protocol: TCP
+            - name: etcd
+              containerPort: 2379
+              protocol: TCP
+            - name: kubelet
+              containerPort: 10250
+              protocol: TCP
+            - name: flannel
+              containerPort: 8472
+              protocol: UDP
+          # systemd starts containerd asynchronously after the entrypoint, so
+          # gate readiness on the CRI socket: `make up` (kubectl rollout
+          # status) then blocks until `kubeadm init` can talk to containerd.
+          readinessProbe:
+            exec:
+              command:
+                - test
+                - -S
+                - /run/containerd/containerd.sock
+            periodSeconds: 5
+          securityContext:
+            # All these settings are safe because the pod runs in a user
+            # namespace (hostUsers: false); the capabilities are "namespaced"
+            # and do not correspond to the real capabilities on the host.
+            capabilities:
+              add:
+                - ALL
+            # Unmasked procMount requires `hostUsers: false` and the
+            # `ProcMountType` feature gate.
+            procMount: Unmasked
+            seccompProfile:
+              type: Unconfined
+            appArmorProfile:
+              type: Unconfined
+          volumeMounts:
+            - name: node-etc
+              mountPath: /etc
+            - name: node-opt
+              mountPath: /opt
+            - name: node-var
+              mountPath: /var
+            - name: run
+              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: boot
+              mountPath: /boot
+              readOnly: true
+      volumes:
+        - name: node-etc
+          emptyDir: {}
+        - name: node-opt
+          emptyDir: {}
+        - name: node-var
+          emptyDir: {}
+        - name: run
+          emptyDir:
+            medium: Memory
+        - name: tmp
+          emptyDir:
+            medium: Memory
+        # /lib/modules and /boot of the host running the outer Kubernetes,
+        # as in the Docker Compose mode (../docker-compose.yaml).
+        # /lib/modules is used for checking the presence of the kernel
+        # modules; /boot for the kernel config (kubeadm preflight).
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: boot
+          hostPath:
+            path: /boot
+            type: Directory
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: u7s-worker
+  namespace: ${U7S_NAMESPACE}
+  labels:
+    app.kubernetes.io/part-of: usernetes
+    app.kubernetes.io/component: worker
+spec:
+  serviceName: u7s
+  replicas: ${U7S_WORKER_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: usernetes
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: usernetes
+        app.kubernetes.io/component: worker
+      annotations:
+        # See the comment in the control plane StatefulSet above.
+        cgroup2-mount-hierarchy-rw.crio.io: "true"
+        io.kubernetes.cri-o.cgroup2-mount-hierarchy-rw: "true"
+    spec:
+      hostUsers: false
+      # See the comments in the control plane StatefulSet above.
+      runtimeClassName: ${U7S_RUNTIME_CLASS_NAME}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: usernetes
+      automountServiceAccountToken: false
+      initContainers:
+        - name: populate-volumes
+          image: ${U7S_IMAGE}
+          command:
+            - /bin/sh
+            - -euc
+            - |
+              for d in etc opt var; do
+                if [ ! -f "/u7s-vol/${d}/.u7s-populated" ]; then
+                  cp -a "/${d}/." "/u7s-vol/${d}/"
+                  touch "/u7s-vol/${d}/.u7s-populated"
+                fi
+              done
+          volumeMounts:
+            - name: node-etc
+              mountPath: /u7s-vol/etc
+            - name: node-opt
+              mountPath: /u7s-vol/opt
+            - name: node-var
+              mountPath: /u7s-vol/var
+      containers:
+        - name: node
+          image: ${U7S_IMAGE}
+          workingDir: /usernetes
+          env:
+            - name: U7S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: U7S_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOST_IP
+              value: "$(U7S_POD_IP)"
+            - name: NODE_IP
+              value: "$(U7S_POD_IP)"
+            - name: NODE_NAME
+              value: "$(U7S_POD_NAME).u7s"
+            - name: PORT_ETCD
+              value: "2379"
+            - name: PORT_KUBELET
+              value: "10250"
+            - name: PORT_FLANNEL
+              value: "8472"
+            - name: PORT_KUBE_APISERVER
+              value: "6443"
+            # The subnets of the inner cluster; must not overlap with the
+            # subnets of the outer cluster (see ../kubeadm-config.yaml and
+            # ../Makefile.d/install-flannel.sh).
+            - name: POD_SUBNET
+              value: "${U7S_POD_SUBNET}"
+            - name: SERVICE_SUBNET
+              value: "${U7S_SERVICE_SUBNET}"
+            - name: KUBECONFIG
+              value: /etc/kubernetes/admin.conf
+          ports:
+            - name: kubelet
+              containerPort: 10250
+              protocol: TCP
+            - name: flannel
+              containerPort: 8472
+              protocol: UDP
+          # See the comment in the control plane StatefulSet above.
+          readinessProbe:
+            exec:
+              command:
+                - test
+                - -S
+                - /run/containerd/containerd.sock
+            periodSeconds: 5
+          securityContext:
+            capabilities:
+              add:
+                - ALL
+            procMount: Unmasked
+            seccompProfile:
+              type: Unconfined
+            appArmorProfile:
+              type: Unconfined
+          volumeMounts:
+            - name: node-etc
+              mountPath: /etc
+            - name: node-opt
+              mountPath: /opt
+            - name: node-var
+              mountPath: /var
+            - name: run
+              mountPath: /run
+            - name: tmp
+              mountPath: /tmp
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: boot
+              mountPath: /boot
+              readOnly: true
+      volumes:
+        - name: node-etc
+          emptyDir: {}
+        - name: node-opt
+          emptyDir: {}
+        - name: node-var
+          emptyDir: {}
+        - name: run
+          emptyDir:
+            medium: Memory
+        - name: tmp
+          emptyDir:
+            medium: Memory
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: boot
+          hostPath:
+            path: /boot
+            type: Directory
