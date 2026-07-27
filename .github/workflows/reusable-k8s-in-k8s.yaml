@@ -29,7 +29,9 @@ jobs:
       run:
         working-directory: kubernetes
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Load kernel modules
         run: |
@@ -211,13 +213,15 @@ jobs:
       run:
         working-directory: kubernetes
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+        with:
+          persist-credentials: false
 
-      - uses: lima-vm/lima-actions/setup@v1
+      - uses: lima-vm/lima-actions/setup@55627e31b78637bf254a8b2a14da8ea7d12564e5  # v1.1.0
         id: lima-actions-setup
 
       - name: "Cache ~/.cache/lima"
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
         with:
           path: ~/.cache/lima
           key: lima-${{ steps.lima-actions-setup.outputs.version }}
