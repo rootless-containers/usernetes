@@ -31,8 +31,16 @@ ${LIMACTL} start --network lima:user-v2 --name=host1 ${LIMACTL_CREATE_ARGS} \
 # the node pods can manage its own (namespaced) cgroups.
 # /etc/containerd/conf.d/*.toml is imported by the containerd config of
 # template:k8s.
+#
+# Also provide a read-write sysfs instance at /run/usernetes/sysfs, to be
+# mounted into the node pods; needed for creating privileged pods in the
+# inner cluster (see ../kubernetes/README.md).
+# `unshare --net` detaches the instance from the netns of the host, so it
+# does not expose the network devices of the host.
 for host in host0 host1; do
-	${LIMACTL} shell "${host}" sudo sh -euxc 'cat >/etc/containerd/conf.d/usernetes.toml <<EOF
+	${LIMACTL} shell "${host}" sudo sh -euxc 'mkdir -p /run/usernetes/sysfs
+mountpoint -q /run/usernetes/sysfs || unshare --net mount -t sysfs -o nosuid,nodev,noexec sysfs /run/usernetes/sysfs
+cat >/etc/containerd/conf.d/usernetes.toml <<EOF
 version = 2
 [plugins]
   [plugins."io.containerd.grpc.v1.cri"]

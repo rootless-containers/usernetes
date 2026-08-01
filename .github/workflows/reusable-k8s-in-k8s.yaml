@@ -38,6 +38,13 @@ jobs:
           sudo modprobe br_netfilter
           sudo modprobe vxlan
 
+      - name: Provide a read-write sysfs instance for the node pods
+        # Needed for creating privileged pods in the inner cluster;
+        # see ./README.md and the comments in ./usernetes.yaml.
+        run: |
+          sudo mkdir -p /run/usernetes/sysfs
+          sudo unshare --net mount -t sysfs -o nosuid,nodev,noexec sysfs /run/usernetes/sysfs
+
       - name: Create the outer Kubernetes cluster (k3s)
         run: |
           set -eux -o pipefail
@@ -121,6 +128,18 @@ jobs:
         run: |
           kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
           ./hack/test-smoke.sh
+
+      - name: Verify that a privileged pod can be created in the inner cluster
+        # https://github.com/rootless-containers/usernetes/issues/396
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          set -eux -o pipefail
+          kubectl run privileged-test --image=alpine --restart=Never \
+            --overrides='{"spec":{"containers":[{"name":"privileged-test","image":"alpine","command":["sh","-euxc","grep -w sysfs /proc/mounts"],"securityContext":{"privileged":true}}]}}'
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/privileged-test --timeout=2m
+          kubectl logs privileged-test
+          kubectl delete pod privileged-test
 
       # Multi-tenancy: multiple inner clusters can be created in the same
       # outer cluster by using different namespaces.
@@ -276,6 +295,18 @@ jobs:
         run: |
           kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
           ./hack/test-smoke.sh
+
+      - name: Verify that a privileged pod can be created in the inner cluster
+        # https://github.com/rootless-containers/usernetes/issues/396
+        env:
+          KUBECONFIG: "${{ github.workspace }}/kubernetes/kubeconfig"
+        run: |
+          set -eux -o pipefail
+          kubectl run privileged-test --image=alpine --restart=Never \
+            --overrides='{"spec":{"containers":[{"name":"privileged-test","image":"alpine","command":["sh","-euxc","grep -w sysfs /proc/mounts"],"securityContext":{"privileged":true}}]}}'
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/privileged-test --timeout=2m
+          kubectl logs privileged-test
+          kubectl delete pod privileged-test
 
       - if: failure()
         name: "Debug (outer cluster)"

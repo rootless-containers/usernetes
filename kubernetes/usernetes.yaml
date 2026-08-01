@@ -219,6 +219,10 @@ spec:
             - name: boot
               mountPath: /boot
               readOnly: true
+            # Must not be readOnly: the sysfs submount has to remain
+            # read-write (see the comment on the volume below).
+            - name: sysfs-rw
+              mountPath: /mnt/usernetes
       volumes:
         - name: node-etc
           emptyDir: {}
@@ -244,6 +248,24 @@ spec:
           hostPath:
             path: /boot
             type: Directory
+        # An extra read-write sysfs instance provided by the host, mounted
+        # at /run/usernetes/sysfs on the host (see ./README.md). Needed only
+        # for creating privileged pods in the inner cluster: runc inside the
+        # node pod may mount a fresh read-write sysfs for such pods only
+        # when the mount namespace already contains a fully-visible
+        # read-write sysfs instance, and the /sys of the node pod itself is
+        # read-only (issue #396).
+        # The parent directory is mounted instead of the sysfs itself, as
+        # sysfs does not support the idmapped mounts that the kubelet uses
+        # for the volumes of UserNS-enabled pods; the sysfs instance comes
+        # along as a submount of the bind mount.
+        # With DirectoryOrCreate, the node pods still run on hosts that do
+        # not provide the sysfs instance; only the creation of privileged
+        # pods in the inner cluster fails then.
+        - name: sysfs-rw
+          hostPath:
+            path: /run/usernetes
+            type: DirectoryOrCreate
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -378,6 +400,9 @@ spec:
             - name: boot
               mountPath: /boot
               readOnly: true
+            # See the comments in the control plane StatefulSet above.
+            - name: sysfs-rw
+              mountPath: /mnt/usernetes
       volumes:
         - name: node-etc
           emptyDir: {}
@@ -399,3 +424,7 @@ spec:
           hostPath:
             path: /boot
             type: Directory
+        - name: sysfs-rw
+          hostPath:
+            path: /run/usernetes
+            type: DirectoryOrCreate
