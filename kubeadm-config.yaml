@@ -2,6 +2,21 @@ apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
   bindPort: ${PORT_KUBE_APISERVER}
+nodeRegistration:
+  # Since Kubernetes v1.37 (kubernetes/kubernetes#138250), the etcd port
+  # preflight checks bind to the API server's advertise address
+  # (`apiServer.extraArgs.advertise-address` below) rather than to the
+  # wildcard address.
+  # In Usernetes, the advertise address is `HOST_IP`, i.e., the address of the
+  # physical host, which is deliberately not assigned to any interface inside
+  # the node's network namespace. The bind therefore fails with
+  # EADDRNOTAVAIL, which kubeadm reports as "Port 2379 is in use".
+  #
+  # The port numbers here are the kubeadm constants, not `PORT_ETCD`; kubeadm
+  # always checks 2379 and 2380 regardless of the configured etcd port.
+  ignorePreflightErrors:
+  - Port-2379
+  - Port-2380
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
