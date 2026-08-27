@@ -60,29 +60,28 @@ jobs:
       - name: Remove preinstalled Moby
         # Preinstalled Moby does not contain dockerd-rootless-setuptool.sh
         run: sudo apt-get remove moby-engine-*
-      - name: Set up Rootless Docker
+      - name: Preparation for installing Rootless Docker
         if: ${{ inputs.container_engine == 'docker' }}
         run: |
           set -eux -o pipefail
           curl https://get.docker.com | sudo sh
           sudo systemctl disable --now docker.socket docker.service
           sudo rm -rf /var/run/docker*
-          dockerd-rootless-setuptool.sh install
-          docker info
-      - name: Set up Rootless nerdctl
+      - name: Preparation for installing Rootless nerdctl
         if: ${{ inputs.container_engine == 'nerdctl' }}
         run: |
           set -eux -o pipefail
           sudo ./init-host/init-host.root.d/install-nerdctl.sh
-          ./init-host/init-host.rootless.sh
-          nerdctl info
-      - name: Set up Rootless Podman
+      - name: Preparation for installing Rootless Podman
         if: ${{ inputs.container_engine == 'podman' }}
         run: |
           set -eux -o pipefail
           sudo apt-get update
           sudo apt-get install -y podman-compose
-          podman info
+      - name: Set up Rootless Container Engine
+        run: |
+          set -eux -o pipefail
+          ./init-host/init-host.rootless.sh
       - run: make up
       - run: sleep 5
       - run: make kubeadm-init
