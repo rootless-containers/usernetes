@@ -52,6 +52,23 @@ net.ipv4.conf.default.rp_filter = 2
 EOF
 sysctl --system
 
+# Fedora 46 (Rawhide, as of August 2026) confines SSH sessions in the
+# `sshd_session_t` SELinux domain, which is not allowed to initiate TCP
+# connections to most ports. This breaks `ssh -L PORT:127.0.0.1:PORT`
+# (used by Lima, CI, etc. for accessing kube-apiserver from outside the host):
+# > avc:  denied  { name_connect } for  comm="sshd-session"
+# > scontext=system_u:system_r:sshd_session_t:s0-s0:c0.c1023 tclass=tcp_socket
+# The `optional` block below is a NOP on distros that do not define `sshd_session_t`.
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled && command -v semodule >/dev/null 2>&1; then
+	cat <<EOF >/tmp/u7s-sshd-session.cil
+(optional u7s_sshd_session
+    (allow sshd_session_t port_type (tcp_socket (name_connect)))
+)
+EOF
+	semodule -i /tmp/u7s-sshd-session.cil
+	rm -f /tmp/u7s-sshd-session.cil
+fi
+
 if command -v dnf >/dev/null 2>&1; then
 	dnf install -y --best git shadow-utils make jq
 	# podman-compose requires EPEL

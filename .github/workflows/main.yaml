@@ -28,6 +28,8 @@ jobs:
             container_engine: podman
           - lima_template: template://fedora
             container_engine: podman
+          - lima_template: template://experimental/fedora-rawhide
+            container_engine: podman
     uses: ./.github/workflows/reusable-multi-node.yaml
     with:
       lima_template: ${{ matrix.lima_template }}
