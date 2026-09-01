@@ -27,6 +27,14 @@ export U7S_WORKER_REPLICAS ?= 1
 export U7S_POD_SUBNET ?= 10.200.0.0/16
 export U7S_SERVICE_SUBNET ?= 10.201.0.0/16
 
+# CNI is the CNI of the inner cluster. Unlike in the Docker Compose mode
+# (../Makefile), only Flannel is supported: calico-node requires
+# `privileged: true` with `hostNetwork`, which cannot be fulfilled inside a
+# userns node pod (see the comment on `patch-kube-proxy` below), and unlike
+# kube-proxy, the DaemonSet cannot be patched to drop the privileges, as it
+# is reconciled by tigera-operator.
+CNI ?= flannel
+
 # U7S_KUBE_APISERVER_LOCAL_PORT is the local port used by `make port-forward`
 # (and written into the kubeconfig by `make kubeconfig`) for reaching the API
 # server of the inner cluster. Set it to a free port when 127.0.0.1:6443 is
@@ -46,7 +54,7 @@ help:
 	@echo 'export U7S_IMAGE=<registry>/usernetes:latest'
 	@echo 'make up'
 	@echo 'make kubeadm-init'
-	@echo 'make install-flannel'
+	@echo 'make install-cni'
 	@echo 'make kubeadm-join'
 	@echo
 	@echo '# Enable kubectl'
@@ -133,6 +141,16 @@ kubeadm-join:
 kubeadm-reset:
 	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- kubeadm reset --force
 
+# Installs $(CNI) ("flannel" by default). Only Flannel is supported in this
+# mode; see the comment on the CNI variable above.
+.PHONY: install-cni
+install-cni:
+ifneq ($(CNI),flannel)
+	$(error Only Flannel is supported in the Kubernetes-in-Kubernetes mode; see ./README.md)
+endif
+	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- /usernetes/Makefile.d/install-$(CNI).sh
+
 .PHONY: install-flannel
 install-flannel:
+	@echo >&2 'DEPRECATED: Use `make install-cni` instead'
 	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- /usernetes/Makefile.d/install-flannel.sh

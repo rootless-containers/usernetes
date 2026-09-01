@@ -111,7 +111,7 @@ jobs:
           fi
 
       - run: make kubeadm-init
-      - run: make install-flannel
+      - run: make install-cni
       - run: make kubeadm-join
 
       - name: make kubeconfig
@@ -151,7 +151,7 @@ jobs:
           set -eux -o pipefail
           make up
           make kubeadm-init
-          make install-flannel
+          make install-cni
           make kubeadm-join
           # `make kubeconfig` writes to ./kubeconfig, which still holds the
           # kubeconfig of the first tenant, so shelter the existing file.
@@ -275,7 +275,7 @@ jobs:
           test "$(kubectl get pods --namespace=usernetes -o jsonpath='{.items[*].spec.nodeName}' | tr ' ' '\n' | sort -u | wc -l)" -eq 2
 
       - run: make kubeadm-init
-      - run: make install-flannel
+      - run: make install-cni
       - run: make kubeadm-join
 
       - name: make kubeconfig

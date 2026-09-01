@@ -2,11 +2,13 @@ ARG BASE_IMAGE=docker.io/kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd
 ARG CNI_PLUGINS_VERSION=v1.9.1
 ARG HELM_VERSION=v4.2.4
 ARG FLANNEL_VERSION=v0.28.9
+ARG CALICO_VERSION=v3.32.2
 FROM ${BASE_IMAGE}
 COPY Dockerfile.d/SHA256SUMS.d/ /tmp/SHA256SUMS.d
 ARG CNI_PLUGINS_VERSION
 ARG HELM_VERSION
 ARG FLANNEL_VERSION
+ARG CALICO_VERSION
 RUN arch="$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)" && \
   fname="cni-plugins-linux-${arch}-${CNI_PLUGINS_VERSION}.tgz" && \
   curl -o "${fname}" -fSL "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGINS_VERSION}/${fname}" && \
@@ -23,7 +25,14 @@ RUN arch="$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)" && \
   curl -o "${fname}" -fSL "https://github.com/flannel-io/flannel/releases/download/${FLANNEL_VERSION}/${fname}" && \
   grep "${fname}" "/tmp/SHA256SUMS.d/flannel-${FLANNEL_VERSION}" | sha256sum -c && \
   tar xzf "${fname}" -C / && \
-  rm -f "${fname}"
+  rm -f "${fname}" && \
+  mkdir -p /calico && \
+  for fname in "tigera-operator-${CALICO_VERSION}.tgz" "crd.projectcalico.org.v1-${CALICO_VERSION}.tgz"; do \
+    curl -o "${fname}" -fSL "https://github.com/projectcalico/calico/releases/download/${CALICO_VERSION}/${fname}" && \
+    grep "${fname}" "/tmp/SHA256SUMS.d/calico-${CALICO_VERSION}" | sha256sum -c && \
+    tar xzf "${fname}" -C /calico && \
+    rm -f "${fname}" || exit 1; \
+  done
 # gettext-base: for `envsubst`
 # moreutils: for `sponge`
 # socat: for `socat` (to silence "[WARNING FileExisting-socat]" from kubeadm)

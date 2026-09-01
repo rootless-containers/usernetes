@@ -1,0 +1,38 @@
+# Helm values for the tigera-operator chart, applied by
+# Makefile.d/install-calico.sh (`make install-cni` with CNI=calico).
+# The ${...} variables are rendered with envsubst, as in kubeadm-config.yaml .
+installation:
+  calicoNetwork:
+    # Always use VXLAN, as the node addresses (eth0) are not routable from
+    # other hosts.
+    bgp: Disabled
+    ipPools:
+    - cidr: ${POD_SUBNET}
+      encapsulation: VXLAN
+    # Use the node's InternalIP (HOST_IP, set by Makefile.d/sync-external-ip.sh)
+    # as the VXLAN tunnel endpoint address, similarly to Flannel's
+    # `public-ip-overwrite` annotation. The default autodetection would pick
+    # the unroutable eth0 address.
+    nodeAddressAutodetectionV4:
+      kubernetes: NodeInternalIP
+# Disable the optional components.
+apiServer:
+  enabled: false
+goldmane:
+  enabled: false
+whisker:
+  enabled: false
+defaultFelixConfiguration:
+  enabled: true
+  # Must correspond to the port published by docker-compose.yaml.
+  vxlanPort: ${PORT_CALICO}
+  # Disable the checksum offloading of the VXLAN device to correct UDP
+  # checksums for VXLAN behind NAT, for the same reason as Flannel's
+  # Dockerfile.d/etc_udev_rules.d_90-flannel.rules .
+  featureDetectOverride: "ChecksumOffloadBroken=true"
+  # Allow VXLAN packets from the sentinel address 169.254.7.115 ("7s").
+  # The port forwarder of the rootless network stack rewrites the source
+  # address of the inbound VXLAN packets, so Dockerfile.d/u7s-entrypoint.sh
+  # normalizes it to the sentinel address.
+  externalNodesList:
+  - 169.254.7.115/32

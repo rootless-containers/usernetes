@@ -22,7 +22,7 @@ Two deployment modes are supported:
 - Cluster configuration: kubeadm
 - CRI: containerd
 - OCI: runc
-- CNI: Flannel
+- CNI: Flannel (default) or Calico (VXLAN mode; Kubernetes-in-Docker mode only)
 
 > [!NOTE]
 > The documentation below is for the **Kubernetes-in-Docker** mode.
@@ -123,7 +123,7 @@ See `make help`.
 # Bootstrap a cluster
 make up
 make kubeadm-init
-make install-flannel
+make install-cni
 
 # Enable kubectl
 make kubeconfig
@@ -147,6 +147,10 @@ kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 The container engine defaults to Docker.
 To change the container engine, set `export CONTAINER_ENGINE=podman` or `export CONTAINER_ENGINE=nerdctl`.
 
+The CNI defaults to Flannel.
+To use Calico (VXLAN mode), set `export CNI=calico` before running
+`make up` and `make install-cni`.
+
 ### Customization
 
 The following environment variables are recognized:
@@ -154,12 +158,15 @@ The following environment variables are recognized:
 Name                  | Type    | Default value
 ----------------------|---------|----------------------------------------------------------------
 `CONTAINER_ENGINE`    | String  | automatically resolved to "docker", "podman", or "nerdctl"
+`CNI`                 | String  | "flannel" ("flannel" or "calico"; has to be set on `make up`)
 `HOST_IP`             | String  | automatically resolved to the host's IP address
 `NODE_NAME`           | String  | "u7s-" + the host's hostname
 `NODE_SUBNET`         | String  | "10.100.%d.0/24" (%d is computed from the hash of the hostname)
 `PORT_ETCD`           | Integer | 2379
 `PORT_KUBELET`        | Integer | 10250
 `PORT_FLANNEL`        | Integer | 8472
+`PORT_CALICO`         | Integer | 4789
+`PORT_CALICO_TYPHA`   | Integer | 5473 (host port only; the container port is fixed)
 `PORT_KUBE_APISERVER` | Integer | 6443
 `POD_SUBNET`          | String  | "10.244.0.0/16"
 `SERVICE_SUBNET`      | String  | "10.96.0.0/16"
@@ -195,6 +202,12 @@ export PORT_ETCD=12379
 export PORT_KUBELET=20250
 # Default: 8472
 export PORT_FLANNEL=18472
+# Default: 4789
+export PORT_CALICO=14789
+# Default: 5473. Multiple Calico instances cannot share a host, as the
+# container port of Typha is not configurable; setting this just avoids
+# conflicting with the Typha port of another (Calico) instance.
+export PORT_CALICO_TYPHA=15473
 # Default: 6443
 export PORT_KUBE_APISERVER=16443
 

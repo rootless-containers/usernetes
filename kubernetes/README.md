@@ -126,7 +126,7 @@ Bootstrap a cluster (see `make help`):
 # Bootstrap a cluster with 1 control plane pod and ${U7S_WORKER_REPLICAS} (default: 1) worker pods
 make up
 make kubeadm-init
-make install-flannel
+make install-cni
 make kubeadm-join
 
 # Enable kubectl
@@ -145,6 +145,7 @@ The following environment variables are recognized:
 
 Name                            | Type    | Default value
 --------------------------------|---------|-----------------------------------------------
+`CNI`                           | String  | "flannel" (only Flannel is supported in this mode; see the limitations below)
 `U7S_IMAGE`                     | String  | "ghcr.io/rootless-containers/usernetes:master"
 `U7S_NAMESPACE`                 | String  | "usernetes"
 `U7S_RUNTIME_CLASS_NAME`        | String  | "" (the default runtime handler of the outer cluster; see the requirements above)
@@ -193,7 +194,7 @@ export U7S_KUBE_APISERVER_LOCAL_PORT=26443
 
 make up
 make kubeadm-init
-make install-flannel
+make install-cni
 make kubeadm-join
 ```
 
@@ -209,6 +210,14 @@ make kubeadm-join
 
 ## Limitations
 
+- Unlike in the Kubernetes-in-Docker mode, only Flannel is supported as the
+  CNI of the inner cluster. Calico cannot run inside userns node pods:
+  calico-node requires `privileged: true` with `hostNetwork`, which cannot be
+  fulfilled in a userns node pod (see the note on kube-proxy above), and
+  unlike kube-proxy, the calico-node DaemonSet cannot be patched to drop the
+  privileges, as it is reconciled by tigera-operator, whose override API
+  (`calicoNodeDaemonSet` of the Installation resource) does not expose the
+  securityContext.
 - The state of the inner cluster is stored on `emptyDir` volumes and does not
   survive the recreation of the node pods. Persistent volumes
   (`volumeClaimTemplates`) are deliberately not used yet: the IP addresses of
@@ -255,7 +264,7 @@ docker save usernetes:ci | sudo k3s ctr images import -
 export U7S_IMAGE=usernetes:ci U7S_RUNTIME_CLASS_NAME=usernetes U7S_KUBE_APISERVER_LOCAL_PORT=16443
 make up
 make kubeadm-init
-make install-flannel
+make install-cni
 make kubeadm-join
 ```
 

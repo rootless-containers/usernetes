@@ -1,10 +1,19 @@
 # Run `make help` to show usage
 .DEFAULT_GOAL := help
 
+# CNI driver: "flannel" (default) or "calico".
+# Has to be set consistently on `make up` (the value is baked into the node
+# container by docker-compose.yaml to enable the CNI-specific hacks of
+# Dockerfile.d/u7s-entrypoint.sh) and on `make install-cni`.
+# The install-*.sh scripts fail on detecting an inconsistency.
+export CNI ?= flannel
+
 # Change ports for different kubernetes services
 export PORT_ETCD ?= 2379
 export PORT_KUBELET ?= 10250
 export PORT_FLANNEL ?= 8472
+export PORT_CALICO ?= 4789
+export PORT_CALICO_TYPHA ?= 5473
 export PORT_KUBE_APISERVER ?= 6443
 
 # POD_SUBNET and SERVICE_SUBNET are the subnets of the cluster,
@@ -44,6 +53,7 @@ NODE_SHELL := $(COMPOSE) exec \
 	-e NODE_IP=$(NODE_IP) \
 	-e PORT_KUBE_APISERVER=$(PORT_KUBE_APISERVER) \
 	-e PORT_FLANNEL=$(PORT_FLANNEL) \
+	-e PORT_CALICO=$(PORT_CALICO) \
 	-e PORT_KUBELET=$(PORT_KUBELET) \
 	-e PORT_ETCD=$(PORT_ETCD) \
 	-e POD_SUBNET=$(POD_SUBNET) \
@@ -60,9 +70,9 @@ endif
 .PHONY: help
 help:
 	@echo '# Bootstrap a cluster'
-	@echo 'make up'
+	@echo 'make up            # Set CNI=calico to use Calico instead of Flannel'
 	@echo 'make kubeadm-init'
-	@echo 'make install-flannel'
+	@echo 'make install-cni'
 	@echo
 	@echo '# Enable kubectl'
 	@echo 'make kubeconfig'
@@ -160,6 +170,12 @@ kubeadm-join:
 kubeadm-reset:
 	$(NODE_SHELL) kubeadm reset --force
 
-.PHONY: install-flannel
-install-flannel:
-	$(NODE_SHELL) /usernetes/Makefile.d/install-flannel.sh
+# Installs $(CNI) ("flannel" by default).
+.PHONY: install-cni
+install-cni:
+	$(NODE_SHELL) /usernetes/Makefile.d/install-$(CNI).sh
+
+.PHONY: install-flannel install-calico
+install-flannel install-calico:
+	@echo >&2 'DEPRECATED: Use `make install-cni` instead'
+	$(NODE_SHELL) /usernetes/Makefile.d/$@.sh

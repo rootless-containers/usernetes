@@ -6,10 +6,13 @@ set -eux -o pipefail
 : "${LIMA_TEMPLATE:=template://default}"
 : "${CONTAINER_ENGINE:=docker}"
 : "${CONTAINER_ENGINE_ROOTFUL:=}"
+: "${CNI:=flannel}"
 : "${LOCKDOWN_SUDO:=1}"
 : "${PORT_KUBE_APISERVER:=6443}"
 : "${PORT_ETCD:=2379}"
 : "${PORT_FLANNEL:=8472}"
+: "${PORT_CALICO:=4789}"
+: "${PORT_CALICO_TYPHA:=5473}"
 : "${PORT_KUBELET:=10250}"
 
 guest_home="/home/${USER}.guest"
@@ -38,15 +41,15 @@ for host in host0 host1; do
 	fi
 done
 
-SERVICE_PORTS="PORT_KUBE_APISERVER=${PORT_KUBE_APISERVER} PORT_ETCD=${PORT_ETCD} PORT_FLANNEL=${PORT_FLANNEL} PORT_KUBELET=${PORT_KUBELET}"
+SERVICE_PORTS="PORT_KUBE_APISERVER=${PORT_KUBE_APISERVER} PORT_ETCD=${PORT_ETCD} PORT_FLANNEL=${PORT_FLANNEL} PORT_CALICO=${PORT_CALICO} PORT_CALICO_TYPHA=${PORT_CALICO_TYPHA} PORT_KUBELET=${PORT_KUBELET}"
 
 # Launch a Kubernetes node inside a Rootless Docker host
 for host in host0 host1; do
-	${LIMACTL} shell "${host}" ${SERVICE_PORTS} CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" up
+	${LIMACTL} shell "${host}" ${SERVICE_PORTS} CNI="${CNI}" CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" up
 done
 
 # Bootstrap a cluster with host0
-${LIMACTL} shell host0 ${SERVICE_PORTS} CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-init install-flannel kubeconfig join-command
+${LIMACTL} shell host0 ${SERVICE_PORTS} CNI="${CNI}" CONTAINER_ENGINE="${CONTAINER_ENGINE}" make -C "${guest_home}/usernetes" kubeadm-init install-cni kubeconfig join-command
 
 # Let host1 join the cluster
 ${LIMACTL} copy host0:~/usernetes/join-command ./join-command
