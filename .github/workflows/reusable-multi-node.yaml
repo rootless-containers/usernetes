@@ -11,6 +11,10 @@ on:
         description: container engine
         type: string
         default: "docker"
+      container_engine_mode:
+        description: rootful or rootless. rootful is only supported for Docker.
+        type: string
+        default: "rootless"
       kubelet_port:
         description: kubelet serving port
         type: string
@@ -41,6 +45,8 @@ jobs:
     env:
       LIMA_TEMPLATE: "${{ inputs.lima_template }}"
       CONTAINER_ENGINE: "${{ inputs.container_engine }}"
+      CONTAINER_ENGINE_ROOTFUL: "${{ inputs.container_engine_mode == 'rootful' && '1' || '' }}"
+      LOCKDOWN_SUDO: "${{ inputs.container_engine_mode == 'rootful' && '0' || '1' }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"

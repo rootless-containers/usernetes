@@ -22,4 +22,15 @@ for f in /proc/sys/net/ipv4/conf/default/rp_filter /proc/sys/net/ipv4/conf/all/r
 	fi
 done
 
+# Support for Rootful
+if [ "$(readlink /proc/self/ns/user)" = "user:[4026531837]" ]; then
+	# Disable checksum offloading on eth0, apparently needed for running Usernetes
+	# under Rootful Docker. Applied here rather than via a udev rule, as eth0 is
+	# created before udevd starts in the container.
+	# https://github.com/rootless-containers/usernetes/pull/366#issuecomment-2678413236
+	if [ -e /sys/class/net/eth0 ]; then
+		ethtool -K eth0 tx-checksum-ip-generic off || echo >&2 "Failed to disable tx-checksum-ip-generic on eth0"
+	fi
+fi
+
 exec "$@"

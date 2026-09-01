@@ -7,6 +7,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 : "${CONTAINER_ENGINE:=docker}"
+: "${CONTAINER_ENGINE_ROOTFUL:=}"
 script_dir="$(dirname "$0")"
 
 if [ ! -e /etc/systemd/system/user@.service.d/delegate.conf ]; then
@@ -83,7 +84,7 @@ fi
 
 case "${CONTAINER_ENGINE}" in
 "docker")
-	if ! command -v dockerd-rootless-setuptool.sh >/dev/null 2>&1; then
+	if ! command -v docker >/dev/null 2>&1; then
 		if grep -q centos /etc/os-release; then
 			# Works with Rocky and Alma too
 			dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
@@ -92,7 +93,13 @@ case "${CONTAINER_ENGINE}" in
 			curl https://get.docker.com | sh
 		fi
 	fi
-	systemctl disable --now docker
+	if [ "${CONTAINER_ENGINE_ROOTFUL}" = "1" ]; then
+		echo "Preparing to run docker in default rootful mode."
+		[ -n "$SUDO_USER" ] && usermod -aG docker "$SUDO_USER"
+	else
+		systemctl disable --now docker
+	fi
+
 	;;
 "podman")
 	if ! command -v podman-compose >/dev/null 2>&1; then
