@@ -34,7 +34,7 @@ export CONTAINER_ENGINE_TYPE ?= $(shell $(CURDIR)/Makefile.d/detect-container-en
 
 COMPOSE ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh COMPOSE)
 
-export SLIRP4NETNS ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh SLIRP4NETNS)
+export FLANNEL_IGNORE_IP_CHECKSUM ?= $(shell $(CURDIR)/Makefile.d/detect-container-engine.sh FLANNEL_IGNORE_IP_CHECKSUM)
 
 NODE_SERVICE_NAME := node
 NODE_SHELL := $(COMPOSE) exec \

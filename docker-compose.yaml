@@ -37,8 +37,9 @@ services:
       HOST_IP: ${HOST_IP}
       POD_SUBNET: ${POD_SUBNET}
       SERVICE_SUBNET: ${SERVICE_SUBNET}
-      # Set to 1 when the network is provided by slirp4netns
-      SLIRP4NETNS: ${SLIRP4NETNS:-}
+      # Set to 1 to disable the IP checksum offloading on flannel.1.
+      # Needed when the network is provided by slirp4netns.
+      FLANNEL_IGNORE_IP_CHECKSUM: ${FLANNEL_IGNORE_IP_CHECKSUM:-}
     sysctls:
       - net.ipv4.ip_forward=1
       # In addition, `net.ipv4.conf.default.rp_filter`
