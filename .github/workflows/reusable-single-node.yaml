@@ -6,6 +6,10 @@ on:
         description: container engine
         type: string
         default: "docker"
+      cni:
+        description: CNI ("flannel" or "calico")
+        type: string
+        default: "flannel"
       kubelet_port:
         description: kubelet serving port
         type: string
@@ -14,6 +18,10 @@ on:
         description: flannel vxlan port
         type: string
         default: "8472"
+      calico_port:
+        description: calico vxlan port
+        type: string
+        default: "4789"
       etcd_port:
         description: etcd service port
         type: string
@@ -35,8 +43,10 @@ jobs:
     timeout-minutes: 40
     env:
       CONTAINER_ENGINE: "${{ inputs.container_engine }}"
+      CNI: "${{ inputs.cni }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
+      PORT_CALICO: "${{ inputs.calico_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"
       PORT_ETCD: "${{ inputs.etcd_port }}"
       KUBECONFIG: ./kubeconfig
@@ -85,7 +95,7 @@ jobs:
       - run: make up
       - run: sleep 5
       - run: make kubeadm-init
-      - run: make install-flannel
+      - run: make install-cni
       - run: make kubeconfig
       - run: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
       - run: ./hack/test-smoke.sh

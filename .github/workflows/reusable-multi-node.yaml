@@ -15,6 +15,10 @@ on:
         description: rootful or rootless. rootful is only supported for Docker.
         type: string
         default: "rootless"
+      cni:
+        description: CNI ("flannel" or "calico")
+        type: string
+        default: "flannel"
       kubelet_port:
         description: kubelet serving port
         type: string
@@ -23,6 +27,10 @@ on:
         description: flannel vxlan port
         type: string
         default: "8472"
+      calico_port:
+        description: calico vxlan port
+        type: string
+        default: "4789"
       etcd_port:
         description: etcd service port
         type: string
@@ -47,8 +55,10 @@ jobs:
       CONTAINER_ENGINE: "${{ inputs.container_engine }}"
       CONTAINER_ENGINE_ROOTFUL: "${{ inputs.container_engine_mode == 'rootful' && '1' || '' }}"
       LOCKDOWN_SUDO: "${{ inputs.container_engine_mode == 'rootful' && '0' || '1' }}"
+      CNI: "${{ inputs.cni }}"
       PORT_KUBE_APISERVER: "${{ inputs.kube_apiserver_port }}"
       PORT_FLANNEL: "${{ inputs.flannel_port }}"
+      PORT_CALICO: "${{ inputs.calico_port }}"
       PORT_KUBELET: "${{ inputs.kubelet_port }}"
       PORT_ETCD: "${{ inputs.etcd_port }}"
       KUBECONFIG: ./kubeconfig

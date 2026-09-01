@@ -55,7 +55,18 @@ EOF
 	kubectl rollout status --timeout=5m statefulset
 
 	INFO "Connecting to dnstest-{0,1,2}.dnstest.default.svc.cluster.local"
-	kubectl run -i --rm --image=alpine --restart=Never dnstest-shell -- sh -exc 'for f in $(seq 0 2); do wget -O- http://dnstest-${f}.dnstest.default.svc.cluster.local; done'
+	# Retry, as the CNI might still be programming the cross-node routes
+	# (e.g., right after restarting the nodes)
+	kubectl run -i --rm --image=alpine --restart=Never dnstest-shell -- sh -euxc '
+for f in $(seq 0 2); do
+	for attempt in $(seq 1 12); do
+		if wget -O- "http://dnstest-${f}.dnstest.default.svc.cluster.local"; then
+			continue 2
+		fi
+		sleep 10
+	done
+	exit 1
+done'
 
 	INFO "Deleting Service \"dnstest\""
 	kubectl delete service dnstest

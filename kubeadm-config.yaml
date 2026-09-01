@@ -9,7 +9,8 @@ nodeRegistration:
   # wildcard address.
   # In Usernetes, the advertise address is `HOST_IP`, i.e., the address of the
   # physical host, which is deliberately not assigned to any interface inside
-  # the node's network namespace. The bind therefore fails with
+  # the node's network namespace (except for CNI=calico; see
+  # Dockerfile.d/u7s-entrypoint.sh). The bind therefore fails with
   # EADDRNOTAVAIL, which kubeadm reports as "Port 2379 is in use".
   #
   # The port numbers here are the kubeadm constants, not `PORT_ETCD`; kubeadm
