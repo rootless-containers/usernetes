@@ -22,11 +22,11 @@ for f in /proc/sys/net/ipv4/conf/default/rp_filter /proc/sys/net/ipv4/conf/all/r
 	fi
 done
 
-# Propagate SLIRP4NETNS to the udev rule, as udev RUN programs cannot see the
-# environment variables of the container.
-case "${SLIRP4NETNS:-}" in
+# Propagate FLANNEL_IGNORE_IP_CHECKSUM to the udev rule, as udev RUN programs
+# cannot see the environment variables of the container.
+case "${FLANNEL_IGNORE_IP_CHECKSUM:-}" in
 "1" | "true")
-	touch /run/u7s-slirp4netns
+	touch /run/u7s-flannel-ignore-ip-checksum
 	;;
 esac
 
