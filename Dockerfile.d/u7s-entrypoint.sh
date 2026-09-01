@@ -22,6 +22,14 @@ for f in /proc/sys/net/ipv4/conf/default/rp_filter /proc/sys/net/ipv4/conf/all/r
 	fi
 done
 
+# Propagate SLIRP4NETNS to the udev rule, as udev RUN programs cannot see the
+# environment variables of the container.
+case "${SLIRP4NETNS:-}" in
+"1" | "true")
+	touch /run/u7s-slirp4netns
+	;;
+esac
+
 # Support for Rootful
 if [ "$(readlink /proc/self/ns/user)" = "user:[4026531837]" ]; then
 	# Disable checksum offloading on eth0, apparently needed for running Usernetes

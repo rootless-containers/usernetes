@@ -30,15 +30,39 @@ if [ -z "${COMPOSE}" ]; then
 	fi
 fi
 
+# SLIRP4NETNS is set to 1 when the container engine provides the network with slirp4netns.
+# slirp4netns silently drops VXLAN packets with an unfilled UDP checksum,
+# so the flannel.1 udev rule (Dockerfile.d/etc_udev_rules.d_90-flannel.rules)
+# has to disable the checksum offloading.
+# The variable can also be set manually to override the detection.
+: "${SLIRP4NETNS:=}"
+if [ -z "${SLIRP4NETNS}" ]; then
+	case "${CONTAINER_ENGINE_TYPE}" in
+	"podman")
+		if [ "$(${CONTAINER_ENGINE} info --format '{{.Host.Security.Rootless}}/{{.Host.RootlessNetworkCmd}}' 2>/dev/null)" = "true/slirp4netns" ]; then
+			SLIRP4NETNS=1
+		fi
+		;;
+	"docker" | "nerdctl")
+		# The RootlessKit network driver is exposed as the "rootlesskit" server
+		# component (absent in the rootful mode).
+		if [ "$(${CONTAINER_ENGINE} version --format '{{range .Server.Components}}{{if eq .Name "rootlesskit"}}{{.Details.NetworkDriver}}{{end}}{{end}}' 2>/dev/null)" = "slirp4netns" ]; then
+			SLIRP4NETNS=1
+		fi
+		;;
+	esac
+fi
+
 case "$#" in
 0)
 	echo "CONTAINER_ENGINE=${CONTAINER_ENGINE}"
 	echo "CONTAINER_ENGINE_TYPE=${CONTAINER_ENGINE_TYPE}"
 	echo "COMPOSE=${COMPOSE}"
+	echo "SLIRP4NETNS=${SLIRP4NETNS}"
 	;;
 1)
 	case "$1" in
-	"CONTAINER_ENGINE" | "CONTAINER_ENGINE_TYPE" | "COMPOSE")
+	"CONTAINER_ENGINE" | "CONTAINER_ENGINE_TYPE" | "COMPOSE" | "SLIRP4NETNS")
 		echo "${!1}"
 		;;
 	*)
