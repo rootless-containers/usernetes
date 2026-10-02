@@ -52,6 +52,9 @@ services:
       # Needed when the network is provided by slirp4netns.
       FLANNEL_IGNORE_IP_CHECKSUM: ${FLANNEL_IGNORE_IP_CHECKSUM:-}
       PORT_CALICO: ${PORT_CALICO}
+      # Interface on which forwarded Calico VXLAN packets arrive in the node
+      # ("eth0" with RootlessKit and pasta, "lo" with Podman's rootlessport).
+      CALICO_VXLAN_IIFNAME: ${CALICO_VXLAN_IIFNAME:-eth0}
     sysctls:
       - net.ipv4.ip_forward=1
       # In addition, `net.ipv4.conf.default.rp_filter`

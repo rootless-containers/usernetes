@@ -46,6 +46,10 @@ if [ "${CNI:-}" = "calico" ]; then
 	#   to the sentinel address 169.254.7.115 ("7s"), which is allowed via the
 	#   `externalNodesList` property of the FelixConfiguration
 	#   (see Makefile.d/install-calico.sh).
+	#   The forwarded packets arrive on eth0 with RootlessKit and pasta, but
+	#   on lo with Podman's rootlessport, which connects to the container's
+	#   own IP from inside its network namespace. CALICO_VXLAN_IIFNAME selects
+	#   the interface (default: eth0; set to lo for rootlessport).
 	nft -f - <<EOF || echo >&2 "Failed to set up stateless NAT for Calico VXLAN"
 table ip u7s-calico-vxlan {
   chain postrouting {
@@ -54,7 +58,7 @@ table ip u7s-calico-vxlan {
   }
   chain prerouting {
     type filter hook prerouting priority raw; policy accept;
-    iifname "eth0" udp dport ${PORT_CALICO} ip saddr set 169.254.7.115
+    iifname "${CALICO_VXLAN_IIFNAME:-eth0}" udp dport ${PORT_CALICO} ip saddr set 169.254.7.115
   }
 }
 EOF

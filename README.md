@@ -150,6 +150,9 @@ To change the container engine, set `export CONTAINER_ENGINE=podman` or `export 
 The CNI defaults to Flannel.
 To use Calico (VXLAN mode), set `export CNI=calico` before running
 `make up` and `make install-cni`.
+With Podman's rootlessport port forwarder (Podman v4, and v5 with
+slirp4netns), also set `export CALICO_VXLAN_IIFNAME=lo` before `make up`:
+the forwarded VXLAN packets arrive on `lo` rather than `eth0`.
 
 ### Customization
 
@@ -167,6 +170,7 @@ Name                  | Type    | Default value
 `PORT_FLANNEL`        | Integer | 8472
 `PORT_CALICO`         | Integer | 4789
 `PORT_CALICO_TYPHA`   | Integer | 5473 (host port only; the container port is fixed)
+`CALICO_VXLAN_IIFNAME`| String  | "eth0" (interface on which forwarded Calico VXLAN packets arrive in the node; "lo" for Podman's rootlessport; has to be set on `make up`)
 `PORT_KUBE_APISERVER` | Integer | 6443
 `POD_SUBNET`          | String  | "10.244.0.0/16"
 `SERVICE_SUBNET`      | String  | "10.96.0.0/16"

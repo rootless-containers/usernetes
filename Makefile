@@ -8,6 +8,11 @@
 # The install-*.sh scripts fail on detecting an inconsistency.
 export CNI ?= flannel
 
+# Interface on which forwarded Calico VXLAN packets arrive in the node
+# container: "eth0" with RootlessKit and pasta, "lo" with Podman's rootlessport
+# (Podman v4, and v5 with slirp4netns). Has to be set on `make up`, like CNI.
+export CALICO_VXLAN_IIFNAME ?= eth0
+
 # Change ports for different kubernetes services
 export PORT_ETCD ?= 2379
 export PORT_KUBELET ?= 10250
