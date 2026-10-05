@@ -14,7 +14,7 @@ jobs:
         include:
           - container_engine: docker
             cni: calico
-    uses: ./.github/workflows/reusable-single-node.yaml
+    uses: $/.github/workflows/reusable-single-node.yaml
     with:
       container_engine: ${{ matrix.container_engine }}
       cni: ${{ matrix.cni }}
@@ -44,7 +44,7 @@ jobs:
           - lima_template: template://experimental/fedora-rawhide
             container_engine: podman
             cni: calico
-    uses: ./.github/workflows/reusable-multi-node.yaml
+    uses: $/.github/workflows/reusable-multi-node.yaml
     with:
       lima_template: ${{ matrix.lima_template }}
       container_engine: ${{ matrix.container_engine }}
@@ -54,7 +54,7 @@ jobs:
   # TODO: this test should create multiple instances of Usernetes on each of the hosts
   multi-node-custom-ports:
     name: "Multi node with custom service ports"
-    uses: ./.github/workflows/reusable-multi-node.yaml
+    uses: $/.github/workflows/reusable-multi-node.yaml
     with:
       lima_template: "template://ubuntu-24.04"
       container_engine: "docker"
@@ -69,4 +69,4 @@ jobs:
 
   k8s-in-k8s:
     name: "Kubernetes-in-Kubernetes"
-    uses: ./.github/workflows/reusable-k8s-in-k8s.yaml
+    uses: $/.github/workflows/reusable-k8s-in-k8s.yaml
