@@ -105,8 +105,8 @@ port-forward:
 
 .PHONY: kubeadm-init
 kubeadm-init:
-	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- sh -euc "envsubst </usernetes/kubeadm-config.yaml >/tmp/kubeadm-config.yaml"
-	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- kubeadm init --config /tmp/kubeadm-config.yaml --skip-token-print
+	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- sh -euc "envsubst </usernetes/kubeadm-config.yaml >/root/kubeadm-config.yaml"
+	$(NODE_EXEC) $(CONTROL_PLANE_POD) -- kubeadm init --config /root/kubeadm-config.yaml --skip-token-print
 	$(MAKE) patch-kube-proxy
 	$(MAKE) sync-external-ip
 	@echo "# Run 'make kubeadm-join' to join the worker pods"

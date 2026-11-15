@@ -61,13 +61,13 @@ sysctl --system
 # > scontext=system_u:system_r:sshd_session_t:s0-s0:c0.c1023 tclass=tcp_socket
 # The `optional` block below is a NOP on distros that do not define `sshd_session_t`.
 if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled && command -v semodule >/dev/null 2>&1; then
-	cat <<EOF >/tmp/u7s-sshd-session.cil
+	cat <<EOF >/root/u7s-sshd-session.cil
 (optional u7s_sshd_session
     (allow sshd_session_t port_type (tcp_socket (name_connect)))
 )
 EOF
-	semodule -i /tmp/u7s-sshd-session.cil
-	rm -f /tmp/u7s-sshd-session.cil
+	semodule -i /root/u7s-sshd-session.cil
+	rm -f /root/u7s-sshd-session.cil
 fi
 
 if command -v dnf >/dev/null 2>&1; then
