@@ -148,6 +148,8 @@ The container engine defaults to Docker.
 To change the container engine, set `export CONTAINER_ENGINE=podman` or `export CONTAINER_ENGINE=nerdctl`.
 
 The CNI defaults to Flannel.
+On hosts where `br_netfilter` is not available in user namespaces (Linux kernel 7.4 and later),
+Flannel is automatically configured to use nftables and the `ptp` CNI plugin, instead of iptables and the `bridge` CNI plugin.
 To use Calico (VXLAN mode), set `export CNI=calico` before running
 `make up` and `make install-cni`.
 With Podman's rootlessport port forwarder (Podman v4, and v5 with
